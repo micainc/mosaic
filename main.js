@@ -5,6 +5,7 @@ const path = require('path');
 const {ipcMain} = require('electron')
 const fs = require('fs');
 const { resolve } = require('path');
+const {dialog} = require('electron')
 
 function createWindow () {
     const win = new BrowserWindow({
@@ -24,10 +25,10 @@ function createWindow () {
 
 }
 app.setName('Mapier');
+app.disableHardwareAcceleration() // prevents stupid canvas slowdowns
 
 app.whenReady().then(() => {
   createWindow()
-
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow()
@@ -41,60 +42,25 @@ app.on('window-all-closed', () => {
   }
 })
 
+ipcMain.handle('download_map', async (event, args) => {
+  const dialog_options = {
+    title: 'Save JSON',
+    defaultPath: args['path'].replace('.jpg', '_'+args['id']).replace('.png', '_'+args['id']).replace('.jpeg', '_'+args['id']).replace('.tif', '_'+args['id']).replace('.tiff', '_'+args['id']).replace('file://', ''),
+  }
 
-//https://www.electronjs.org/docs/latest/api/web-contents#contentsprinttopdfoptions
-
-var options = {
-  silent: false,
-  printBackground: true,
-  color: false,
-  margin: {
-      marginType: 'printableArea'
-  },
-  landscape: false,
-  pagesPerSheet: 1,
-  collate: false,
-  copies: 1,
-  displayHeaderFooter: true,
-  footerTemplate:"<span class='url'></span>",
-  pageSize: "A4",
-}
-
-ipcMain.handle('download_pdf', async (event, arg) => {
-
-  return new Promise(function(resolve, reject) {
-
-    let win = BrowserWindow.getFocusedWindow();
-    // let win = RemoteBrowserWindow.getAllWindows()[0];
-  
-    win.webContents.printToPDF(options).then(data => {
-      fs.writeFile("./doc.pdf", data, function (err) {
-          if (err) {
-              console.log(err);
-              reject("PDF could not be generated: ", err)
-          } else {
-              console.log('PDF Generated Successfully');
-          }
+  console.log(dialog_options['defaultPath'])
+  await dialog.showSaveDialog(null, dialog_options).then((result) => {
+    return new Promise(function(resolve, reject) {
+      const base64Data = args['url'].replace(/^data:image\/png;base64,/, "");
+      console.log(result['filePath'])
+      fs.writeFile(dialog_options['defaultPath']+'.png', base64Data, 'base64', function (err) {
+        if (err) {
+          reject("Image map could not be saved: ", err)
+        }
       });
-    }).catch(error => {
-        console.log(error)
-        reject("PDF could not be generated: ", error)
-
+      resolve("Map Generated successfully Successfully")
     });
-    resolve("PDF Generated Successfully")
-  });  
-});
-
-ipcMain.handle('save_json', async (event, arg) => {
-  console.log("ARG: ", arg)
-  resolve("Save successful")
-  
-  fs.writeFile("../form.json", arg, function(err) {
-    if (err) {
-        console.log(err);
-    }
-  });
-  
+  })
 });
 
 

@@ -1,8 +1,8 @@
 {
-  "name": "form-builder",
-  "productName": "form-builder",
+  "name": "mapier",
+  "productName": "mapier",
   "version": "1.0.0",
-  "description": "Generate forms and PDFs for GeoPacific Consultants",
+  "description": "Generate pixel maps for machine learning projects",
   "main": "main.js",
   "scripts": {
     "start": "electron-forge start",

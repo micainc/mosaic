@@ -28,6 +28,7 @@ button:hover, select:hover {
 }
 
 #parameters {
+    display: flex;
     position:fixed;
     right:0px;
     top:0px;
@@ -37,30 +38,40 @@ button:hover, select:hover {
     border:none;
     border-bottom: 1px solid #DDDDDD;
     -webkit-app-region: drag;
-    text-align: right;
+    align-items:center;
+    justify-content: right;
     width:100%;
-
 }
 
 #parameters:hover {
     opacity: 1;
 }
 
+
+#parameters:hover .cursor {
+    display:none;
+    opacity:0;
+}
+
+
 #upload-input {
     padding-top:5px;
 }
 
 #parameters button {
-  padding-top:5px;
-  bottom:0px;
-  vertical-align:top;
-  -webkit-app-region: no-drag;
+    -webkit-app-region: no-drag;
+    padding:5px;
+}
 
-  /*
-    padding-left:20px;
-    padding-right:20px;
-    margin:0px;
-    */
+#parameters .colour-class {
+    display:flex;
+    cursor:pointer;
+    margin:5px;
+    border-radius: 10px;
+    height:20px;
+    justify-content: center;
+    align-items:center;
+    color: #FFFFFF;
 }
 
 #parameters select {
@@ -76,24 +87,39 @@ button:hover, select:hover {
 
 }
 
+
 #cursor-size-slider {
+    -webkit-appearance: none;
     -webkit-app-region: no-drag;
 }
 
+#cursor-size-slider::-webkit-slider-runnable-track {
+    border-radius: 20px;
+    border: solid 1px #000000; 
+}
+
+#cursor-size-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; /* Override default appearance */
+    appearance: none;
+    width: 20px; /* Set a specific slider handle width */
+    height: 20px; /* Slider handle height */
+    border-radius: 50%;
+    background: var(--color, red);
+}
+
+
 #download-button {
     font-weight: bold;
+    margin-left:5px;
+    margin-right:10px;
+    cursor: pointer;
 }
 
 canvas {
     position:absolute;
-    top:0px;
+    top:30px;
     left:0px;
     width:100%;
-    display:hidden;
-    border:1px solid #FF0000;
-    box-sizing: border-box;
-    -moz-box-sizing: border-box;
-    -webkit-box-sizing: border-box;
 }
 
 canvas:hover .cursor {
@@ -102,6 +128,15 @@ canvas:hover .cursor {
 
 #canvas-draw {
     opacity:0.5;
+}
+
+#canvas-save {
+    display: none;
+}
+
+#canvas-temp {
+    position:absolute;
+    top:1200px;
 }
 
 .cursor {
@@ -114,7 +149,10 @@ canvas:hover .cursor {
     box-sizing: border-box;
     -moz-box-sizing: border-box;
     -webkit-box-sizing: border-box;
-    border: 2px solid #0000FF;
+    border: 2px solid #FF0000;
     border-radius: 50%;
 }
 
+.slider {
+   /*accent-color: #000000;*/
+}

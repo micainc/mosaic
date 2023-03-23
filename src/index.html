@@ -13,16 +13,23 @@
         <link href='https://fonts.googleapis.com/css?family=Hanken Grotesk' rel='stylesheet'>
         <title>Mapier</title>
     </head>
-    <body onload="initDocument()">
+    <body>
         <div class="cursor"></div>
         <div id="parameters">
-            <input id="cursor-size-slider" type="range" min="1" max="100" value="50" >
-            <button id="download-button"><img width="20px" src="./images/download.png" ></button>
+
+            <input class="slider" id="cursor-size-slider" type="range" min="10" max="200" value="50">
+            <button class="colour-class" style="background-color: #FF0000" onclick="changeColour([255, 0, 0, 1])" contenteditable>class1</button>
+            <button class="colour-class" style="background-color: #00FF00" onclick="changeColour([0, 255, 0, 1])" contenteditable>class2</button>
+            <button class="colour-class" style="background-color: #0000FF" onclick="changeColour([0, 0, 255, 1])" contenteditable>class3</button>
+            <img width="20px" src="./images/download.png" id="download-button" onclick="findShapes()" />
         </div>
 
         <canvas id="canvas-image"></canvas>
         <canvas id="canvas-draw"></canvas>
+        <canvas id="canvas-save"></canvas>
 
     </body>
+    <canvas id="canvas-temp"></canvas>
+
     <script src="./index.js"></script>
 </html>

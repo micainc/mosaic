@@ -1,8 +1,8 @@
 module.exports = {
   packagerConfig: {
-    name: 'GP Formulator',
-    productName: 'GeoPacific Formulator',
-    executableName: 'GeoPacific Formulator Desktop',
+    name: 'Mapier',
+    productName: 'Mapier',
+    executableName: 'Mapier',
     icon: './src/images/icon' // no file extension required
   },
   rebuildConfig: {},
