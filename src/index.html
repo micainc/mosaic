@@ -16,11 +16,12 @@
     <body>
         <div class="cursor"></div>
         <div id="parameters">
-
+            <div id="coords"></div>
             <input class="slider" id="cursor-size-slider" type="range" min="10" max="200" value="50">
-            <button class="colour-class" style="background-color: #FF0000" onclick="changeColour([255, 0, 0, 1])" contenteditable>class1</button>
-            <button class="colour-class" style="background-color: #00FF00" onclick="changeColour([0, 255, 0, 1])" contenteditable>class2</button>
-            <button class="colour-class" style="background-color: #0000FF" onclick="changeColour([0, 0, 255, 1])" contenteditable>class3</button>
+            <button class="colour-class" style="background-color: red" onclick="changeColour('red')" contenteditable>cf_alive</button>
+            <button class="colour-class" style="background-color: maroon" onclick="changeColour('maroon')" contenteditable>cf_dead</button>
+            <button class="colour-class" style="background-color: lime" onclick="changeColour('lime')" contenteditable>healthy_alive</button>
+            <button class="colour-class" style="background-color: green" onclick="changeColour('green')" contenteditable>healthy_dead</button>
             <img width="20px" src="./images/download.png" id="download-button" onclick="findShapes()" />
         </div>
 
@@ -32,4 +33,6 @@
     <canvas id="canvas-temp"></canvas>
 
     <script src="./index.js"></script>
+    <script src="./rgbs.js"></script>
+
 </html>

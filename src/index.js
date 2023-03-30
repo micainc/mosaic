@@ -32,15 +32,12 @@ var cursor = document.querySelector('.cursor');
 cursor.style.width = drawSize+"px";
 cursor.style.height = drawSize+"px";
 
-var backgroundColour = [0, 0, 0, 0] // transparent black
-var activeColour = [255, 0, 0, 1] // opaque red
-var floodFindColour = [0, 0, 0, 1] // opaque black
+var activeColour = "red" // opaque red
 var floodQueue = []
 
 function init() {
-    ctx_draw.fillStyle = "rgba("+backgroundColour[0]+", "+backgroundColour[1]+", "+backgroundColour[2]+", "+ backgroundColour[3]+")";
-    ctx_draw.fillRect(0, 0, canvas_draw.width, canvas_draw.height);
-    ctx_temp.fillStyle = "rgba("+floodFindColour[0]+", "+floodFindColour[1]+", "+floodFindColour[2]+", "+ floodFindColour[3]+")"; // flood with black
+    ctx_draw.clearRect(0, 0, canvas_draw.width, canvas_draw.height);
+    ctx_temp.fillStyle = "black"; // flood with black
 
     //ctx_temp.globalCompositeOperation = 'source-over'
 
@@ -48,6 +45,8 @@ function init() {
     canvas_draw.addEventListener('mousedown', function(e) {
         if(e.button == 0){
             leftClicked = true;
+            drawPath.push({x: mouseX, y: mouseY})
+
         } else if(e.button == 2) {
             rightClicked =true;
         }
@@ -58,7 +57,6 @@ function init() {
         // doesn't matter what the draw path looks like, a drawn pixel will be without the boundaries returned by this function
         var res = findClosedLoops(drawPath);
         fillLoops(res[0], res[1])
-        res[2]['colour'] = JSON.stringify(activeColour)
         drawAreas.push(res[2])
         drawPath = []
     })
@@ -87,34 +85,35 @@ function findClosedLoops(path) {
     var bottom = -1
     var left = 1000000
     var right = -1 
+    // in the case that the path in just a click
     for(i=0; i<path.length; i++) {
+        console.log("PATH")
         if(path[i]['x'] > right) {
             right = Math.round(path[i]['x']);
-        } else if(path[i]['x'] < left) {
+        }
+        if(path[i]['x'] < left) {
             left = Math.round(path[i]['x']);
         }
-
         if(path[i]['y'] > bottom) {
             bottom = Math.round(path[i]['y']);
-        } else if(path[i]['y'] < top) {
+        } 
+        if(path[i]['y'] < top) {
             top = Math.round(path[i]['y']);
         }
     } 
-    ctx_draw.fillStyle = "rgba("+floodFindColour[0]+", "+floodFindColour[1]+", "+floodFindColour[2]+", "+ floodFindColour[3]+")"; // flood with black
 
+    ctx_draw.fillStyle = "black"; // flood with black
     var i = 0;
     var loopCenters = []
     var nonCenters = []
-
 
     while(i<100) { // do i attempts before giving up
         var testX = Math.floor(Math.random()*(right-left) + left);
         var testY = Math.floor(Math.random()*(bottom-top) + top);
         var data = ctx_draw.getImageData(testX, testY, 1, 1).data;
-        var col = [data[0], data[1], data[2], Math.ceil(data[3]/255)]
-
+        var col = rgbToColorName([data[0], data[1], data[2], Math.ceil(data[3]/255)])
         // if random point overlaps a border or a previously traversed area, skip  
-        if(JSON.stringify(col) !== JSON.stringify(activeColour) && JSON.stringify(col) !== JSON.stringify(floodFindColour)) {
+        if(col !== activeColour && col !== "black") {
             // if the point was exterior (did not pass flood test, try new random point)
             if(floodFind(testX, testY, bottom, top, left, right)) {
                 loopCenters.push({'x': testX, 'y': testY})
@@ -125,8 +124,8 @@ function findClosedLoops(path) {
         i++;
     }
 
-    ctx_draw.fillStyle = "rgba("+activeColour[0]+", "+activeColour[1]+", "+activeColour[2]+", "+ activeColour[3]+")"; // reset to border colour
-    return [loopCenters, nonCenters, {'top': top, 'left': left, 'right':right, 'bottom':bottom}]
+    ctx_draw.fillStyle = activeColour; // reset 
+    return [loopCenters, nonCenters, {'top': top-drawSize, 'left': left-drawSize, 'right':right+drawSize, 'bottom':bottom+drawSize, 'colour': activeColour}]
 
 }
 
@@ -142,11 +141,11 @@ function floodFind(x, y, b, t, l ,r) {
         y = px['y']
 
         var data = ctx_draw.getImageData(x, y, 1, 1).data;
-        var col = [data[0], data[1], data[2], Math.ceil(data[3]/255)]
+        var col = rgbToColorName([data[0], data[1], data[2], Math.ceil(data[3]/255)])
         if (x < l || x >= r || y < t || y >= b) {
             //console.log("FLOOD FIND FAILED")
             return false; // check if x or y go out of bounds: then we are 'exterior': we break the loop, empty queue, and signal 
-        }  else if(JSON.stringify(col) !== JSON.stringify(activeColour) && JSON.stringify(col) !== JSON.stringify(floodFindColour)) {
+        }  else if(col !== activeColour && col !== "black") {
             // if the pixel at a point is not a boundary or previously traversed, then continue
             fillRegion(ctx_draw, x, y, 2) // mark as traversed
             // check the neighboring pixels by adding to queue
@@ -187,8 +186,8 @@ function floodFill(x, y) {
         y = px['y']
 
         var data = ctx_draw.getImageData(x, y, 1, 1).data;
-        var col = [data[0], data[1], data[2], Math.ceil(data[3]/255)]
-        if(JSON.stringify(col) === JSON.stringify(floodFindColour)) {
+        var col = rgbToColorName([data[0], data[1], data[2], Math.ceil(data[3]/255)])
+        if(col === "black") {
             // if the pixel at a point is not a boundary or previously traversed, then continue
             fillRegion(ctx_draw, x, y, 2) // mark as traversed
             // check the neighboring pixels by adding to queue
@@ -214,8 +213,8 @@ function floodClean(x, y) {
         y = px['y']
 
         var data = ctx_draw.getImageData(x, y, 1, 1).data;
-        var col = [data[0], data[1], data[2], Math.ceil(data[3]/255)]
-        if(JSON.stringify(col) === JSON.stringify(floodFindColour)) {
+        var col = rgbToColorName([data[0], data[1], data[2], Math.ceil(data[3]/255)])
+        if(col === "black") {
             // if the pixel at a point is not a boundary or previously traversed, then continue
             ctx_draw.clearRect(x-1, y-1, 2, 2)
 
@@ -225,7 +224,7 @@ function floodClean(x, y) {
             floodQueue.push({'x': x + 1, 'y': y})
             floodQueue.push({'x': x, 'y': y - 2})
             floodQueue.push({'x': x, 'y': y + 1})
-        } else if(JSON.stringify(col) === JSON.stringify(backgroundColour))  {
+        } else if(col === "transparent")  {
             ctx_draw.clearRect(x-1, y-1, 2, 2)
         }
 
@@ -241,20 +240,17 @@ function fillRegion(canvas, x, y, size) {
 //------------------------------------------------------ CURSOR FUNCTIONALITY ------------------------------------------------------//
 
 
-
-const positionCursor = (event) => {
+window.addEventListener('mousemove', (event) => {
     const rect = canvas_image.getBoundingClientRect()
-    mouseX = (event.clientX - rect.left) * canvas_image.width / canvas_image.clientWidth;
-    mouseY = (event.clientY - rect.top) * canvas_image.height / canvas_image.clientHeight;
+    mouseX = Math.round((event.clientX - rect.left) * canvas_image.width / canvas_image.clientWidth);
+    mouseY = Math.round((event.clientY - rect.top) * canvas_image.height / canvas_image.clientHeight);
     cursor.style.transform = `translate(${event.clientX + scrollX - drawSize/2}px, ${event.clientY + scrollY - drawSize/2}px)`;
     //console.log("x: " + mouseX + " y: " + mouseY)
     if(leftClicked){
         drawPath.push({x: mouseX, y: mouseY})
     }
-
-}
-
-window.addEventListener('mousemove', positionCursor)
+    $('#coords').text(mouseX + ", " + mouseY)
+})
 
 document.getElementById('cursor-size-slider').addEventListener('input', function(e) {
     //console.log("sliding: ", e.target.value)
@@ -312,12 +308,12 @@ function draw() {
     if(leftClicked) {
         ctx_draw.globalCompositeOperation = 'source-over'
         ctx_draw.beginPath();
-        ctx_draw.fillStyle = "rgba("+activeColour[0]+", "+activeColour[1]+", "+activeColour[2]+", "+activeColour[3]+")"; // 
+        ctx_draw.fillStyle = activeColour; 
         ctx_draw.arc(mouseX, mouseY, (drawSize*(canvas_image.width / canvas_image.clientWidth))/2, 0, 2 * Math.PI, false);
         ctx_draw.fill();
 
     } else if(rightClicked) {
-        ctx_draw.globalCompositeOperation = 'destination-out'
+        ctx_draw.globalCompositeOperation = 'destination-out' // this clears the canvas
         ctx_draw.beginPath();
         ctx_draw.arc(mouseX, mouseY, (drawSize*(canvas_image.width / canvas_image.clientWidth))/2, 0, 2 * Math.PI, false);
         ctx_draw.fill();
@@ -372,23 +368,26 @@ function findShapes() {
     drawAreas.forEach(({left, right, top, bottom, colour}) => {
 
         var i = 0;
-        while(i < 5) { // i attempts to find seperate shapes within a draw area
+        while(i < 50) { // i attempts to find seperate shapes within a draw area
 
             var x = Math.round(Math.random()*(right-left)+left) // test a random distribution of points in the draw area
             var y = Math.round(Math.random()*(bottom-top)+top) // test a random distribution of points in the draw area
             var data = ctx_draw.getImageData(x, y, 1, 1).data;
-            var col = [data[0], data[1], data[2], Math.ceil(data[3]/255)]
+            var col = rgbToColorName([data[0], data[1], data[2], Math.ceil(data[3]/255)])
 
             var data2 = ctx_temp.getImageData(x, y, 1, 1).data;
-            var col2 = [data2[0], data2[1], data2[2], Math.ceil(data2[3]/255)]
+            var col2 = rgbToColorName([data2[0], data2[1], data2[2], Math.ceil(data2[3]/255)])
+            
+            // found the shape
+            console.log(" L: "+left+" R: "+ right+" T: "+top+" B: "+bottom)
 
-            // found a point that hasnt been explored
-            if(JSON.stringify(col) === colour && JSON.stringify(col2) === JSON.stringify(backgroundColour)) {
-                // trace the boundaries of a found shape 
-                var newTop = 1000000
-                var newBottom = -1
-                var newLeft = 1000000
-                var newRight = -1 
+            if(col === colour && col2 === "transparent") {
+                console.log("FOUND: ", colour)
+                // start with the original boundaries of shape 
+                var newTop = top
+                var newBottom = bottom
+                var newLeft = left
+                var newRight = right 
 
                 floodQueue = [{'x': x, 'y': y}]
                 do {
@@ -399,14 +398,14 @@ function findShapes() {
 
                     // check the draw canvas
                     data = ctx_draw.getImageData(x, y, 1, 1).data;
-                    col = [data[0], data[1], data[2], Math.ceil(data[3]/255)]
+                    col = rgbToColorName([data[0], data[1], data[2], Math.ceil(data[3]/255)])
 
                     // check the temp canvas
                     data2 = ctx_temp.getImageData(x, y, 1, 1).data;
-                    col2 = [data2[0], data2[1], data2[2], Math.ceil(data2[3]/255)]
+                    col2 = rgbToColorName([data2[0], data2[1], data2[2], Math.ceil(data2[3]/255)])
 
                     // if the pixel is on the draw canvas and not on the temporary canvas, continue 
-                    if(JSON.stringify(col) === colour && JSON.stringify(col2) === JSON.stringify(backgroundColour)) { 
+                    if(col === colour && col2 === "transparent") { 
                         // check the neighboring pixels by adding to queue
                         fillRegion(ctx_temp, x, y, 2)
                         floodQueue.push({'x': x - 2, 'y': y})
@@ -417,61 +416,99 @@ function findShapes() {
                         fillRegion(ctx_temp, x, y, 2)
                     }
                                                         
-                    if(x > right) {
+                    if(x > newRight) {
                         newRight = Math.round(x);
-                    } else if(x < left) {
+                    } 
+                    if(x < newLeft) {
                         newLeft = Math.round(x);
                     }
-                    
-                    if(y > bottom) {
+                    if(y > newBottom) {
                         newBottom = Math.round(y);
-                    } else if(y < top) {
+                    } 
+                    if(y < newTop) {
                         newTop = Math.round(y);
                     }
 
                 } while(floodQueue.length != 0)
 
-                shapes.push({'top': newTop, 'left': newLeft, 'right':newRight, 'bottom':newBottom, 'colour': colour, 'index': shapes.length})
-            }
+                // increase box size by 10% 
+                var x_diff = Math.round((newRight-newLeft)*1.1 - (newRight-newLeft))
+                var y_diff = Math.round((newBottom-newTop)*1.1 - (newBottom-newTop))
+                var buffer = 10
+                
+                if(x_diff < y_diff) {
+                    buffer = x_diff
+                } else {
+                    buffer = y_diff
+                }
+                if(buffer < 10) {
+                    buffer = 10
+                }
+
+                shapes.push({'top': newTop-buffer, 'left': newLeft-buffer, 'right':newRight+buffer, 'bottom':newBottom+buffer, 'colour': colour, 'index': shapes.length})
+            } 
             i++;
         }
     })
 
+    console.log("DOWNLOADING SHAPES: ")
+    var download_path = ""
+    window.api.invoke('set_download_path', {'path': img.src})
+        .then(function(res) {
+            download_path = res['filePaths'][0]
+            console.log(download_path)
+
+            shapes.forEach(({ left, right, top, bottom, colour, index}) => {
+
+                var type = "";
+                if(colour == 'red') {
+                    type = "cf_alive"
+                } else if(colour == 'maroon') {
+                    type = "cf_dead"
+                } else if(colour == 'lime') {
+                    type = "healthy_alive"
+                } else if(colour == 'green') {
+                    type = "healthy_dead"
+                }
+                console.log(colour+" "+type)
+                canvas_save.width = (right-left);
+                canvas_save.height = (bottom-top);
+
+                console.log(left+" "+top+" "+right+" "+bottom)
+
+                var crop = ctx_draw.getImageData(left, top, (right-left), (bottom-top))
+                ctx_save.putImageData(crop, 0, 0)
+
+                let url = canvas_save.toDataURL("image/png");
+
+                window.api.invoke('download_map', {'url': url, 'path': download_path, 'file': img.src, 'id': "map_"+index+"_"+colour+"_"+type})
+                    .then(function(res) {
+                        console.log("RES: ", res); // will print "This worked!" to the browser console
+                    }).catch(function(err) {
+                        console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
+                    });
 
 
-    shapes.forEach(({ left, right, top, bottom, colour, index}) => {
-        canvas_save.width = (right-left)+60;
-        canvas_save.height = (bottom-top)+60;
+                crop = ctx_image.getImageData(left, top, (right-left), (bottom-top))
+                ctx_save.putImageData(crop, 0, 0)
 
-        var crop = ctx_draw.getImageData(left-30, top-30, (right-left)+60, (bottom-top)+60)
-        ctx_save.putImageData(crop, 0, 0)
+                url = canvas_save.toDataURL("image/png");
 
-        let url = canvas_save.toDataURL("image/png");
-
-        window.api.invoke('download_map', {'url': url, 'path': img.src, 'id': "map_"+index})
-            .then(function(res) {
-                console.log("RES: ", res); // will print "This worked!" to the browser console
-            }).catch(function(err) {
-                console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
+                window.api.invoke('download_map', {'url': url, 'path': download_path, 'file': img.src, 'id': "crop_"+index+"_"+type})
+                    .then(function(res) {
+                        console.log("RES: ", res); // will print "This worked!" to the browser console
+                    }).catch(function(err) {
+                        console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
+                    });
             });
 
-
-        crop = ctx_image.getImageData(left-30, top-30, (right-left)+60, (bottom-top)+60)
-        ctx_save.putImageData(crop, 0, 0)
-
-        url = canvas_save.toDataURL("image/png");
-
-        window.api.invoke('download_map', {'url': url, 'path': img.src, 'id': "crop_"+index})
-            .then(function(res) {
-                console.log("RES: ", res); // will print "This worked!" to the browser console
-            }).catch(function(err) {
-                console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
-            });
-    });
+        }).catch(function(err) {
+            console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
+        });
 }
 
 function changeColour(colour) {
     activeColour = colour;
-    cursor.style.borderColor= "rgb("+activeColour[0]+", "+activeColour[1]+", "+activeColour[2]+")";
-    document.getElementById("cursor-size-slider").style.setProperty('--color', "rgb("+activeColour[0]+", "+activeColour[1]+", "+activeColour[2]+")");
+    cursor.style.borderColor= activeColour;
+    document.getElementById("cursor-size-slider").style.setProperty('--color', activeColour);
 }
