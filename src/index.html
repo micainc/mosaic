@@ -6,7 +6,7 @@
 
         <script type="text/javascript" src="../node_modules/jquery/dist/jquery.min.js"></script>
         <script type="text/javascript" src="../node_modules/jquery-ui/dist/jquery-ui.min.js"></script>
-
+        <script src="./UTIF.js"></script>
         <script src="../main.js"></script>
 
         <link rel="stylesheet" href="index.css">
@@ -16,18 +16,27 @@
     <body>
         <div class="cursor"></div>
         <div id="parameters">
-            <div id="coords"></div>
-            <input class="slider" id="cursor-size-slider" type="range" min="10" max="200" value="50">
-            <button class="colour-class" style="background-color: red" onclick="changeColour('red')" contenteditable>cf_alive</button>
-            <button class="colour-class" style="background-color: maroon" onclick="changeColour('maroon')" contenteditable>cf_dead</button>
-            <button class="colour-class" style="background-color: lime" onclick="changeColour('lime')" contenteditable>healthy_alive</button>
-            <button class="colour-class" style="background-color: green" onclick="changeColour('green')" contenteditable>healthy_dead</button>
-            <img width="20px" src="./images/download.png" id="download-button" onclick="findShapes()" />
+            <div id="parameters-paths">
+                <button class="path-button" onclick="window.api.invoke('set_file_path', {'path': './', 'type': 'load'})"><img width="20px" src="./images/load_folder.png"><span class="path" id="load-path">&nbsp; Load...</span></button> 
+                <button class="path-button" onclick="findShapes()"><img width="20px" src="./images/save_folder.png" ><span class="path" id="save-path">&nbsp; Save...</span></button> 
+            </div>
+            <div id="parameters-filename">
+                Drag image file below.
+            </div>
+            <div id="parameters-number">(0/0)</div>
+            <!-- <div id="coords"></div> -->
+            <div id="parameters-right">
+                <input class="slider" id="cursor-size-slider" type="range" min="10" max="200" value="50">
+                <button class="colour-class" style="background-color: red" onclick="changeColour('red')" contenteditable>cf_alive</button>
+                <button class="colour-class" style="background-color: maroon" onclick="changeColour('maroon')" contenteditable>cf_dead</button>
+                <button class="colour-class" style="background-color: lime" onclick="changeColour('lime')" contenteditable>healthy_alive</button>
+                <button class="colour-class" style="background-color: green" onclick="changeColour('green')" contenteditable>healthy_dead</button>
+                <!-- <img width="20px" src="./images/download.png" id="download-button" onclick="" /> -->
+            </div>
         </div>
 
         <canvas id="canvas-image"></canvas>
         <canvas id="canvas-draw"></canvas>
-        <canvas id="canvas-save"></canvas>
 
     </body>
     <canvas id="canvas-temp"></canvas>

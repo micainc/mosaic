@@ -29,8 +29,7 @@ button:hover, select:hover {
 
 #parameters {
     display: flex;
-    position:fixed;
-    right:0px;
+    position:relative;
     top:0px;
     z-index: 5;
     background-color: #FFFFFF;
@@ -38,11 +37,41 @@ button:hover, select:hover {
     border:none;
     border-bottom: 1px solid #DDDDDD;
     -webkit-app-region: drag;
-    align-items:center;
-    justify-content: right;
     width:100%;
 }
 
+#parameters-paths {
+    display: flex;
+    margin-left:75px;
+    border:none;
+    align-items:center;
+}
+
+#parameters-right {
+    display: flex;
+    margin-left: auto;
+    right:0px;
+    top:0px;
+    border:none;
+    align-items:center;
+    justify-content: right;
+}
+
+#parameters-filename {
+    display: flex;
+    margin-left: auto;   
+    margin-right: auto;
+    align-items:center;
+    justify-content: right;
+}
+
+#parameters-number {
+    display: flex;
+    margin-left: auto;   
+    margin-right: auto;
+    align-items:center;
+    justify-content: right;
+}
 #parameters:hover {
     opacity: 1;
 }
@@ -84,9 +113,7 @@ button:hover, select:hover {
     margin:0px;
     height:30px !important;
     -webkit-app-region: no-drag;
-
 }
-
 
 #cursor-size-slider {
     -webkit-appearance: none;
@@ -130,13 +157,10 @@ canvas:hover .cursor {
     opacity:0.5;
 }
 
-#canvas-save {
-    display: none;
-}
-
 #canvas-temp {
-    position:absolute;
-    top:1200px;
+    display: none;
+    /*position:absolute;
+    top:1200px;*/
 }
 
 .cursor {
@@ -155,4 +179,27 @@ canvas:hover .cursor {
 
 .slider {
    /*accent-color: #000000;*/
+}
+
+.path-button {
+    display:flex;
+}
+.path-button span {
+    line-height: 20px;
+}
+
+.path {
+    max-width:150px;
+    overflow-x: scroll;
+    white-space: nowrap;
+}
+
+.path::-webkit-scrollbar {
+    display: none;
+  }
+  
+/* Hide scrollbar for IE, Edge and Firefox */
+.path {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
 }

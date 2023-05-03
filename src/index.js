@@ -11,21 +11,18 @@ var drawAreas = []
 var img = new Image();
 const canvas_image = document.getElementById('canvas-image')
 const canvas_draw = document.getElementById('canvas-draw')
-const canvas_save = document.getElementById('canvas-save')
 const canvas_temp = document.getElementById('canvas-temp')
 
 canvas_image.width = window.innerWidth;
 canvas_image.height = window.innerHeight;
 canvas_draw.width = window.innerWidth;
 canvas_draw.height = window.innerHeight;
-canvas_save.width = window.innerWidth;
-canvas_save.height = window.innerHeight;
+
 canvas_temp.width = window.innerWidth;
 canvas_temp.height = window.innerHeight;
 
 var ctx_image = canvas_image.getContext('2d');
 var ctx_draw = canvas_draw.getContext('2d');
-var ctx_save = canvas_save.getContext('2d');
 var ctx_temp = canvas_temp.getContext('2d');
 
 var cursor = document.querySelector('.cursor');
@@ -249,7 +246,7 @@ window.addEventListener('mousemove', (event) => {
     if(leftClicked){
         drawPath.push({x: mouseX, y: mouseY})
     }
-    $('#coords').text(mouseX + ", " + mouseY)
+    //$('#coords').text(mouseX + ", " + mouseY)
 })
 
 document.getElementById('cursor-size-slider').addEventListener('input', function(e) {
@@ -260,7 +257,7 @@ document.getElementById('cursor-size-slider').addEventListener('input', function
 })
 
 
-//------------------------------------------------------ UPLOAD FUNCTIONALITY ------------------------------------------------------//
+//------------------------------------------------------ LOAD FUNCTIONALITY ------------------------------------------------------//
 
 function catchDrag(event) {
 	event.dataTransfer.dropEffect = "copy"
@@ -268,7 +265,6 @@ function catchDrag(event) {
 }
 
 function dropFile(event) {
-
     event.preventDefault();
     if(event.dataTransfer)
         if(event.dataTransfer.files)
@@ -277,24 +273,47 @@ function dropFile(event) {
 
 function procFile(file) {
     console.log("processing file " + file.name);
-    drawAreas = []
+    console.log(file)
     img.src = file.path;
     img.title = file.name
+    console.log(img.src)
+    console.log(img.title)
 
-    img.onload = function () {
-        // draw background image
-        // canvas is cleared each time width/height of canvas is set
-        canvas_image.width = img.width;
-        canvas_image.height = img.height;
-        canvas_draw.width = img.width;
-        canvas_draw.height = img.height;
-        canvas_temp.width = img.width;
-        canvas_temp.height = img.height;
-        ctx_image.drawImage(img, 0, 0);
-        //ctx_draw.fillStyle ='#FFFFFF00'
-        ctx_draw.clearRect(0, 0, canvas_draw.width, canvas_draw.height);
-    
-    };
+    if(file.type === "image/tiff") {
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            var ifds = UTIF.decode(e.target.result);
+            const timage = ifds[0]; // ifds is an array of IFDs (image file directories)
+            UTIF.decodeImage(e.target.result, timage); // decoding pixel data
+            const array = new Uint8ClampedArray(UTIF.toRGBA8(timage))
+            const imageData = new ImageData(array, timage.width, timage.height);
+            canvas_image.width = timage.width;
+            canvas_image.height = timage.height;
+            canvas_draw.width = timage.width;
+            canvas_draw.height = timage.height;
+            canvas_temp.width = timage.width;
+            canvas_temp.height = timage.height;
+            ctx_image.putImageData(imageData, 0, 0);
+        }
+        reader.readAsArrayBuffer(file);
+
+    } else {
+        img.onload = function () {
+            canvas_image.width = img.width;
+            canvas_image.height = img.height;
+            canvas_draw.width = img.width;
+            canvas_draw.height = img.height;
+            canvas_temp.width = img.width;
+            canvas_temp.height = img.height;
+            ctx_image.drawImage(img, 0, 0);
+        };
+    }
+
+    ctx_draw.clearRect(0, 0, canvas_draw.width, canvas_draw.height);
+    drawAreas = []
+    window.api.invoke('set_file_path', {'path': file.path, 'type': 'load_drag'})
+    document.getElementById('parameters-filename').innerHTML = file.name
+
 }
 
  //------------------------------------------------------ DRAW FUNCTIONALITY ------------------------------------------------------//
@@ -452,14 +471,9 @@ function findShapes() {
     })
 
     console.log("DOWNLOADING SHAPES: ")
-    var download_path = ""
-    window.api.invoke('set_download_path', {'path': img.src})
-        .then(function(res) {
-            download_path = res['filePaths'][0]
-            console.log(download_path)
-
+    window.api.invoke('set_file_path', {'path': img.src, 'type': 'save'})
+        .then(() => {
             shapes.forEach(({ left, right, top, bottom, colour, index}) => {
-
                 var type = "";
                 if(colour == 'red') {
                     type = "cf_alive"
@@ -471,17 +485,17 @@ function findShapes() {
                     type = "healthy_dead"
                 }
                 console.log(colour+" "+type)
-                canvas_save.width = (right-left);
-                canvas_save.height = (bottom-top);
+                canvas_temp.width = (right-left);
+                canvas_temp.height = (bottom-top);
 
                 console.log(left+" "+top+" "+right+" "+bottom)
 
                 var crop = ctx_draw.getImageData(left, top, (right-left), (bottom-top))
-                ctx_save.putImageData(crop, 0, 0)
+                ctx_temp.putImageData(crop, 0, 0)
 
-                let url = canvas_save.toDataURL("image/png");
-
-                window.api.invoke('download_map', {'url': url, 'path': download_path, 'file': img.src, 'id': "map_"+index+"_"+colour+"_"+type})
+                let url = canvas_temp.toDataURL("image/png");
+                console.log("FILE: ", img.src)
+                window.api.invoke('save_map', {'url': url, 'file': img.src, 'id': "map_"+index+"_"+colour+"_"+type})
                     .then(function(res) {
                         console.log("RES: ", res); // will print "This worked!" to the browser console
                     }).catch(function(err) {
@@ -490,18 +504,20 @@ function findShapes() {
 
 
                 crop = ctx_image.getImageData(left, top, (right-left), (bottom-top))
-                ctx_save.putImageData(crop, 0, 0)
+                ctx_temp.putImageData(crop, 0, 0)
 
-                url = canvas_save.toDataURL("image/png");
-
-                window.api.invoke('download_map', {'url': url, 'path': download_path, 'file': img.src, 'id': "crop_"+index+"_"+type})
+                url = canvas_temp.toDataURL("image/png");
+                console.log("FILE: ",img.src)
+                window.api.invoke('save_map', {'url': url, 'file': img.src, 'id': "crop_"+index+"_"+type})
                     .then(function(res) {
                         console.log("RES: ", res); // will print "This worked!" to the browser console
                     }).catch(function(err) {
                         console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
                     });
             });
-
+            // after all files have been saved, reset the temp canvas to fit the image
+            canvas_temp.width = canvas_image.width;
+            canvas_temp.height = canvas_image.height;
         }).catch(function(err) {
             console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
         });
