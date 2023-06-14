@@ -6,13 +6,21 @@ const {ipcMain} = require('electron')
 const fs = require('fs');
 const { resolve } = require('path');
 const {dialog} = require('electron')
+const storage = require('electron-json-storage');
+
 
 var win = ""
 var loadDirectory = ""
 var saveDirectory = ""
-var foundImages = []
-var completedImages = []
 
+storage.set('loadouts', { cystic_fibrosis: {cf_alive: { val: 1, color: "#FF0000"}, cf_dead: {val: 2, color: " #880000"}, healthy_alive: {val: 3, color: " #00FF00"}, healthy_dead: { val: 4, color: " #008800"}}}, function(error) {
+  if (error) throw error;
+});
+
+
+
+//var foundImages = []
+//var completedImages = []
 
 function createWindow () {
     win = new BrowserWindow({
@@ -28,7 +36,7 @@ function createWindow () {
     })
 
     win.loadFile(path.join(__dirname, './src/index.html'))
-    //win.webContents.openDevTools()
+    win.webContents.openDevTools()
 
 }
 app.setName('Mapier');
@@ -53,6 +61,10 @@ var getFilename = function (str) {
   return str.substring(str.lastIndexOf('/')+1);
 }
 
+ipcMain.handle('get_loadouts', async (event) => {
+  return storage.getSync('loadouts')
+});
+
 ipcMain.handle('save_map', async (event, args) => {
   //file = getFilename(args['file']).replace('.jpg', '_'+args['id']).replace('.png', '_'+args['id']).replace('.jpeg', '_'+args['id']).replace('.tif', '_'+args['id']).replace('.tiff', '_'+args['id'])
   file = getFilename(args['file']).replace(/\.(jpg|JPG|png|PNG|jpeg|JPEG|tiff|TIFF|TIF|tif|gif|GIF)/, '_'+args['id'])
@@ -67,9 +79,9 @@ ipcMain.handle('save_map', async (event, args) => {
   });
 
   // append file to completed images; change to next image
-  completedImages.push(getFilename(args['file']))
-  let code = `document.getElementById("parameters-number").innerHTML = "(${completedImages.length}/${foundImages.length})"`;
-  win.webContents.executeJavaScript(code);
+  //completedImages.push(getFilename(args['file']))
+  //let code = `document.getElementById("parameters-number").innerHTML = "(${completedImages.length}/${foundImages.length})"`;
+  //win.webContents.executeJavaScript(code);
 });
 
 ipcMain.handle('set_file_path', async (event, args) => {
@@ -119,6 +131,7 @@ ipcMain.handle('set_file_path', async (event, args) => {
           return console.log('Unable to scan directory: ' + err);
       } 
       //listing all files using forEach
+      /*
       files.forEach(function (file) {
           // Do whatever you want to do with the file
           if(file.match(/\.(jpg|JPG|png|PNG|jpeg|JPEG|tif|TIF|tiff|TIFF|gif|GIF)/)) {
@@ -126,8 +139,9 @@ ipcMain.handle('set_file_path', async (event, args) => {
             foundImages.push(file)
           }
       });
-      let code = `document.getElementById("parameters-number").innerHTML = "(${completedImages.length}/${foundImages.length})"`;
-      win.webContents.executeJavaScript(code);
+      */
+      //let code = `document.getElementById("parameters-number").innerHTML = "(${completedImages.length}/${foundImages.length})"`;
+      //win.webContents.executeJavaScript(code);
     });
   }
 })

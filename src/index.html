@@ -9,6 +9,7 @@
         <script src="./UTIF.js"></script>
         <script src="../main.js"></script>
 
+
         <link rel="stylesheet" href="index.css">
         <link href='https://fonts.googleapis.com/css?family=Hanken Grotesk' rel='stylesheet'>
         <title>Mapier</title>
@@ -23,15 +24,17 @@
             <div id="parameters-filename">
                 Drag image file below.
             </div>
-            <div id="parameters-number">(0/0)</div>
+            <!--<div id="parameters-number">(0/0)</div> -->
             <!-- <div id="coords"></div> -->
             <div id="parameters-right">
+
                 <input class="slider" id="cursor-size-slider" type="range" min="10" max="200" value="50">
-                <button class="colour-class" style="background-color: red" onclick="changeColour('red')" contenteditable>cf_alive</button>
-                <button class="colour-class" style="background-color: maroon" onclick="changeColour('maroon')" contenteditable>cf_dead</button>
-                <button class="colour-class" style="background-color: lime" onclick="changeColour('lime')" contenteditable>healthy_alive</button>
-                <button class="colour-class" style="background-color: green" onclick="changeColour('green')" contenteditable>healthy_dead</button>
-                <!-- <img width="20px" src="./images/download.png" id="download-button" onclick="" /> -->
+                <div class="custom-select">
+                    <select id="loadouts"></select>
+                </div>
+                <div class="custom-select">
+                    <select id="labels"></select>
+                </div>
             </div>
         </div>
 
@@ -40,8 +43,11 @@
 
     </body>
     <canvas id="canvas-temp"></canvas>
+    <script src="./selector.js"></script>
 
     <script src="./index.js"></script>
     <script src="./rgbs.js"></script>
+    <!-- <script src="./selector.js"></script> -->
+
 
 </html>

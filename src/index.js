@@ -7,6 +7,7 @@ rightClicked = false;
 var drawSize = 20; // diameter
 var drawPath = []
 var drawAreas = []
+var loadouts = {}
 
 var img = new Image();
 const canvas_image = document.getElementById('canvas-image')
@@ -55,6 +56,7 @@ function init() {
         var res = findClosedLoops(drawPath);
         fillLoops(res[0], res[1])
         drawAreas.push(res[2])
+        //console.log(res[2])
         drawPath = []
     })
     canvas_draw.addEventListener("mouseleave", function(e) {
@@ -65,6 +67,21 @@ function init() {
     canvas_draw.addEventListener("dragenter", catchDrag);
     canvas_draw.addEventListener("dragover", catchDrag);
     canvas_draw.addEventListener("drop", dropFile);
+
+    window.api.invoke('get_loadouts')
+    .then(function(loadouts) {
+
+        for (const [loadout, labels] of Object.entries(loadouts) ) {
+            $("#loadouts").append('<option value='+loadout+' color = "#FFFFFF">'+loadout+'</option>');
+            for (const [label, label_data] of Object.entries(labels)) {
+                $("#labels").append('<option value='+label+' color = '+label_data['color']+'>'+label+'</option>');
+            }
+        }
+        initializeCustomSelectors(changeColour);
+
+    }).catch(function(err) {
+        console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
+    });
 
     window.requestAnimationFrame(draw);
 }
@@ -83,6 +100,7 @@ function findClosedLoops(path) {
     var left = 1000000
     var right = -1 
     // in the case that the path in just a click
+
     for(i=0; i<path.length; i++) {
         console.log("PATH")
         if(path[i]['x'] > right) {
@@ -122,7 +140,9 @@ function findClosedLoops(path) {
     }
 
     ctx_draw.fillStyle = activeColour; // reset 
-    return [loopCenters, nonCenters, {'top': top-drawSize, 'left': left-drawSize, 'right':right+drawSize, 'bottom':bottom+drawSize, 'colour': activeColour}]
+    console.log(drawSize)
+    console.log({'top': top-drawSize, 'left': left-drawSize, 'right': right+drawSize, 'bottom': bottom+drawSize, 'colour': activeColour})
+    return [loopCenters, nonCenters, {'top': top-drawSize, 'left': left-drawSize, 'right': right+drawSize, 'bottom': bottom+drawSize, 'colour': activeColour}]
 
 }
 
@@ -251,7 +271,7 @@ window.addEventListener('mousemove', (event) => {
 
 document.getElementById('cursor-size-slider').addEventListener('input', function(e) {
     //console.log("sliding: ", e.target.value)
-    drawSize = e.target.value;
+    drawSize = Number(e.target.value);
     cursor.style.width = drawSize+"px";
     cursor.style.height = drawSize+"px";
 })
@@ -279,7 +299,7 @@ function procFile(file) {
     console.log(img.src)
     console.log(img.title)
 
-    if(file.type === "image/tiff") {
+    if(file.type === "image/tiff" || file.type === "image/tif") {
         var reader = new FileReader();
         reader.onload = function (e) {
             var ifds = UTIF.decode(e.target.result);
@@ -484,36 +504,38 @@ function findShapes() {
                 } else if(colour == 'green') {
                     type = "healthy_dead"
                 }
-                console.log(colour+" "+type)
+                console.log(type+ " ("+colour+"): "+ left+", "+top+", "+right+", "+bottom)
                 canvas_temp.width = (right-left);
                 canvas_temp.height = (bottom-top);
 
-                console.log(left+" "+top+" "+right+" "+bottom)
+                //console.log(left+" "+top+" "+right+" "+bottom)
 
                 var crop = ctx_draw.getImageData(left, top, (right-left), (bottom-top))
                 ctx_temp.putImageData(crop, 0, 0)
 
                 let url = canvas_temp.toDataURL("image/png");
-                console.log("FILE: ", img.src)
+                //console.log("FILE: ", img.src)
                 window.api.invoke('save_map', {'url': url, 'file': img.src, 'id': "map_"+index+"_"+colour+"_"+type})
+                    /*
                     .then(function(res) {
                         console.log("RES: ", res); // will print "This worked!" to the browser console
                     }).catch(function(err) {
                         console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
                     });
-
+                    */ 
 
                 crop = ctx_image.getImageData(left, top, (right-left), (bottom-top))
                 ctx_temp.putImageData(crop, 0, 0)
 
                 url = canvas_temp.toDataURL("image/png");
-                console.log("FILE: ",img.src)
                 window.api.invoke('save_map', {'url': url, 'file': img.src, 'id': "crop_"+index+"_"+type})
+                    /*
                     .then(function(res) {
                         console.log("RES: ", res); // will print "This worked!" to the browser console
                     }).catch(function(err) {
                         console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
                     });
+                    */ 
             });
             // after all files have been saved, reset the temp canvas to fit the image
             canvas_temp.width = canvas_image.width;
@@ -524,6 +546,7 @@ function findShapes() {
 }
 
 function changeColour(colour) {
+    console.log("FLAG")
     activeColour = colour;
     cursor.style.borderColor= activeColour;
     document.getElementById("cursor-size-slider").style.setProperty('--color', activeColour);
