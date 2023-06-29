@@ -8,8 +8,6 @@
         <script type="text/javascript" src="../node_modules/jquery-ui/dist/jquery-ui.min.js"></script>
         <script src="./UTIF.js"></script>
         <script src="../main.js"></script>
-
-
         <link rel="stylesheet" href="index.css">
         <link href='https://fonts.googleapis.com/css?family=Hanken Grotesk' rel='stylesheet'>
         <title>Mapier</title>
@@ -29,17 +27,19 @@
             <div id="parameters-right">
 
                 <input class="slider" id="cursor-size-slider" type="range" min="10" max="200" value="50">
-                <div class="custom-select">
-                    <select id="loadouts"></select>
+
+                <div class="custom-select" id="loadouts">
+                    <select></select>
                 </div>
-                <div class="custom-select">
-                    <select id="labels"></select>
+                <div class="custom-select" id="labels">
+                    <select></select>
                 </div>
+
             </div>
         </div>
 
-        <canvas id="canvas-image"></canvas>
-        <canvas id="canvas-draw"></canvas>
+        <canvas class= "mapier-canvas" id="canvas-image"></canvas>
+        <canvas class= "mapier-canvas" id="canvas-draw"></canvas>
 
     </body>
     <canvas id="canvas-temp"></canvas>
@@ -47,7 +47,6 @@
 
     <script src="./index.js"></script>
     <script src="./rgbs.js"></script>
-    <!-- <script src="./selector.js"></script> -->
 
 
 </html>

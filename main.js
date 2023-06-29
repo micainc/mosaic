@@ -6,16 +6,40 @@ const {ipcMain} = require('electron')
 const fs = require('fs');
 const { resolve } = require('path');
 const {dialog} = require('electron')
-const storage = require('electron-json-storage');
+const Store = require('electron-store');
 
 
 var win = ""
 var loadDirectory = ""
 var saveDirectory = ""
 
-storage.set('loadouts', { cystic_fibrosis: {cf_alive: { val: 1, color: "#FF0000"}, cf_dead: {val: 2, color: " #880000"}, healthy_alive: {val: 3, color: " #00FF00"}, healthy_dead: { val: 4, color: " #008800"}}}, function(error) {
-  if (error) throw error;
+const storage = new Store();
+/*
+storage.set({'loadouts':
+  { 
+    cystic_fibrosis: {
+      1: {name:"cf_alive"}, 
+      2: {name:"cf_dead"}, 
+      3: {name:"healthy_alive"}, 
+      4: {name: "healthy_dead"}
+    },
+
+    plants: {
+      1: { name: "oregano"}, 
+      2: {name: "tomato"}, 
+      3: {name: "strawberry"}, 
+      4: { name: "pepper"},
+      5: { name: "lettuce"}, 
+      6: {name: "zucchini"}, 
+      7: {name: "basil"}, 
+      8: { name: "cilantro"},
+      9: { name: "dill"},
+      10:{ name: "mint"},
+      11:{ name: "seedling"},
+    },
+  }
 });
+*/
 
 
 
@@ -61,11 +85,27 @@ var getFilename = function (str) {
   return str.substring(str.lastIndexOf('/')+1);
 }
 
-ipcMain.handle('get_loadouts', async (event) => {
-  return storage.getSync('loadouts')
+ipcMain.handle('get_loadouts', async (event, args = "") => {
+  if(args === "") {
+    return storage.get('loadouts')
+  } else {
+    return storage.get('loadouts')[args]
+  }
 });
 
-ipcMain.handle('save_map', async (event, args) => {
+// auto set colours - its arbitrary. Each colour should be correlated to a value
+// find highest unused value
+ipcMain.handle('set_loadout', async (event, args) => {
+  //var s = storage.get('loadouts')[args['loadout']]
+  var path = 'loadouts.'+args['loadout']
+  storage.set(path, args['l'])
+  console.log("UPDATE: ", storage.get('loadouts.cystic_fibrosis'))
+  console.log("ALL:", storage.get('loadouts'))
+
+
+});
+
+ipcMain.handle('save_crop', async (event, args) => {
   //file = getFilename(args['file']).replace('.jpg', '_'+args['id']).replace('.png', '_'+args['id']).replace('.jpeg', '_'+args['id']).replace('.tif', '_'+args['id']).replace('.tiff', '_'+args['id'])
   file = getFilename(args['file']).replace(/\.(jpg|JPG|png|PNG|jpeg|JPEG|tiff|TIFF|TIF|tif|gif|GIF)/, '_'+args['id'])
   console.log(args)

@@ -18,7 +18,6 @@ canvas_image.width = window.innerWidth;
 canvas_image.height = window.innerHeight;
 canvas_draw.width = window.innerWidth;
 canvas_draw.height = window.innerHeight;
-
 canvas_temp.width = window.innerWidth;
 canvas_temp.height = window.innerHeight;
 
@@ -26,19 +25,21 @@ var ctx_image = canvas_image.getContext('2d');
 var ctx_draw = canvas_draw.getContext('2d');
 var ctx_temp = canvas_temp.getContext('2d');
 
+ctx_draw.imageSmoothingEnabled= false
+ctx_temp.imageSmoothingEnabled= false
+
 var cursor = document.querySelector('.cursor');
 cursor.style.width = drawSize+"px";
 cursor.style.height = drawSize+"px";
 
-var activeColour = "red" // opaque red
+var activeColour = "#FF0000" // opaque red
 var floodQueue = []
 
 function init() {
     ctx_draw.clearRect(0, 0, canvas_draw.width, canvas_draw.height);
-    ctx_temp.fillStyle = "black"; // flood with black
+    ctx_temp.fillStyle = "#000000"; // flood with black
 
     //ctx_temp.globalCompositeOperation = 'source-over'
-
 
     canvas_draw.addEventListener('mousedown', function(e) {
         if(e.button == 0){
@@ -50,13 +51,16 @@ function init() {
         }
     })
     canvas_draw.addEventListener('mouseup', function(e) {
+        ctx_draw.closePath()
         leftClicked = false;
         rightClicked =false;
         // doesn't matter what the draw path looks like, a drawn pixel will be without the boundaries returned by this function
+        
+        fillGaps(drawPath); // fills gaps in the drawing of a loop due to lag
         var res = findClosedLoops(drawPath);
+        // returns: loop centers, not centers, 
         fillLoops(res[0], res[1])
         drawAreas.push(res[2])
-        //console.log(res[2])
         drawPath = []
     })
     canvas_draw.addEventListener("mouseleave", function(e) {
@@ -68,16 +72,21 @@ function init() {
     canvas_draw.addEventListener("dragover", catchDrag);
     canvas_draw.addEventListener("drop", dropFile);
 
+    // get & populate with first loadout
     window.api.invoke('get_loadouts')
     .then(function(loadouts) {
-
-        for (const [loadout, labels] of Object.entries(loadouts) ) {
-            $("#loadouts").append('<option value='+loadout+' color = "#FFFFFF">'+loadout+'</option>');
-            for (const [label, label_data] of Object.entries(labels)) {
-                $("#labels").append('<option value='+label+' color = '+label_data['color']+'>'+label+'</option>');
-            }
+        console.log(loadouts)
+        for (const [loadout] of Object.entries(loadouts) ) {
+            $("#loadouts > select").append('<option value='+loadout+'>'+loadout+'</option>');
         }
-        initializeCustomSelectors(changeColour);
+        // just populate the first loadout
+        console.log(Object.values(loadouts)[0])
+        for (const [label, label_data] of Object.entries(Object.values(loadouts)[0])) {
+            console.log(label)
+            $("#labels > select").append('<option value='+label+'>'+label_data['name']+'</option>');
+        }
+        initializeSelector(changeColour, document.getElementById('loadouts'));
+        initializeSelector(changeColour, document.getElementById('labels'));
 
     }).catch(function(err) {
         console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
@@ -92,6 +101,49 @@ window.onscroll = function() {
     scrollY = (window.pageYOffset || doc.scrollTop)  - (doc.clientTop || 0);
 }
 
+function fillGaps(path) {
+    ctx_draw.fillStyle = activeColour; 
+
+    for(var i = 0; i < path.length-1; i++) {
+        ctx_draw.fillStyle = activeColour; 
+        var new_x = Math.round((path[i]['x'] + path[i+1]['x'])/2)
+        var new_y = Math.round((path[i]['y'] + path[i+1]['y'])/2)
+        fillPixelatedCircle(ctx_draw, new_x, new_y, Math.floor((drawSize*(canvas_image.width / canvas_image.clientWidth))/2)-1)
+    }
+}
+
+function fillPixelatedCircle(ctx, cx, cy, r){
+    r |= 0; // floor radius
+    ctx.setTransform(1,0,0,1,0,0); // ensure default transform
+    var x = r, y = 0, dx = 1, dy = 1;
+    var err = dx - (r << 1);
+    var x0 = cx - 1| 0, y0 = cy | 0;
+    var lx = x,ly = y;
+    ctx.beginPath();
+    while (x >= y) {
+        ctx.rect(x0 - x, y0 + y, x * 2 + 2, 1);
+        ctx.rect(x0 - x, y0 - y, x * 2 + 2, 1);
+        if (x !== lx){
+            ctx.rect(x0 - ly, y0 - lx, ly * 2 + 2, 1);
+            ctx.rect(x0 - ly, y0 + lx, ly * 2 + 2, 1);
+        }
+        lx = x;
+        ly = y;
+        y++;
+        err += dy;
+        dy += 2;
+        if (err > 0) {
+            x--;
+            dx += 2;
+            err += (-r << 1) + dx;
+        }
+    }
+    if (x !== lx) {
+        ctx.rect(x0 - ly, y0 - lx, ly * 2 + 1, 1);
+        ctx.rect(x0 - ly, y0 + lx, ly * 2 + 1, 1);
+    }    
+    ctx.fill();
+}
 //------------------------------------------------------ LOOP FINDING + FILLING FUNCTIONALITY ------------------------------------------------------//
 
 function findClosedLoops(path) {
@@ -101,23 +153,22 @@ function findClosedLoops(path) {
     var right = -1 
     // in the case that the path in just a click
 
+    var halfDrawSize = Math.ceil(drawSize/2)
     for(i=0; i<path.length; i++) {
-        console.log("PATH")
-        if(path[i]['x'] > right) {
-            right = Math.round(path[i]['x']);
+        if(path[i]['x'] + halfDrawSize > right) {
+            right = Math.round(path[i]['x'] + halfDrawSize) 
         }
-        if(path[i]['x'] < left) {
-            left = Math.round(path[i]['x']);
+        if(path[i]['x'] - halfDrawSize < left) {
+            left = Math.round(path[i]['x'] - halfDrawSize);
         }
-        if(path[i]['y'] > bottom) {
-            bottom = Math.round(path[i]['y']);
+        if(path[i]['y'] + halfDrawSize > bottom) {
+            bottom = Math.round(path[i]['y'] + halfDrawSize);
         } 
-        if(path[i]['y'] < top) {
-            top = Math.round(path[i]['y']);
+        if(path[i]['y'] - halfDrawSize < top) {
+            top = Math.round(path[i]['y'] - halfDrawSize);
         }
     } 
 
-    ctx_draw.fillStyle = "black"; // flood with black
     var i = 0;
     var loopCenters = []
     var nonCenters = []
@@ -126,31 +177,40 @@ function findClosedLoops(path) {
         var testX = Math.floor(Math.random()*(right-left) + left);
         var testY = Math.floor(Math.random()*(bottom-top) + top);
         var data = ctx_draw.getImageData(testX, testY, 1, 1).data;
-        var col = rgbToColorName([data[0], data[1], data[2], Math.ceil(data[3]/255)])
-        // if random point overlaps a border or a previously traversed area, skip  
-        if(col !== activeColour && col !== "black") {
-            // if the point was exterior (did not pass flood test, try new random point)
-            if(floodFind(testX, testY, bottom, top, left, right)) {
+        var col = rgbToHex(data[0], data[1], data[2])
+        // if random point is overtop a drawn or a traversed area, skip  
+        // point is not black (traversed) and point is not the active colour
+
+        if(col !== activeColour && !(col === "#000000" && data[3] === 255) ) {
+            if(floodFindInterior(testX, testY, bottom, top, left, right)) {
                 loopCenters.push({'x': testX, 'y': testY})
             } else {
-                nonCenters.push({'x': testX, 'y': testY})
+                nonCenters.push({'x': testX, 'y': testY}) // if the point was exterior (did not pass flood test, try new random point)
             }
         } 
         i++;
     }
 
+    /*
+    ctx_draw.fillStyle = '#00FF00'; // reset 
+    ctx_draw.strokeStyle = '#00FF00'; // reset 
+    for(var i = 0; i< loopCenters.length;i++) {
+        fillRegion(ctx_draw, loopCenters[i]['x'],loopCenters[i]['y'], 3)
+    }
+    ctx_draw.strokeRect(left, top, right-left, bottom-top)
+
+    */
+
     ctx_draw.fillStyle = activeColour; // reset 
-    console.log(drawSize)
-    console.log({'top': top-drawSize, 'left': left-drawSize, 'right': right+drawSize, 'bottom': bottom+drawSize, 'colour': activeColour})
+    //console.log({'top': top-drawSize, 'left': left-drawSize, 'right': right+drawSize, 'bottom': bottom+drawSize, 'colour': activeColour})
     return [loopCenters, nonCenters, {'top': top-drawSize, 'left': left-drawSize, 'right': right+drawSize, 'bottom': bottom+drawSize, 'colour': activeColour}]
 
 }
 
-function floodFind(x, y, b, t, l ,r) {
-    //console.log("FLOOD FIND STARTED")
+function floodFindInterior(x1, y1, b, t, l ,r) {
+    ctx_draw.fillStyle = "#000000"; // flood with black
+    floodQueue = [{'x': x1, 'y': y1}]
 
-    floodQueue = [{'x': x, 'y': y}]
-    
     do {
         var px = floodQueue.shift()
         //console.log(px)
@@ -158,22 +218,28 @@ function floodFind(x, y, b, t, l ,r) {
         y = px['y']
 
         var data = ctx_draw.getImageData(x, y, 1, 1).data;
-        var col = rgbToColorName([data[0], data[1], data[2], Math.ceil(data[3]/255)])
-        if (x < l || x >= r || y < t || y >= b) {
-            //console.log("FLOOD FIND FAILED")
+        var col = rgbToHex(data[0], data[1], data[2])
+
+        if (x <= l || x >= r || y <= t || y >= b) {
+            console.log("FLOOD FIND FAILED")
             return false; // check if x or y go out of bounds: then we are 'exterior': we break the loop, empty queue, and signal 
-        }  else if(col !== activeColour && col !== "black") {
+        }  else if(col !== activeColour && !(col === "#000000" && data[3] === 255)) {
+
             // if the pixel at a point is not a boundary or previously traversed, then continue
-            fillRegion(ctx_draw, x, y, 2) // mark as traversed
+            fillRegion(ctx_draw, x-1, y-1, 3) // mark as traversed
             // check the neighboring pixels by adding to queue
+
             floodQueue.push({'x': x - 2, 'y': y})
-            floodQueue.push({'x': x + 1, 'y': y})
+            floodQueue.push({'x': x + 2, 'y': y})
             floodQueue.push({'x': x, 'y': y - 2})
-            floodQueue.push({'x': x, 'y': y + 1})
+            floodQueue.push({'x': x, 'y': y + 2})
+            floodQueue.push({'x': x - 2, 'y': y - 2})
+            floodQueue.push({'x': x + 2, 'y': y + 2})
+            floodQueue.push({'x': x + 2, 'y': y - 2})
+            floodQueue.push({'x': x - 2, 'y': y + 2})
         } 
 
     } while(floodQueue.length != 0)
-    //console.log("FLOOD FIND SUCCESSFUL")
     return true;
 }
 
@@ -182,75 +248,70 @@ function circleIntersect(x0, y0, r0, x1, y1, r1) {
 }
 
 function fillLoops(loops, duds) {
-    for(l in loops) {
-        floodFill(loops[l]['x'], loops[l]['y'])
+    // clean areas first - get rid of accumulated black areas.
+    // BUG: Multiple floods is traversing the outside entirely, with some white space left over. If a new flood traversal occurs in a white space surrounded by black, it ends without traversal and assumes the point is interior. An activeColour flood can occur outside of a shape body accidentally in this case.
+    // To avoid this issue, clean duds FIRST, then flood active colour.
+    for(d in duds) {
+        flood(duds[d]['x'], duds[d]['y'], "#FFFFFF")
     }
 
-    for(d in duds) {
-        floodClean(duds[d]['x'], duds[d]['y'])
+    for(l in loops) { // fill areas
+        flood(loops[l]['x'], loops[l]['y'], activeColour)
     }
+
 }
 
 // image is a 2D array of pixel colors
 // x and y are the coordinates of the starting pixel
-function floodFill(x, y) {
-    floodQueue = [{'x': x, 'y': y}]
+function flood(x1, y1, newCol) {
+    floodQueue = [{'x': x1, 'y': y1}]
+    ctx_draw.fillStyle = newCol;
+
+    var data = ctx_draw.getImageData(x1, y1, 1, 1).data;
+    var col = rgbToHex(data[0], data[1], data[2])
+    if(!(col === "#000000" && data[3] === 255)){
+        console.log("WTF: " + data +" | "+ x1 + ", "+ y1)
+    }
 
     do {
-        var px = floodQueue.shift()
+        var p = floodQueue.shift()
         //console.log(px)
-        x = px['x']
-        y = px['y']
-
+        x = p['x']
+        y = p['y']
         var data = ctx_draw.getImageData(x, y, 1, 1).data;
-        var col = rgbToColorName([data[0], data[1], data[2], Math.ceil(data[3]/255)])
-        if(col === "black") {
+        var col = rgbToHex(data[0], data[1], data[2])
+
+        if(col === "#000000" && data[3] !== 0) {
             // if the pixel at a point is not a boundary or previously traversed, then continue
-            fillRegion(ctx_draw, x, y, 2) // mark as traversed
+            if(newCol === "#FFFFFF"){
+                ctx_draw.clearRect(x-1, y-1, 3, 3)
+            } else {
+                fillRegion(ctx_draw, x-1, y-1, 3) // mark as traversed
+            }
+
             // check the neighboring pixels by adding to queue
-            floodQueue.push({'x': x - 2, 'y': y})
-            floodQueue.push({'x': x + 1, 'y': y})
-            floodQueue.push({'x': x, 'y': y - 2})
-            floodQueue.push({'x': x, 'y': y + 1})
-        } else {
-            fillRegion(ctx_draw, x, y, 2) // mark as traversed
+            if(x > 0 && y > 0 && x < canvas_draw.width && y < canvas_draw.height) {
+                floodQueue.push({'x': x - 2, 'y': y})
+                floodQueue.push({'x': x + 2, 'y': y})
+                floodQueue.push({'x': x, 'y': y - 2})
+                floodQueue.push({'x': x, 'y': y + 2})
+                floodQueue.push({'x': x - 2, 'y': y - 2})
+                floodQueue.push({'x': x + 2, 'y': y + 2})
+                floodQueue.push({'x': x + 2, 'y': y - 2})
+                floodQueue.push({'x': x - 2, 'y': y + 2})
+            }
         }
-
     } while(floodQueue.length != 0)
-}
 
-
-function floodClean(x, y) {
-    floodQueue = [{'x': x, 'y': y}]
-
-    do {
-        var px = floodQueue.shift()
-        //console.log(px)
-        x = px['x']
-        y = px['y']
-
-        var data = ctx_draw.getImageData(x, y, 1, 1).data;
-        var col = rgbToColorName([data[0], data[1], data[2], Math.ceil(data[3]/255)])
-        if(col === "black") {
-            // if the pixel at a point is not a boundary or previously traversed, then continue
-            ctx_draw.clearRect(x-1, y-1, 2, 2)
-
-            //fillRegion(x, y, 4) // mark as traversed
-            // check the neighboring pixels by adding to queue
-            floodQueue.push({'x': x - 2, 'y': y})
-            floodQueue.push({'x': x + 1, 'y': y})
-            floodQueue.push({'x': x, 'y': y - 2})
-            floodQueue.push({'x': x, 'y': y + 1})
-        } else if(col === "transparent")  {
-            ctx_draw.clearRect(x-1, y-1, 2, 2)
-        }
-
-    } while(floodQueue.length != 0)
+    /*
+    ctx_draw.fillStyle = '#00FF00';
+    fillRegion(ctx_draw, x-1, y-1, 3) // mark as traversed
+    */
 }
 
 function fillRegion(canvas, x, y, size) {
     canvas.beginPath();
-    canvas.fillRect(x-size/2, y-size/2, size, size);
+    canvas.fillRect(x, y, size, size);
     canvas.fill();
 }
 
@@ -266,7 +327,7 @@ window.addEventListener('mousemove', (event) => {
     if(leftClicked){
         drawPath.push({x: mouseX, y: mouseY})
     }
-    //$('#coords').text(mouseX + ", " + mouseY)
+    $('#coords').text(mouseX + ", " + mouseY)
 })
 
 document.getElementById('cursor-size-slider').addEventListener('input', function(e) {
@@ -346,25 +407,14 @@ function draw() {
     //ctx_draw.globalCompositeOperation = 'source-over';
     if(leftClicked) {
         ctx_draw.globalCompositeOperation = 'source-over'
-        ctx_draw.beginPath();
         ctx_draw.fillStyle = activeColour; 
-        ctx_draw.arc(mouseX, mouseY, (drawSize*(canvas_image.width / canvas_image.clientWidth))/2, 0, 2 * Math.PI, false);
-        ctx_draw.fill();
+        fillPixelatedCircle(ctx_draw, mouseX, mouseY, Math.floor((drawSize*(canvas_image.width / canvas_image.clientWidth))/2)-1)
 
     } else if(rightClicked) {
         ctx_draw.globalCompositeOperation = 'destination-out' // this clears the canvas
-        ctx_draw.beginPath();
-        ctx_draw.arc(mouseX, mouseY, (drawSize*(canvas_image.width / canvas_image.clientWidth))/2, 0, 2 * Math.PI, false);
-        ctx_draw.fill();
-    }
-    /* else {
-        ctx.beginPath();
-        ctx.strokeStyle = "rgba(0,0, 255, 128)";
-        ctx.arc(mouseX, mouseY, 10, 0, 2 * Math.PI, false);
-        ctx.stroke();
-    }
-    */
+        fillPixelatedCircle(ctx_draw, mouseX, mouseY, Math.floor((drawSize*(canvas_image.width / canvas_image.clientWidth))/2)-1)
 
+    }
     window.requestAnimationFrame(draw);
 }
   
@@ -412,17 +462,17 @@ function findShapes() {
             var x = Math.round(Math.random()*(right-left)+left) // test a random distribution of points in the draw area
             var y = Math.round(Math.random()*(bottom-top)+top) // test a random distribution of points in the draw area
             var data = ctx_draw.getImageData(x, y, 1, 1).data;
-            var col = rgbToColorName([data[0], data[1], data[2], Math.ceil(data[3]/255)])
+            var col = rgbToHex(data[0], data[1], data[2])
 
             var data2 = ctx_temp.getImageData(x, y, 1, 1).data;
-            var col2 = rgbToColorName([data2[0], data2[1], data2[2], Math.ceil(data2[3]/255)])
+            var col2 = rgbToHex(data2[0], data2[1], data2[2])
             
-            // found the shape
+            // found the shape.
             console.log(" L: "+left+" R: "+ right+" T: "+top+" B: "+bottom)
 
-            if(col === colour && col2 === "transparent") {
+            if(col === colour && data2[3] === 0) {
                 console.log("FOUND: ", colour)
-                // start with the original boundaries of shape 
+                // start with the original boundaries of shape. these are liable to expand
                 var newTop = top
                 var newBottom = bottom
                 var newLeft = left
@@ -437,22 +487,24 @@ function findShapes() {
 
                     // check the draw canvas
                     data = ctx_draw.getImageData(x, y, 1, 1).data;
-                    col = rgbToColorName([data[0], data[1], data[2], Math.ceil(data[3]/255)])
+                    col = rgbToHex(data[0], data[1], data[2])
 
                     // check the temp canvas
                     data2 = ctx_temp.getImageData(x, y, 1, 1).data;
-                    col2 = rgbToColorName([data2[0], data2[1], data2[2], Math.ceil(data2[3]/255)])
+                    col2 = rgbToHex(data2[0], data2[1], data2[2])
 
                     // if the pixel is on the draw canvas and not on the temporary canvas, continue 
-                    if(col === colour && col2 === "transparent") { 
+                    if(col === colour && data2[3] === 0) { 
                         // check the neighboring pixels by adding to queue
-                        fillRegion(ctx_temp, x, y, 2)
+                        fillRegion(ctx_temp, x-1, y-1, 3)
                         floodQueue.push({'x': x - 2, 'y': y})
-                        floodQueue.push({'x': x + 1, 'y': y})
+                        floodQueue.push({'x': x + 2, 'y': y})
                         floodQueue.push({'x': x, 'y': y - 2})
-                        floodQueue.push({'x': x, 'y': y + 1})
-                    } else {
-                        fillRegion(ctx_temp, x, y, 2)
+                        floodQueue.push({'x': x, 'y': y + 2})
+                        floodQueue.push({'x': x - 2, 'y': y - 2})
+                        floodQueue.push({'x': x + 2, 'y': y + 2})
+                        floodQueue.push({'x': x + 2, 'y': y - 2})
+                        floodQueue.push({'x': x - 2, 'y': y + 2})
                     }
                                                         
                     if(x > newRight) {
@@ -494,48 +546,22 @@ function findShapes() {
     window.api.invoke('set_file_path', {'path': img.src, 'type': 'save'})
         .then(() => {
             shapes.forEach(({ left, right, top, bottom, colour, index}) => {
-                var type = "";
-                if(colour == 'red') {
-                    type = "cf_alive"
-                } else if(colour == 'maroon') {
-                    type = "cf_dead"
-                } else if(colour == 'lime') {
-                    type = "healthy_alive"
-                } else if(colour == 'green') {
-                    type = "healthy_dead"
-                }
-                console.log(type+ " ("+colour+"): "+ left+", "+top+", "+right+", "+bottom)
+                console.log(" ("+colour+"): "+ left+", "+top+", "+right+", "+bottom)
                 canvas_temp.width = (right-left);
                 canvas_temp.height = (bottom-top);
-
-                //console.log(left+" "+top+" "+right+" "+bottom)
 
                 var crop = ctx_draw.getImageData(left, top, (right-left), (bottom-top))
                 ctx_temp.putImageData(crop, 0, 0)
 
                 let url = canvas_temp.toDataURL("image/png");
                 //console.log("FILE: ", img.src)
-                window.api.invoke('save_map', {'url': url, 'file': img.src, 'id': "map_"+index+"_"+colour+"_"+type})
-                    /*
-                    .then(function(res) {
-                        console.log("RES: ", res); // will print "This worked!" to the browser console
-                    }).catch(function(err) {
-                        console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
-                    });
-                    */ 
-
+                window.api.invoke('save_crop', {'url': url, 'file': img.src, 'id': "map_"+index})
                 crop = ctx_image.getImageData(left, top, (right-left), (bottom-top))
+                console.log(crop)
                 ctx_temp.putImageData(crop, 0, 0)
 
                 url = canvas_temp.toDataURL("image/png");
-                window.api.invoke('save_map', {'url': url, 'file': img.src, 'id': "crop_"+index+"_"+type})
-                    /*
-                    .then(function(res) {
-                        console.log("RES: ", res); // will print "This worked!" to the browser console
-                    }).catch(function(err) {
-                        console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
-                    });
-                    */ 
+                window.api.invoke('save_crop', {'url': url, 'file': img.src, 'id': "crop_"+index})
             });
             // after all files have been saved, reset the temp canvas to fit the image
             canvas_temp.width = canvas_image.width;
@@ -546,7 +572,6 @@ function findShapes() {
 }
 
 function changeColour(colour) {
-    console.log("FLAG")
     activeColour = colour;
     cursor.style.borderColor= activeColour;
     document.getElementById("cursor-size-slider").style.setProperty('--color', activeColour);

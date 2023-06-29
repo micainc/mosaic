@@ -32,7 +32,7 @@ window.addEventListener('DOMContentLoaded', () => {
 contextBridge.exposeInMainWorld(
     "api", {
         invoke: (channel, data) => {
-            let validChannels = ["save_map", "set_file_path", "get_loadouts"]; // list of ipcMain.handle channels you want access in frontend to
+            let validChannels = ["save_crop", "set_file_path", "get_loadouts", "set_loadout"]; // list of ipcMain.handle channels you want access in frontend to
             if (validChannels.includes(channel)) {
                 // ipcRenderer.invoke accesses ipcMain.handle channels like 'download_pdf'
                 // make sure to include this return statement or you won't get your Promise back

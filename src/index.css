@@ -145,14 +145,15 @@ button:hover, select:hover {
     cursor: pointer;
 }
 
-canvas {
+.mapier-canvas {
     position:absolute;
     top:30px;
     left:0px;
     width:100%;
+    image-rendering: pixelated; 
 }
 
-canvas:hover .cursor {
+.mapier-canvas:hover .cursor {
     display: block; /* show the cursor element when the mouse is over the canvas */
 }
 
@@ -257,4 +258,24 @@ canvas:hover .cursor {
 
 
 
+/**********************************************  PLACEHOLDER  **************************************************/
+
+/* add placeholders to contenteditable divs */ 
+div[placeholder]:empty:before {
+    content: attr(placeholder);
+    color: #555; 
+}
+
+/* add placeholders to contenteditable spans */ 
+span[placeholder]:empty:before {
+    content: attr(placeholder);
+    color: #555; 
+}
+
+
+.peng[placeholder]:empty:before {
+    font-style: italic;
+    content: attr(placeholder);
+    color: #555; 
+}
   
