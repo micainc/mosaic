@@ -1,76 +1,97 @@
-var x, i, j, l, ll, selElmnt, a, itemList, c;
+// should be 24
+var bgColors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FF8000', '#80FF00', '#8000FF', '#FF0080', '#00FF80', '#0080FF', '#FFFF80', '#FF80FF', '#80FFFF', '#800000', '#008000', '#000080', '#808000', '#800080', '#008080', '#FF8080', '#80FF80', '#8080FF']
+var fontColors = ['#FFFFFF', '#FFFFFF', '#FFFFFF', '#000000', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#000000', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#000000', '#FFFFFF', '#000000', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF']
 
-var colors = ['#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075']
-var highestValue = 1
+var labelsIdx = -1
+var loadoutsIdx = 0
 
-function initializeSelector(changeColour, selector) {
-  selElmnt = selector.getElementsByTagName('select')[0]
-  console.log(selElmnt)
-  ll = selElmnt.length;
-  itemList = document.createElement("DIV");
-  itemList.setAttribute("class", "select-items select-hide");
+function initializeItemList(changeColour, selector) {
+  var selElmnt = selector.getElementsByTagName('select')[0]
+  var l = selElmnt.length;
+  var itemList = document.createElement("DIV");
+  itemList.setAttribute("class", "item-list select-hide");
   selector.append(itemList);
 
   // Append colour options
-  for (j = 0; j < ll; j++) {
+  for (var i = 0; i < l; i++) {
     /*for each option in the original select element,
     create a new DIV that will act as an option item:*/
-    c = document.createElement("DIV");
-    c.setAttribute("class", "selectable");
-    c.setAttribute("contenteditable", "true");
-
-    c.innerHTML = selElmnt.options[j].innerHTML;
-    itemList.append(c);
+    var item = document.createElement("DIV");
+    item.setAttribute("class", "selectable");
+    item.setAttribute("contenteditable", "true");
+    item.setAttribute("placeholder", selElmnt.options[i].value);
+    item.setAttribute("value", selElmnt.options[i].value);
+    item.innerHTML = selElmnt.options[i].innerHTML;
+    itemList.append(item);
 
     if(selElmnt.parentNode.id === 'labels') {
-      c.setAttribute("placeholder", selElmnt.options[j].value);
-      c.setAttribute("value", selElmnt.options[j].value);
-      c.style.backgroundColor = colors[selElmnt.options[j].value-1]
-      if(selElmnt.options[j].value > highestValue) {
-        highestValue = parseInt(selElmnt.options[j].value)
+      item.style.backgroundColor = bgColors[selElmnt.options[i].value]
+      item.style.color = fontColors[selElmnt.options[i].value];
+      if(selElmnt.options[i].value > labelsIdx) {
+        labelsIdx = parseInt(selElmnt.options[i].value)
+      }
+    } else if(selElmnt.parentNode.id === 'loadouts') {
+      if(selElmnt.options[i].value > loadoutsIdx) {
+        loadoutsIdx = parseInt(selElmnt.options[i].value)
       }
     }
 
-    c.addEventListener("click", labelClickEvent);
+    item.addEventListener("click", labelClickEvent);
   }
 
+  /* Add "+" button to item list */
+  var add = document.createElement("DIV");
+  add.setAttribute("class", "selectable add");
+  add.setAttribute("list", selElmnt.parentNode.id);
 
-  /* Add "+" button */
-  c = document.createElement("DIV");
-  c.setAttribute("class", "selectable add");
-  c.innerHTML = "+";
-  itemList.append(c);
+  add.innerHTML = "+";
+  //console.log(itemList)
+  itemList.append(add);
 
   // Create a new label 
-  c.addEventListener("click", function(e) {
+  add.addEventListener("click", function(e) {
+    var list = this.getAttribute('list')
     var lbl = document.createElement("DIV");
-    lbl.setAttribute("class", "selectable selected-item");
+    lbl.setAttribute("class", "selectable selected");
     lbl.setAttribute("contenteditable", "true")
 
-    if(selElmnt.parentNode.id === 'labels') {
-      highestValue +=1
-      lbl.setAttribute("placeholder", highestValue)
-      lbl.setAttribute("value", highestValue);
-      lbl.style.backgroundColor = colors[highestValue-1]
-      changeColour(colors[highestValue-1])
+    if(list === 'labels') {
+      labelsIdx +=1
+      lbl.setAttribute("placeholder", labelsIdx+"...")
+      lbl.setAttribute("value", labelsIdx);
+      lbl.style.backgroundColor = bgColors[labelsIdx]
+      lbl.style.color = fontColors[labelsIdx]
+      changeColour(bgColors[labelsIdx])
+      //console.log("NEW COLOUR: ", bgColors[labelsIdx-1])
+      activeCursor = true;
+    } else if(list === 'loadouts'){
+      loadoutsIdx +=1
+      lbl.setAttribute("placeholder", loadoutsIdx)
+      lbl.setAttribute("value", loadoutsIdx);
+      $("#labels > select").html("")
+      $("#labels > .selected").remove()
+      $("#labels > .item-list").remove()
+      initializeItemList(changeColour, document.getElementById('labels'));
+      activeCursor = false;
+      labelsIdx = -1
     }
 
     lbl.addEventListener("click", labelClickEvent);
-
-    // Move prior label back to item list
+    // when add is clicked, move selected item into item-list. 
     try {
-      a = this.parentNode.parentNode.firstChild;
-      a.classList.toggle("selected-item")
-      this.parentNode.prepend(a);
+      var a = $("#"+list)[0].firstChild;
+      console.log(a)
+      a.classList.toggle("selected")
+      $("#"+list+" > .item-list")[0].prepend(a)
     } catch {
-      console.log("No selected found... populating with first value.")
+      console.log("No selected item...")
     }
 
     this.parentNode.parentNode.prepend(lbl);
   })
 
   // initialize the first item in list as selected item
-  itemList.firstChild.classList.toggle("selected-item")
+  itemList.firstChild.classList.toggle("selected")
   changeColour(rgbStringToHex(itemList.firstChild.style.backgroundColor))
   itemList.parentNode.prepend(itemList.firstChild)
 
@@ -82,25 +103,25 @@ function initializeSelector(changeColour, selector) {
 
 // when a label is clicked, change to that label
 function labelClickEvent(e) {
-  console.log(this.parentNode)
-  if(this.classList.contains("selected-item")) {
+  if(this.classList.contains("selected")) {
     e.stopPropagation();
     closeAllSelect(this);
     this.parentNode.lastChild.classList.toggle("select-hide");
 
   } else {
-    // if a new loadout is being selected, delete all label entries from the  previous loadout and reinitialize
     if(this.parentNode.parentNode.id === "loadouts") {
+      // if a new loadout is being selected, delete all label entries from the  previous loadout and reinitialize
       $("#labels > select").html("")
-      $("#labels > .selected-item").remove()
-      $("#labels > .select-items").remove()
+      $("#labels > .selected").remove()
+      $("#labels > .item-list").remove()
 
-      window.api.invoke('get_loadouts', this.innerHTML)
+      window.api.invoke('get_loadouts', this.getAttribute("value"))
       .then((loadout) => {
-          for (const [label, label_data] of Object.entries(loadout)) {
+
+          for (const [label, label_data] of Object.entries(loadout['labels'])) {
               $("#labels > select").append('<option value='+label+' color = '+label_data['color']+' placeholder='+label+'>'+label_data['name']+'</option>');
           }
-          initializeSelector(changeColour, document.getElementById('labels'));
+          initializeItemList(changeColour, document.getElementById('labels'));
       }).catch(function(err) {
           console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
       });
@@ -108,14 +129,14 @@ function labelClickEvent(e) {
 
     // move previouly selected node into item list
     try {
-      a = this.parentNode.parentNode.firstChild;
-      a.classList.toggle("selected-item")
+      var a = this.parentNode.parentNode.firstChild;
+      a.classList.toggle("selected")
       this.parentNode.prepend(a);
     } catch {
       console.log("No selected found... populating with first value.")
     }
     // move newly selected item to top
-    this.classList.toggle("selected-item")
+    this.classList.toggle("selected")
     this.parentNode.parentNode.prepend(this);
     changeColour(rgbStringToHex(this.style.backgroundColor))
   }
@@ -125,12 +146,12 @@ function closeAllSelect(elmnt) {
   /*a function that will close all select boxes in the document,
   except the current select box:*/
 
-  var x, y, i, xl, yl, arrNo = [];
-  x = document.getElementsByClassName("select-items");
-  y = document.getElementsByClassName("selected-item");
+  var x, y, xl, yl, arrNo = [];
+  x = document.getElementsByClassName("item-list");
+  y = document.getElementsByClassName("selected");
   xl = x.length;
   yl = y.length;
-  for (i = 0; i < yl; i++) {
+  for (var i = 0; i < yl; i++) {
     if (elmnt == y[i]) {
       arrNo.push(i)
     } 
@@ -146,12 +167,22 @@ function closeAllSelect(elmnt) {
 /* is there a way I can save RGB colours so that they always map to the same value from 0-255: no. SO, instead, save a new val in th */
 /* Save active loadout */
 function saveLoadout() {
-  var loadout = $("#loadouts .selected-item").html()
-  var labels = $("#labels .selectable:not(.add)")
-  var l = {}
-  $.each(labels, function(index, elem) {
-    //console.log(index, elem)
-    l[elem.getAttribute('value')] = {"name": elem.innerHTML}
-  })
-  window.api.invoke('set_loadout', {loadout, l})
+  var loadout = $("#loadouts .selected")
+  var name = loadout.html()
+  var idx = loadout.attr('value')
+  if(name !== "") { // if the loadout is named, save it
+    var lbls = $("#labels .selectable:not(.add)")
+    var l = {}
+    l['name'] = name
+    var labels = {}
+
+    $.each(lbls, function(index, elem) {
+      //console.log(index, elem)
+      labels[elem.getAttribute('value')] = {"name": elem.innerHTML}
+    })
+    l['labels'] = labels
+    window.api.invoke('set_loadout', {idx, l})
+  } else {
+    console.log("LOADOUT NOT NAMED")
+  }
 }

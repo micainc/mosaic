@@ -14,34 +14,67 @@ var loadDirectory = ""
 var saveDirectory = ""
 
 const storage = new Store();
-/*
-storage.set({'loadouts':
-  { 
-    cystic_fibrosis: {
-      1: {name:"cf_alive"}, 
-      2: {name:"cf_dead"}, 
-      3: {name:"healthy_alive"}, 
-      4: {name: "healthy_dead"}
-    },
 
-    plants: {
-      1: { name: "oregano"}, 
-      2: {name: "tomato"}, 
-      3: {name: "strawberry"}, 
-      4: { name: "pepper"},
-      5: { name: "lettuce"}, 
-      6: {name: "zucchini"}, 
-      7: {name: "basil"}, 
-      8: { name: "cilantro"},
-      9: { name: "dill"},
-      10:{ name: "mint"},
-      11:{ name: "seedling"},
-    },
-  }
-});
-*/
+// initialize loadouts if not already built
+if(typeof storage.get('loadouts') === undefined) {
+  console.log("FLAG")
+  storage.set({'loadouts':
+    { 
+      0: {
+        name: "minerals",
+        labels: {
+          0: {name: "quartz"}, 
+          1: {name: "k-feldspar"}, 
+          2: {name: "plagioclase feldspar"}, 
+          3: {name: "muscovite"},
+          4: {name: "biotite"}, 
+          5: {name: "amphibole"}, 
+          6: {name: "orthopyroxene"}, 
+          7: {name: "clinopyroxine"},
+          8: {name: "olivine"},
+          9: {name: "calcite"},
+          10: {name: "dolomite"},
+          11: {name: "gypsum"},
+          12: {name: "anhydrite"},
+          13: {name: "epidote"},
+          14: {name: "garnet"},
+          15: {name: "fluorite"},
+          16: {name: "apatite"},
+          17: {name: "zircon"},
+          18: {name: "opaques"},
+          19: {name: "semi-opaques"},
+        }
+      },
 
+      1: {
+        name: "cystic_fibrosis",
+        labels: {
+          0: {name:"cf_alive"}, 
+          1: {name:"cf_dead"}, 
+          2: {name:"healthy_alive"}, 
+          3: {name: "healthy_dead"}
+        }
+      },
 
+      2: {
+        name: "plants",
+        labels: {
+          0: { name: "oregano"}, 
+          1: {name: "tomato"}, 
+          2: {name: "strawberry"}, 
+          3: { name: "pepper"},
+          4: { name: "lettuce"}, 
+          5: {name: "zucchini"}, 
+          6: {name: "basil"}, 
+          7: { name: "cilantro"},
+          8: { name: "dill"},
+          9:{ name: "mint"},
+          10:{ name: "seedling"},
+        }
+      },
+    }
+  });
+}
 
 //var foundImages = []
 //var completedImages = []
@@ -60,7 +93,7 @@ function createWindow () {
     })
 
     win.loadFile(path.join(__dirname, './src/index.html'))
-    win.webContents.openDevTools()
+    //win.webContents.openDevTools()
 
 }
 app.setName('Mapier');
@@ -97,12 +130,10 @@ ipcMain.handle('get_loadouts', async (event, args = "") => {
 // find highest unused value
 ipcMain.handle('set_loadout', async (event, args) => {
   //var s = storage.get('loadouts')[args['loadout']]
-  var path = 'loadouts.'+args['loadout']
+  console.log(args)
+  var path = 'loadouts.'+args['idx']
   storage.set(path, args['l'])
-  console.log("UPDATE: ", storage.get('loadouts.cystic_fibrosis'))
   console.log("ALL:", storage.get('loadouts'))
-
-
 });
 
 ipcMain.handle('save_crop', async (event, args) => {
