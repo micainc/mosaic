@@ -16,19 +16,18 @@
         <div class="cursor"></div>
         <div id="parameters">
             <div id="parameters-paths">
-                <button class="parameter-buttom" onclick="window.api.invoke('set_file_path', {'path': './', 'type': 'load'})"><img width="20px" src="./images/load_folder.png"><span class="path" id="load-path">&nbsp; Load...</span></button> 
-                <button class="parameter-buttom" onclick="findShapes()"><img width="20px" src="./images/save_folder.png" ><span class="path" id="save-path">&nbsp; Save...</span></button> 
-
+                <button class="parameter-button" onclick="findShapes()"><img width="20px" src="./images/save_folder.png" ><span class="path" id="save-path">&nbsp; Save...</span></button> 
             </div>
             <div id="parameters-filename">
                 Drag image/set below...
             </div>
+            <button onclick="nextImage()">next img...</button>
             <!--<div id="parameters-number">(0/0)</div> -->
             <!--<div id="coords"></div>-->
             <div id="parameters-right">
-                <button class="parameter-buttom" onclick="toggleZoom()"><img id="zoom-img" width="20px" src="./images/zoom_1.png"></button> 
+                <button class="parameter-button" onclick="toggleZoom()"><img id="zoom-img" width="20px" src="./images/zoom_1.png"></button> 
 
-                <input class="slider" id="cursor-size-slider" type="range" min="10" max="200" value="50">
+                <input class="slider" id="cursor-size-slider" type="range" min="10" max="200" value="10">
 
                 <div class="custom-select" id="loadouts">
                     <select></select>

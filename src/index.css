@@ -151,7 +151,7 @@ button:hover, select:hover {
     left: 0;
     right: 0; 
 
-    /* these two: good for zoom mode */
+    /* adjust for zoom mode */
     width:100%;
     /* * * * */
     
@@ -172,7 +172,7 @@ button:hover, select:hover {
 
 #canvas-temp {
     z-index: 1 !important;
-    display: none; 
+    /*display: none; */
 }
 
 #canvas-image {
@@ -199,10 +199,10 @@ button:hover, select:hover {
    /*accent-color: #000000;*/
 }
 
-.parameter-buttom {
+.parameter-button {
     display:flex;
 }
-.parameter-buttom span {
+.parameter-button span {
     line-height: 20px;
 }
 

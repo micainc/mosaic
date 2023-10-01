@@ -4,13 +4,14 @@ const { app, BrowserWindow } = require('electron')
 const path = require('path');
 const {ipcMain} = require('electron')
 const fs = require('fs');
-const { resolve } = require('path');
+//const fsp = require('fs').promises;
+
+//const { resolve } = require('path');
 const {dialog} = require('electron')
 const Store = require('electron-store');
 
 
 var win = ""
-var loadDirectory = ""
 var saveDirectory = ""
 
 const storage = new Store();
@@ -93,7 +94,7 @@ function createWindow () {
     })
 
     win.loadFile(path.join(__dirname, './src/index.html'))
-    //win.webContents.openDevTools()
+    win.webContents.openDevTools()
 
 }
 app.setName('Mapier');
@@ -115,7 +116,7 @@ app.on('window-all-closed', () => {
 })
 
 var getFilename = function (str) {
-  return str.substring(str.lastIndexOf('/')+1);
+  return str.substring(str.lastIndexOf('/')+1).replace(/\.(jpg|JPG|png|PNG|jpeg|JPEG|tiff|TIFF|TIF|tif|gif|GIF)/, '');
 }
 
 ipcMain.handle('get_loadouts', async (event, args = "") => {
@@ -136,23 +137,43 @@ ipcMain.handle('set_loadout', async (event, args) => {
   console.log("ALL:", storage.get('loadouts'))
 });
 
-ipcMain.handle('save_crop', async (event, args) => {
-  //file = getFilename(args['file']).replace('.jpg', '_'+args['id']).replace('.png', '_'+args['id']).replace('.jpeg', '_'+args['id']).replace('.tif', '_'+args['id']).replace('.tiff', '_'+args['id'])
-  file = getFilename(args['file']).replace(/\.(jpg|JPG|png|PNG|jpeg|JPEG|tiff|TIFF|TIF|tif|gif|GIF)/, '_'+args['id'])
-  console.log(args)
-  console.log("SAVE PATH: ", saveDirectory+"/"+file+'.png')
-  const base64Data = args['url'].replace(/^data:image\/png;base64,/, "");
-  fs.writeFile(saveDirectory+"/"+file+'.png', base64Data, 'base64', function (err) {
-    if (err) {
-      return "Image map could not be saved: "+err
-    } else
-      return file
-  });
 
-  // append file to completed images; change to next image
-  //completedImages.push(getFilename(args['file']))
-  //let code = `document.getElementById("parameters-number").innerHTML = "(${completedImages.length}/${foundImages.length})"`;
-  //win.webContents.executeJavaScript(code);
+ipcMain.handle('save_crop', async (event, args) => {
+  var name = getFilename(args['file'])
+  var nextIdx = 0;
+  // if images in the save dir have the same timestamp as passed in args, overwrite them- otherwise, add them to dir at higher idx
+  fs.readdir(saveDirectory, (err, files) => {
+    if (err) {
+      console.error("Error reading directory:", err);
+      return;
+    }
+    var pngFiles = files.filter(file => file.endsWith('.png'));
+    console.log("TYPE: ", args['type'])
+
+    for (const f of pngFiles) {
+      if (f.includes(name) && !f.includes(args['timestamp'])) { 
+        console.log("FILE: ", f)
+        // get the highest idx value
+        var tokens = f.split('_')
+        if(parseInt(tokens[1]) >= nextIdx) {
+          nextIdx = parseInt(tokens[1])+1;
+        }
+      }
+    }
+    console.log("NEXT IDX: ", nextIdx)
+
+    args['idx'] += nextIdx; //
+  
+    var file = name+'_'+args['idx']+'_'+args['type']+'_'+args['timestamp']+'.png'
+    console.log("WRITING FILE : ", file)
+    const base64Data = args['url'].replace(/^data:image\/png;base64,/, "");
+    fs.writeFile(saveDirectory+"/"+file, base64Data, 'base64', function (err) {
+      if (err) {
+        return "Image map could not be saved: "+err
+      } else
+        return file
+    });
+  });
 });
 
 ipcMain.handle('set_file_path', async (event, args) => {
@@ -164,19 +185,7 @@ ipcMain.handle('set_file_path', async (event, args) => {
     properties: ['openDirectory', 'createDirectory'],
   }
   
-  const load_dialog_options = {
-    title: args['type'] == 'save' ? 'Save Path' : 'Load Path',
-    defaultPath: path,
-    properties: ['openDirectory'],
-  }
-
-  // if image dragged: assume load path. If "load" button clicked, select load pth
-  if(args['type'] == 'load_drag') {
-    file = getFilename(path)
-    loadDirectory = path.replace('/'+file, '');
-    let code = `document.getElementById("load-path").innerHTML = "&nbsp; ${loadDirectory}"`;
-    win.webContents.executeJavaScript(code);
-  } else if(args['type'] == 'save' && saveDirectory == '') {
+  if(args['type'] == 'save' && saveDirectory == '') {
     await dialog.showOpenDialog(win, save_dialog_options).then((result) => {
       if(typeof result['filePaths'][0]  !== 'undefined') {
         saveDirectory = result['filePaths'][0]
@@ -184,35 +193,5 @@ ipcMain.handle('set_file_path', async (event, args) => {
         win.webContents.executeJavaScript(code);
       }
     });
-  } else if(args['type'] == 'load') { // clicked load button
-    await dialog.showOpenDialog(win, load_dialog_options).then((result) => {
-      if(typeof result['filePaths'][0]  !== 'undefined') {
-        loadDirectory = result['filePaths'][0]
-        let code = `document.getElementById("load-path").innerHTML = "&nbsp; ${loadDirectory}"`;
-        win.webContents.executeJavaScript(code);
-      }
-    });
   } 
-  console.log("continuing checking load")
-  if(args['type'] == 'load' || args['type'] == 'load_drag') {
-    // get list of all images in loadDirectory
-    fs.readdir(loadDirectory, function (err, files) {
-      //handling error
-      if (err) {
-          return console.log('Unable to scan directory: ' + err);
-      } 
-      //listing all files using forEach
-      /*
-      files.forEach(function (file) {
-          // Do whatever you want to do with the file
-          if(file.match(/\.(jpg|JPG|png|PNG|jpeg|JPEG|tif|TIF|tiff|TIFF|gif|GIF)/)) {
-            console.log(file); 
-            foundImages.push(file)
-          }
-      });
-      */
-      //let code = `document.getElementById("parameters-number").innerHTML = "(${completedImages.length}/${foundImages.length})"`;
-      //win.webContents.executeJavaScript(code);
-    });
-  }
 })
