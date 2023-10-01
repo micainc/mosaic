@@ -63,10 +63,8 @@ function init() {
         if(leftClicked) {
             ctx_draw.closePath()
             fillGaps(drawPath); // fills gaps in the drawing of a loop due to lag
-            console.log("FILLED GAPS")
 
             var res = findClosedLoops(drawPath);
-            console.log("RES: ", res)
     
             ctx_temp.clearRect(res[2]['left'], res[2]['top'], res[2]['right']-res[2]['left'], res[2]['bottom']-res[2]['top']);
             fillLoops(res[0])
@@ -77,6 +75,7 @@ function init() {
         leftClicked = false;
         rightClicked =false;
     })
+
     canvas_draw.addEventListener("mouseleave", function(e) {
         leftClicked = false;
         rightClicked = false;
@@ -142,7 +141,6 @@ function init() {
 
     }
     */
-
 
     // get & populate with first loadout
     window.api.invoke('get_loadouts')
@@ -326,20 +324,10 @@ function circleIntersect(x0, y0, r0, x1, y1, r1) {
     return Math.hypot(x0 - x1, y0 - y1) <= r0 + r1;
 }
 
-function fillLoops(loops, duds) {
-    // clean areas first - get rid of accumulated black areas.
-    // BUG: Multiple floods are traversing the outside entirely, with some white space left over. If a new flood traversal occurs in a white space surrounded by black, it ends without traversal and assumes the point is interior. An activeColour flood can occur outside of a shape body accidentally in this case.
-    // To avoid this issue, clean duds FIRST, then flood active colour.
-    /*
-    for(d in duds) {
-        flood(duds[d]['x'], duds[d]['y'], "#FFFFFF")
-    }
-    console.log("FINISHED DUDS")
-    */
+function fillLoops(loops) {
     for(l in loops) { // fill areas
         flood(loops[l]['x'], loops[l]['y'], activeColour)
     }
-    console.log("FINISHED LOOPS")
 }
 
 // image is a 2D array of pixel colors
