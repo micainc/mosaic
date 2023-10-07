@@ -94,7 +94,7 @@ function createWindow () {
     })
 
     win.loadFile(path.join(__dirname, './src/index.html'))
-    win.webContents.openDevTools()
+    //win.webContents.openDevTools()
 
 }
 app.setName('Mapier');
@@ -140,6 +140,12 @@ ipcMain.handle('set_loadout', async (event, args) => {
 
 ipcMain.handle('save_crop', async (event, args) => {
   var name = getFilename(args['file'])
+  
+  if(args['type'] === 'map'){
+    name = name.split("_")[0]+"_map"
+  }  
+  console.log("NAME: ", name)
+
   var nextIdx = 0;
   // if images in the save dir have the same timestamp as passed in args, overwrite them- otherwise, add them to dir at higher idx
   fs.readdir(saveDirectory, (err, files) => {
@@ -164,7 +170,9 @@ ipcMain.handle('save_crop', async (event, args) => {
 
     args['idx'] += nextIdx; //
   
-    var file = name+'_'+args['idx']+'_'+args['type']+'_'+args['timestamp']+'.png'
+    var file = ""
+    file = name+'_'+args['idx']+'_'+args['timestamp']+'.png'
+    
     console.log("WRITING FILE : ", file)
     const base64Data = args['url'].replace(/^data:image\/png;base64,/, "");
     fs.writeFile(saveDirectory+"/"+file, base64Data, 'base64', function (err) {

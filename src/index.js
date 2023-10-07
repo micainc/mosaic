@@ -63,12 +63,8 @@ function init() {
         if(leftClicked) {
             ctx_draw.closePath()
             fillGaps(drawPath); // fills gaps in the drawing of a loop due to lag
-
             var res = findClosedLoops(drawPath);
-    
-            ctx_temp.clearRect(res[2]['left'], res[2]['top'], res[2]['right']-res[2]['left'], res[2]['bottom']-res[2]['top']);
             fillLoops(res[0])
-    
             drawAreas.push(res[2])
             drawPath = []
         }
@@ -122,25 +118,6 @@ function init() {
         console.log("SCROLL")
         updateCursor(event);
     });
-
-    /*
-    window.onscroll = function(event) {
-        console.log(event)
-        const rect = canvas_image.getBoundingClientRect()
-        scrollX = -rect.left;
-        scrollY = -rect.top;
-        mouseX = Math.round((event.clientX + scrollX) * canvas_image.width / canvas_image.clientWidth);
-        mouseY = Math.round((event.clientY + scrollY) * canvas_image.height / canvas_image.clientHeight);
-
-        cursor.style.transform = `translate(${mouseX - drawSize/2}px, ${mouseY - drawSize/2}px)`; // translate puts the cursor EXACTLY at these coordinates
-        //console.log("x: " + mouseX + " y: " + mouseY)
-        if(leftClicked){
-            drawPath.push({x: mouseX, y: mouseY})
-        }
-        $('#coords').text(mouseX + ", " + mouseY)
-
-    }
-    */
 
     // get & populate with first loadout
     window.api.invoke('get_loadouts')
@@ -245,9 +222,14 @@ function findClosedLoops(path) {
 
             // if canvas not painted and traverse canvas not traversed
             if (col != activeColour && data2[3] === 0) {
+                //const start = Date.now();
+
                 if (floodFindInterior(testX, testY, boundingBox.bottom, boundingBox.top, boundingBox.left, boundingBox.right)) {
+                    //const end = Date.now();
+                    //console.log(`EXECUTION TIME: ${end - start} ms`);
                     loopCenters.push({ 'x': testX, 'y': testY });
                 }
+
             }
         }
     }
@@ -288,37 +270,40 @@ function getBoundingBox(path) {
 }
 
 function floodFindInterior(x1, y1, b, t, l, r) {
-    var floodQueue = [{ x: x1, y: y1 }];
-    const directions = [{dx: -2, dy: 0}, {dx: 2, dy: 0}, {dx: 0, dy: -2}, {dx: 0, dy: 2}];
-    ctx_temp.fillStyle = "rgba(0,0,0,1)";
-    var isInterior = true;
-    while (floodQueue.length > 0) {
-      var { x, y } = floodQueue.shift();
+    const visited = new Set();
+    const floodQueue = [{ x: x1, y: y1 }];
+    const directions = [{ dx: -2, dy: 0 }, { dx: 2, dy: 0 }, { dx: 0, dy: -2 }, { dx: 0, dy: 2 }];
+    let isInterior = true;
   
-      // If hits bounding box: not interior
-      if (x <= l || x >= r || y <= t || y >= b) { 
+    const getKey = (x, y) => `${x},${y}`;
+  
+    while (floodQueue.length > 0) {
+      const { x, y } = floodQueue.shift();
+  
+      if (visited.has(getKey(x, y))) continue;
+  
+      visited.add(getKey(x, y));
+  
+      if (x <= l || x >= r || y <= t || y >= b) {
         isInterior = false;
+        continue;
       }
   
       const dataT = ctx_temp.getImageData(x, y, 1, 1).data;
+      if (dataT[3] >= 255) continue;
   
-      // If pixel not traversed
-      if (dataT[3] < 255) {
-        const data = ctx_draw.getImageData(x, y, 1, 1).data;
-        const col = rgbToHex(data[0], data[1], data[2]);
-  
-        if (col !== activeColour && x > l && x < r && y > t && y < b) {
-          fillRegion(ctx_temp, x, y); // Mark as traversed
-          for (let { dx, dy } of directions) {
-            const newX = x + dx;
-            const newY = y + dy;
-            floodQueue.push({ x: newX, y: newY });
-          }
+      const data = ctx_draw.getImageData(x, y, 1, 1).data;
+      if (rgbToHex(data[0], data[1], data[2]) !== activeColour) {
+        fillRegion(ctx_temp, x, y);
+        for (const { dx, dy } of directions) {
+          floodQueue.push({ x: x + dx, y: y + dy });
         }
-      } 
+      }
     }
+  
     return isInterior;
-}
+  }  
+
 
 function circleIntersect(x0, y0, r0, x1, y1, r1) {
     return Math.hypot(x0 - x1, y0 - y1) <= r0 + r1;
@@ -326,57 +311,44 @@ function circleIntersect(x0, y0, r0, x1, y1, r1) {
 
 function fillLoops(loops) {
     for(l in loops) { // fill areas
+        const start = Date.now();
         flood(loops[l]['x'], loops[l]['y'], activeColour)
+
+        const end = Date.now();
+        console.log(`EXECUTION TIME: ${end - start} ms`);
     }
 }
 
-// image is a 2D array of pixel colors
-// x and y are the coordinates of the starting pixel
+// Flood fills an area starting from (x1, y1) with the new color `newCol`.
+// `image` is a 2D array of pixel colors.
+
 function flood(x1, y1, newCol) {
-    floodQueue = [{'x': x1, 'y': y1}]
+    const visited = new Set();
+    const floodQueue = [{ x: x1, y: y1 }];
+    const getKey = (x, y) => `${x},${y}`;
+  
     ctx_draw.fillStyle = newCol;
-
-    /*
-    var data = ctx_draw.getImageData(x1, y1, 1, 1).data;
-    var col = rgbToHex(data[0], data[1], data[2])
-
-    if(!(col === "#000000" && data[3] === 255)){
-        console.log("WTF: " + data +" | "+ x1 + ", "+ y1)
+  
+    while (floodQueue.length !== 0) {
+      const p = floodQueue.shift();
+      const { x, y } = p;
+  
+      if (visited.has(getKey(x, y))) continue;
+  
+      visited.add(getKey(x, y));
+  
+      const data = ctx_draw.getImageData(x, y, 1, 1).data;
+      const col = rgbToHex(data[0], data[1], data[2]);
+  
+      if (col !== activeColour && x > 0 && y > 0 && x < canvas_draw.width && y < canvas_draw.height) {
+        fillRegion(ctx_draw, x, y);
+        
+        floodQueue.push({ x: x - 2, y: y });
+        floodQueue.push({ x: x + 2, y: y });
+        floodQueue.push({ x: x, y: y - 2 });
+        floodQueue.push({ x: x, y: y + 2 });
+      }
     }
-    */
-
-    do {
-        var p = floodQueue.shift()
-        //console.log(px)
-        x = p['x']
-        y = p['y']
-        //console.log("("+x+", "+y+")")
-        var data = ctx_draw.getImageData(x, y, 1, 1).data;
-        var col = rgbToHex(data[0], data[1], data[2])
-
-        if(col != activeColour) { // while on a traversed pixel
-            // if the pixel at a point is not a boundary or previously traversed, then continue
-
-            fillRegion(ctx_draw, x, y) // fill with colour
-
-            // check the neighboring pixels by adding to queue
-            if(x > 0 && y > 0 && x < canvas_draw.width && y < canvas_draw.height) {
-                floodQueue.push({'x': x - 2, 'y': y})
-                floodQueue.push({'x': x + 2, 'y': y})
-                floodQueue.push({'x': x, 'y': y - 2})
-                floodQueue.push({'x': x, 'y': y + 2})
-                /*floodQueue.push({'x': x - 2, 'y': y - 2})
-                floodQueue.push({'x': x + 2, 'y': y + 2})
-                floodQueue.push({'x': x + 2, 'y': y - 2})
-                floodQueue.push({'x': x - 2, 'y': y + 2})*/
-            }
-        }
-    } while(floodQueue.length != 0)
-
-    /*
-    ctx_draw.fillStyle = '#00FF00';
-    fillRegion(ctx_draw, x-1, y-1, 3) // mark as traversed
-    */
 }
 
 function fillRegion(canvas, x, y) {
@@ -475,28 +447,7 @@ function procFile(file) {
         //console.log(file)
  
         if(file.type === "image/tiff" || file.type === "image/tif") {
-            /*
-            var reader = new FileReader();
-            reader.onload = function (e) {
-                var ifds = UTIF.decode(e.target.result);
-                const timage = ifds[0]; // ifds is an array of IFDs (image file directories)
-                UTIF.decodeImage(e.target.result, timage); // decoding pixel data
-                const array = new Uint8ClampedArray(UTIF.toRGBA8(timage))
-                const imageData = new ImageData(array, timage.width, timage.height);
-
-                canvas_image.width = timage.width;
-                canvas_image.height = timage.height;
-                canvas_draw.width = timage.width;
-                canvas_draw.height = timage.height;
-                canvas_temp.width = timage.width;
-                canvas_temp.height = timage.height;
-                ctx_image.putImageData(imageData, 0, 0);
-                console.log("FILE NAME: ", file.name)
-                images[file.name] = {'data': imageData, 'src': file.path}
-                currentImage = file.name
-            }
-            reader.readAsArrayBuffer(file);
-            */
+            // do something with tiff
         } else {
             var img = new Image();
             img.src = file.path;
@@ -549,30 +500,6 @@ init();
 
 //------------------------------------------------------ SAVE FUNCTIONALITY ------------------------------------------------------//
 
-// ctx is the canvas context
-// x and y are the coordinates of the pixel
-// r, g, b and a are the red, green, blue and alpha values of the color
-/*
-function setPixel(ctx, x, y, r, g, b, a) {
-    // create a new image data object with a 1x1 size
-    let imageData = ctx.createImageData(1, 1);
-    // get the data array of the image data object
-    let data = imageData.data;
-    // set the color values for the pixel
-    data[0] = r; // red
-    data[1] = g; // green
-    data[2] = b; // blue
-    data[3] = a; // alpha
-    // put the image data object at the specified coordinates
-    ctx.putImageData(imageData, x, y);
-  }
-  */
-
-/*
-  1. Iterate through known areas where canvas has been painted
-  2. find pixels that are not transparent. recalculate bounding crop for that shape, in case multiple drawpaths overlap to composite a final shape
-  3. once final bounding box is computed, return x, y, width, height, and save mask and cropped image to png
-*/
 function toggleZoom() {
     console.log(zoom)
     zoom = !zoom;
@@ -715,16 +642,9 @@ function findShapes() {
                 ctx_temp.putImageData(crop, 0, 0)
                 // get each pixel value; convert opacity value to (255 - index)
                 let url = canvas_temp.toDataURL("image/png");
+                console.log("INDEX: ", index)
                 window.api.invoke('save_crop', {'url': url, 'file': images[currentImage]['src'], 'type': 'map', 'idx': index, 'timestamp': timestamp})
-
-                saveCroppedImages(left, top, right, bottom)
-                /*
-                crop = ctx_image.getImageData(left, top, (right-left), (bottom-top))
-                ctx_temp.putImageData(crop, 0, 0)
-                url = canvas_temp.toDataURL("image/png");
-                // layers: 'cross-polarization-composite', 'linear-polarization', 'gypsum' 
-                window.api.invoke('save_crop', {'url': url, 'file': images[currentImage]['src'], 'type': 'img', 'idx': index, 'timestamp': timestamp})
-                */
+                saveCroppedImages(left, top, right, bottom, index)
             });
             // after all files have been saved, reset the temp canvas to fit the image
             canvas_temp.width = canvas_image.width;
@@ -734,7 +654,7 @@ function findShapes() {
         });
 }
 
-function saveCroppedImages(left, top, right, bottom) {
+function saveCroppedImages(left, top, right, bottom, index) {
     const keys = Object.keys(images);
 
     for (let i = 0; i < keys.length; i++) {
@@ -759,7 +679,7 @@ function saveCroppedImages(left, top, right, bottom) {
                 'url': url,
                 'file': images[key]['src'],
                 'type': 'img',
-                'idx': i,
+                'idx': index,
                 'timestamp': timestamp  // Assuming you want the current timestamp
             });
         } else {

@@ -172,7 +172,7 @@ button:hover, select:hover {
 
 #canvas-temp {
     z-index: 1 !important;
-    /*display: none; */
+    display: none; 
 }
 
 #canvas-image {
