@@ -16,15 +16,14 @@
         <div class="cursor"></div>
         <div id="parameters">
             <div id="parameters-paths">
-                <button class="parameter-button" onclick="findShapes()"><img width="20px" src="./images/save_folder.png" ><span class="path" id="save-path">&nbsp; Save...</span></button> 
+                <button class="parameter-button" onclick="findRegions()"><img width="20px" src="./images/save_folder.png" ><span class="path" id="save-path">&nbsp; Save...</span></button> 
             </div>
-            <div id="parameters-filename">
-                Drag image/set below...
+            <div id="parameters-file">
+                <button onclick="cycleImage(-1)"><<</button><span id="parameters-filename">Drag image set below...</span><button onclick="cycleImage(1)">>></button>
             </div>
-            <button onclick="nextImage()">next img...</button>
             <!--<div id="parameters-number">(0/0)</div> -->
-            <!--<div id="coords"></div>-->
             <div id="parameters-right">
+                <div id="coords"></div>
                 <button class="parameter-button" onclick="toggleZoom()"><img id="zoom-img" width="20px" src="./images/zoom_1.png"></button> 
 
                 <input class="slider" id="cursor-size-slider" type="range" min="10" max="200" value="10">
@@ -39,10 +38,9 @@
             </div>
         </div>
 
-        <canvas class= "mapier-canvas" id="canvas-image"></canvas>
-        <canvas class= "mapier-canvas" id="canvas-draw"></canvas>
-        <!-- <canvas class= "mapier-canvas" id="canvas-draw-borders"></canvas> -->
-        <canvas class= "mapier-canvas" id="canvas-temp"></canvas>
+        <canvas class= "mapier-canvas" id="image-canvas"></canvas>
+        <canvas class= "mapier-canvas" id="draw-canvas"></canvas>
+        <canvas class= "mapier-canvas" id="temp-canvas"></canvas>
 
     </body>
     <script src="./selector.js"></script>

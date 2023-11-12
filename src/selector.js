@@ -1,5 +1,5 @@
 // should be 24
-var bgColors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FF8000', '#80FF00', '#8000FF', '#FF0080', '#00FF80', '#0080FF', '#FFFF80', '#FF80FF', '#80FFFF', '#800000', '#008000', '#000080', '#808000', '#800080', '#008080', '#FF8080', '#80FF80', '#8080FF']
+var drawColors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FF8000', '#80FF00', '#8000FF', '#FF0080', '#00FF80', '#0080FF', '#FFFF80', '#FF80FF', '#80FFFF', '#800000', '#008000', '#000080', '#808000', '#800080', '#008080', '#FF8080', '#80FF80', '#8080FF']
 var fontColors = ['#FFFFFF', '#FFFFFF', '#FFFFFF', '#000000', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#000000', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#000000', '#FFFFFF', '#000000', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF']
 
 var labelsIdx = -1
@@ -25,7 +25,7 @@ function initializeItemList(changeColour, selector) {
     itemList.append(item);
 
     if(selElmnt.parentNode.id === 'labels') {
-      item.style.backgroundColor = bgColors[selElmnt.options[i].value]
+      item.style.backgroundColor = drawColors[selElmnt.options[i].value]
       item.style.color = fontColors[selElmnt.options[i].value];
       if(selElmnt.options[i].value > labelsIdx) {
         labelsIdx = parseInt(selElmnt.options[i].value)
@@ -59,10 +59,10 @@ function initializeItemList(changeColour, selector) {
       labelsIdx +=1
       lbl.setAttribute("placeholder", labelsIdx+"...")
       lbl.setAttribute("value", labelsIdx);
-      lbl.style.backgroundColor = bgColors[labelsIdx]
+      lbl.style.backgroundColor = drawColors[labelsIdx]
       lbl.style.color = fontColors[labelsIdx]
-      changeColour(bgColors[labelsIdx])
-      //console.log("NEW COLOUR: ", bgColors[labelsIdx-1])
+      changeColour(drawColors[labelsIdx])
+      //console.log("NEW COLOUR: ", drawColors[labelsIdx-1])
       activeCursor = true;
     } else if(list === 'loadouts'){
       loadoutsIdx +=1

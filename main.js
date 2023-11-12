@@ -15,10 +15,9 @@ var win = ""
 var saveDirectory = ""
 
 const storage = new Store();
-
+const static_loadouts = true;
 // initialize loadouts if not already built
-if(typeof storage.get('loadouts') === undefined) {
-  console.log("FLAG")
+if(typeof storage.get('loadouts') === undefined || static_loadouts) {
   storage.set({'loadouts':
     { 
       0: {
@@ -131,10 +130,11 @@ ipcMain.handle('get_loadouts', async (event, args = "") => {
 // find highest unused value
 ipcMain.handle('set_loadout', async (event, args) => {
   //var s = storage.get('loadouts')[args['loadout']]
-  console.log(args)
+
+  console.log("SAVING LOADOUT CHANGES... " , args)
   var path = 'loadouts.'+args['idx']
   storage.set(path, args['l'])
-  console.log("ALL:", storage.get('loadouts'))
+  console.log("LOADOUTS:", storage.get('loadouts'))
 });
 
 

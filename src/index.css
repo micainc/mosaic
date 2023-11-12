@@ -14,6 +14,7 @@ body {
 [contenteditable] {
     cursor: text;
 }
+
 button, select, .table-control {
     font-family: "Hanken Grotesk", "Arial";
     background-color: #FFFFFF;
@@ -36,7 +37,7 @@ button:hover, select:hover {
     opacity: 0.5;
     border:none;
     border-bottom: 1px solid #DDDDDD;
-    -webkit-app-region: drag;
+    -webkit-app-region: drag; /* allows dragging the electron app window around */
     width:100%;
 }
 
@@ -57,14 +58,23 @@ button:hover, select:hover {
     justify-content: right;
 }
 
-#parameters-filename {
+#parameters-file {
     display: flex;
     margin-left: auto;   
     margin-right: auto;
     align-items:center;
-    justify-content:right;
+    justify-content:center;
     white-space: nowrap;
     overflow-x: hidden;
+}
+
+#parameters-file button {
+    display:flex !important;
+    margin: 0px 5px;
+    padding:0px 10px !important;
+    justify-content: center !important;
+    align-items: center;
+    height:100%;
 }
 
 #parameters-number {
@@ -164,18 +174,18 @@ button:hover, select:hover {
     display: block; /* show the cursor element when the mouse is over the canvas */
 }
 
-#canvas-draw {
+#draw-canvas {
     z-index: 2 !important;
-
     opacity:0.5;
 }
 
-#canvas-temp {
+#temp-canvas {
     z-index: 1 !important;
-    display: none; 
+    opacity: 0.5;
+    /*display: none; */
 }
 
-#canvas-image {
+#image-canvas {
     z-index: 0 !important;
     /*display: none;*/
 }
@@ -222,6 +232,9 @@ button:hover, select:hover {
     scrollbar-width: none;  /* Firefox */
 }
 
+#coords {
+    padding-right: 5px;
+}
 /*------------------------------------------------------ SELECTOR FUNCTIONALITY ------------------------------------------------------*/
 
 /*the container must be positioned relative:*/
