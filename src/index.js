@@ -121,11 +121,17 @@ function init() {
     draw_canvas.addEventListener("dragover", catchDrag);
     draw_canvas.addEventListener("drop", dropFiles);
     document.addEventListener('keydown', function(event) {
-        if (event.code === 'Space') draw_canvas.style.display = 'none';
+        if (event.code === 'Space') {
+            event.preventDefault()
+            draw_canvas.style.opacity = '0';
+        }
     });
     // Event listener for keyup
     document.addEventListener('keyup', function(event) {
-        if (event.code === 'Space') draw_canvas.style.display = 'block';
+        if (event.code === 'Space') {
+            event.preventDefault()
+            draw_canvas.style.opacity = '0.5';
+        }
     });
 
     function updateCursor(event) {
@@ -702,7 +708,50 @@ function findRegions() {
 
 }
 
+function getCommonSubstring(strings) {
+    if (!strings.length) {
+      return '';
+    }
+  
+    // Helper function to find common prefix between two strings
+    function commonPrefix(str1, str2) {
+      let i = 0;
+      while (i < str1.length && i < str2.length && str1[i] === str2[i]) {
+        i++;
+      }
+      return str1.substring(0, i);
+    }
+  
+    // Start with the first string as a candidate for the common substring
+    // and compare it with all other strings, shortening it as necessary
+    let commonSub = strings[0];
+    for (let i = 1; i < strings.length && commonSub !== ''; i++) {
+      commonSub = commonPrefix(commonSub, strings[i]);
+      if (commonSub === '') break; // If empty, no common substring exists
+    }
+  
+    // If commonSub still has length, it means it's present in all strings so far,
+    // but it might not be the longest. Check for longer common substrings.
+    if (commonSub.length > 0) {
+      for (let i = commonSub.length; i > 0; i--) {
+        let subCandidate = commonSub.substring(0, i);
+        let isCommon = strings.every((str) => str.includes(subCandidate));
+        if (isCommon) {
+          return subCandidate; // Returns the longest common substring found
+        }
+      }
+    }
+  
+    return commonSub; // Return the common substring (which may be empty)
+}
+
+var getFilename = function (str) {
+    return str.substring(str.lastIndexOf('/')+1).replace(/\.(jpg|JPG|png|PNG|jpeg|JPEG|tiff|TIFF|TIF|tif|gif|GIF)/, '');
+}
+
 function saveRegions() {
+    var identifier = getCommonSubstring(Object.keys(images).map( (key) => getFilename(images[key]['src']).trim().replace(/^_+|_+$/g, ''))) // trim trailing/leading whitespace and underscores
+    console.log("IDENTIFIER: ", identifier)
 
     window.api.invoke('set_file_path', {'path': images[currentImage]['src'], 'type': 'save'})
         .then(() => {
@@ -713,7 +762,6 @@ function saveRegions() {
                 rgbs[c] = rgb
             }
             console.log("RGBs: ", rgbs)
-
             regions.forEach(({ left, right, top, bottom, colour, index}) => {
                 console.log(" ("+colour+"): "+ left+", "+top+", "+right+", "+bottom)
                 save_canvas.width = (right-left);
@@ -734,11 +782,10 @@ function saveRegions() {
                 save_ctx.putImageData(crop, 0, 0)
                 // get each pixel value; convert opacity value to (255 - index)
                 let url = save_canvas.toDataURL("image/png");
-                console.log("INDEX: ", index)
-                window.api.invoke('save_crop', {'url': url, 'file': images[currentImage]['src'], 'type': 'map', 'idx': index, 'timestamp': timestamp})
+                window.api.invoke('save_crop', {'url': url, 'absolute_path': images[currentImage]['src'], 'identifier':identifier, 'type': 'map', 'idx': index, 'timestamp': timestamp})
 
 
-                saveImages(left, top, right, bottom, index)
+                saveImages(left, top, right, bottom, index, identifier)
             });
             // after all files have been saved, reset the temp canvas to fit the image
             save_canvas.width = image_canvas.width;
@@ -749,7 +796,7 @@ function saveRegions() {
 }
 
 
-function saveImages(left, top, right, bottom, index) {
+function saveImages(left, top, right, bottom, index, identifier) {
     console.log("SAVING CROPPED IMAGES....")
     const keys = Object.keys(images);
 
@@ -773,10 +820,11 @@ function saveImages(left, top, right, bottom, index) {
             // Save it
             window.api.invoke('save_crop', {
                 'url': url,
-                'file': images[key]['src'],
+                'absolute_path': images[key]['src'],
                 'type': 'img',
                 'idx': index,
-                'timestamp': timestamp  // Assuming you want the current timestamp
+                'timestamp': timestamp, 
+                'identifier': identifier
             });
         } else {
             console.error("Image data for " + key + " is not available.");

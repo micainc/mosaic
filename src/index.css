@@ -168,6 +168,7 @@ button:hover, select:hover {
     /*margin:auto;*/
     image-rendering: pixelated; 
     /*border: 1px #000000 solid;*/
+    cursor:none;
 }
 
 .mapier-canvas:hover .cursor {

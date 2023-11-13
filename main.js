@@ -139,14 +139,14 @@ ipcMain.handle('set_loadout', async (event, args) => {
 
 
 ipcMain.handle('save_crop', async (event, args) => {
-  var name = getFilename(args['file'])
-  
-  if(args['type'] === 'map'){
-    name = name.split("_")[0]+"_map"
-  }  
-  console.log("NAME: ", name)
-
   var nextIdx = 0;
+  var identifier = args['identifier']
+  if(args['type'] !== 'map') {
+    identifier = getFilename(args['absolute_path'])
+  }
+
+  console.log("ARGS IDENTIFIER: ", args['identifier'])
+
   // if images in the save dir have the same timestamp as passed in args, overwrite them- otherwise, add them to dir at higher idx
   fs.readdir(saveDirectory, (err, files) => {
     if (err) {
@@ -154,24 +154,22 @@ ipcMain.handle('save_crop', async (event, args) => {
       return;
     }
     var pngFiles = files.filter(file => file.endsWith('.png'));
-    console.log("TYPE: ", args['type'])
 
     for (const f of pngFiles) {
-      if (f.includes(name) && !f.includes(args['timestamp'])) { 
+      if (f.includes(args['identifier']) && !f.includes(args['timestamp'])) { 
         console.log("FILE: ", f)
         // get the highest idx value
         var tokens = f.split('_')
-        if(parseInt(tokens[1]) >= nextIdx) {
-          nextIdx = parseInt(tokens[1])+1;
+        if(parseInt(tokens[tokens.length-2]) >= nextIdx) {
+          nextIdx = parseInt(tokens[tokens.length-2])+1;
         }
       }
     }
     console.log("NEXT IDX: ", nextIdx)
 
-    args['idx'] += nextIdx; //
+    args['idx'] += nextIdx; 
   
-    var file = ""
-    file = name+'_'+args['idx']+'_'+args['timestamp']+'.png'
+    var file = identifier+"_"+args['type']+'_'+args['idx']+'_'+args['timestamp']+'.png'
     
     console.log("WRITING FILE : ", file)
     const base64Data = args['url'].replace(/^data:image\/png;base64,/, "");
