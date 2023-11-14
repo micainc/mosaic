@@ -20,58 +20,49 @@ const static_loadouts = true;
 if(typeof storage.get('loadouts') === undefined || static_loadouts) {
   storage.set({'loadouts':
     { 
-      0: {
-        name: "minerals",
-        labels: {
-          0: {name: "quartz"}, 
-          1: {name: "k-feldspar"}, 
-          2: {name: "plagioclase feldspar"}, 
-          3: {name: "muscovite"},
-          4: {name: "biotite"}, 
-          5: {name: "amphibole"}, 
-          6: {name: "orthopyroxene"}, 
-          7: {name: "clinopyroxine"},
-          8: {name: "olivine"},
-          9: {name: "calcite"},
-          10: {name: "dolomite"},
-          11: {name: "gypsum"},
-          12: {name: "anhydrite"},
-          13: {name: "epidote"},
-          14: {name: "garnet"},
-          15: {name: "fluorite"},
-          16: {name: "apatite"},
-          17: {name: "zircon"},
-          18: {name: "opaques"},
-          19: {name: "semi-opaques"},
-        }
+      "minerals": {
+          0: "quartz", 
+          1: "k-feldspar", 
+          2: "plagioclase feldspar", 
+          3: "muscovite",
+          4: "biotite", 
+          5: "amphibole", 
+          6: "orthopyroxene", 
+          7: "clinopyroxine",
+          8: "olivine",
+          9: "calcite",
+          10: "dolomite",
+          11: "gypsum",
+          12: "anhydrite",
+          13: "epidote",
+          14: "garnet",
+          15: "fluorite",
+          16: "apatite",
+          17: "zircon",
+          18: "opaques",
+          19: "semi-opaques",
       },
 
-      1: {
-        name: "cystic_fibrosis",
-        labels: {
-          0: {name:"cf_alive"}, 
-          1: {name:"cf_dead"}, 
-          2: {name:"healthy_alive"}, 
-          3: {name: "healthy_dead"}
-        }
+      "cystic_fibrosis": {
+          0: "cf_alive", 
+          1: "cf_dead", 
+          2: "healthy_alive", 
+          3: "healthy_dead"
       },
 
-      2: {
-        name: "plants",
-        labels: {
-          0: { name: "oregano"}, 
-          1: {name: "tomato"}, 
-          2: {name: "strawberry"}, 
-          3: { name: "pepper"},
-          4: { name: "lettuce"}, 
-          5: {name: "zucchini"}, 
-          6: {name: "basil"}, 
-          7: { name: "cilantro"},
-          8: { name: "dill"},
-          9:{ name: "mint"},
-          10:{ name: "seedling"},
-        }
-      },
+      "plants": {
+        0: "oregano", 
+          1: "tomato", 
+          2: "strawberry", 
+          3: "pepper",
+          4: "lettuce", 
+          5: "zucchini", 
+          6: "basil", 
+          7: "cilantro",
+          8: "dill",
+          9: "mint",
+          10: "seedling",
+      }
     }
   });
 }
@@ -93,7 +84,7 @@ function createWindow () {
     })
 
     win.loadFile(path.join(__dirname, './src/index.html'))
-    //win.webContents.openDevTools()
+    win.webContents.openDevTools()
 
 }
 app.setName('Mapier');

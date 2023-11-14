@@ -19,7 +19,7 @@
                 <button class="parameter-button" onclick="findRegions()"><img width="20px" src="./images/save_folder.png" ><span class="path" id="save-path">&nbsp; Save...</span></button> 
             </div>
             <div id="parameters-file">
-                <button onclick="cycleImage(-1)"><<</button><span id="parameters-filename">Drag image set below...</span><button onclick="cycleImage(1)">>></button>
+                <button onclick="cycleImage(-1)"><img src="./images/left-arrow.png" width="10px"/></button><span id="parameters-filename">Drag image set below...</span><button onclick="cycleImage(1)"><img src="./images/right-arrow.png" width="10px"/></button>
             </div>
             <div id="parameters-right">
                 <div id="coords"></div>
@@ -27,11 +27,12 @@
 
                 <input class="slider" id="cursor-size-slider" type="range" min="10" max="200" value="10">
 
-                <div class="custom-select" id="loadouts">
-                    <select></select>
+                <div class="custom-list" id="loadouts">
+                    <div class="items select-hide"></div>
                 </div>
-                <div class="custom-select" id="labels">
-                    <select></select>
+                <div class="custom-list" id="labels">
+                    <div class="items select-hide"></div>
+
                 </div>
 
             </div>

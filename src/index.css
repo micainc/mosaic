@@ -68,6 +68,7 @@ button:hover, select:hover {
     overflow-x: hidden;
 }
 
+
 #parameters-file button {
     display:flex !important;
     margin: 0px 5px;
@@ -76,6 +77,8 @@ button:hover, select:hover {
     align-items: center;
     height:100%;
 }
+
+
 
 #parameters-number {
     display: flex;
@@ -239,15 +242,11 @@ button:hover, select:hover {
 /*------------------------------------------------------ SELECTOR FUNCTIONALITY ------------------------------------------------------*/
 
 /*the container must be positioned relative:*/
-.custom-select {
+.custom-list {
     position: relative;
     font-family: Arial;
     width:inherit;
 }   
-
-.custom-select select {
-    display: none; /*hide original SELECT element:*/
-}
 
 /*style the items (options), including the selected item:*/
 .selectable {
@@ -272,7 +271,7 @@ button:hover, select:hover {
 }
 
 /*style items (options):*/
-.item-list {
+.items {
     position: absolute;
     top: 100%;
     /*left: 100%;*/

@@ -178,15 +178,19 @@ function init() {
     // get & populate with first loadout
     window.api.invoke('get_loadouts')
     .then(function(loadouts) {
-        for (const [loadout] of Object.entries(loadouts) ) {
+        console.log("LOADOUTS: ", loadouts)
+        setLoadoutList(loadouts)
+        /*
+        for (var [loadout] of Object.entries(loadouts) ) {
             $("#loadouts > select").append('<option value='+loadout+'>'+loadouts[loadout]['name']+'</option>');
         }
-        // populate the labels list with only the first loadout
+        // populate the labels list with the first loadout
         for (const [label, label_data] of Object.entries(Object.values(loadouts)[0]['labels'])) {
             $("#labels > select").append('<option value='+label+'>'+label_data['name']+'</option>');
         }
         initializeItemList(changeColour, document.getElementById('loadouts'));
         initializeItemList(changeColour, document.getElementById('labels'));
+        */
 
     }).catch(function(err) {
         console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
