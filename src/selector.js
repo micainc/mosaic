@@ -2,7 +2,6 @@
 var drawColors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FF8000', '#80FF00', '#8000FF', '#FF0080', '#00FF80', '#0080FF', '#FFFF80', '#FF80FF', '#80FFFF', '#800000', '#008000', '#000080', '#808000', '#800080', '#008080', '#FF8080', '#80FF80', '#8080FF']
 var fontColors = ['#FFFFFF', '#FFFFFF', '#FFFFFF', '#000000', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#000000', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#000000', '#FFFFFF', '#000000', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF']
 
-
 function setLoadoutList(loadouts) {
   var items = $("#loadouts .items")[0]
   console.log(items)
@@ -19,9 +18,6 @@ function setLoadoutList(loadouts) {
       items.append(item)
     }
   }
-
-
-
 
   //Add "+" button to item list 
   var add = document.createElement("DIV");
@@ -122,7 +118,6 @@ function setLabelList(labels) {
 
 }
 
-
 // when a label is clicked, change to that label
 function handleItemClick(e) {
   if(this.classList.contains("selected")) {
@@ -185,9 +180,7 @@ function closeAllSelect(elmnt) {
 /* Save active loadout */
 function saveLoadout() {
   /*
-  var loadout = $("#loadouts .selected")
-  var name = loadout.html()
-  var idx = loadout.attr('value')
+  var name = $("#loadouts .selected").html()
   if(name !== "") { // if the loadout is named, save it
     var lbls = $("#labels .selectable:not(.add)")
     var l = {}
