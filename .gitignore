@@ -87,3 +87,9 @@ typings/
 
 # Electron-Forge
 out/
+
+#ignore images (png, jpg, jpeg, gif) anywhere:
+*.png
+*.jpg
+*.jpeg
+*.gif
