@@ -295,14 +295,30 @@ Image.fromarray(max_composite_minus_bright_sobel).save(os.path.join(folder_path,
 
 #cv2.waitKey(0)  # Wait until a key is pressed
 #cv2.destroyAllWindows()  # Close the displayed windows
-print("APPLYING WATERSHED (FINDING GRAIN BOUNDARIES)...")
 
-watershed_img = apply_watershed_to_hsv(cross_polars[0])
-# watershed = create_watersheds(cross_polars)
-print(watershed_img.shape)
-print("MAX | MIN: " + str(watershed_img.max()) + " | " + str(watershed_img.min()))
-plt.imshow(watershed_img)
-plt.show()
+print("APPLYING DENOISING...")
+
+bright_composite_uint8 = bright_composite.astype(np.uint8)
+
+#apply strong denoising to the composite image
+denoised = cv2.fastNlMeansDenoisingColored(bright_composite_uint8, None, 100, 100, 21, 21)
+cv2.imshow('Denoised', denoised)
+
+print("APPLYING BLURRING...")
+
+# apply bilateral blurring to the denoised image
+blurred = cv2.bilateralFilter(denoised, 35, 64, 64)
+cv2.imshow('Blurred', blurred)
+cv2.waitKey(0)  # Wait until a key is pressed
+
+# print("APPLYING WATERSHED (FINDING GRAIN BOUNDARIES)...")
+
+# watershed_img = apply_watershed_to_hsv(cross_polars[0])
+# # watershed = create_watersheds(cross_polars)
+# print(watershed_img.shape)
+# print("MAX | MIN: " + str(watershed_img.max()) + " | " + str(watershed_img.min()))
+# plt.imshow(watershed_img)
+# plt.show()
 # Convert the watershed array to a 2D or 3D array
 # watershed_2d = np.squeeze(watershed)
 
