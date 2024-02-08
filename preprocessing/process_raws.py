@@ -42,7 +42,7 @@ def get_images(folder_path, folder_name):
             lin_aligned = False
             with Image.open(img_path) as img:
                 arr = np.array(img)
-                aligned_image = align_image_to_reference(arr, lin_polar)
+                aligned_image = align_images(arr, lin_polar)
                 
                 aligned_img_name = os.path.join(folder_path, "aligned_" + cp)
 
@@ -66,7 +66,7 @@ def get_images(folder_path, folder_name):
     cross_polars = list(image_dict.values())
 
 #align images
-def align_image_to_reference(img, reference, blend_width=100):
+def align_images(img, reference, blend_width=100):
     """Aligns images using phase correlation and blends the boundaries."""
 
     # Ensure the images are in the same orientation
@@ -104,7 +104,8 @@ def create_bright_composite(arrays):
     return composite  # convert back to uint8 type
 
 def normalize(image):
-    # if any negative values, dont lose that data - shift all values into positive, to create floor at 0.
+
+    # if any negative values, dont lose that data: shift all values into positive, to create floor at 0.
     absolute = image
     min_val = np.min(image)
 
@@ -136,13 +137,34 @@ def create_sobel(image):
 
     return combined_edges
 
-
 def get_value(image):
     # Convert the image to HSV
     hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
     # Extract the H, S, or V channel
     return hsv[:,:,2]
 
+def show_images(images, title="Image Grid", max_width=3):
+    """
+    Shows images in a wxh grid, where the max width is 3.
+    
+    Parameters:
+    - images: List of images to show.
+    - title: Window title.
+    - max_width: Maximum number of images in a row.
+    """
+    # Calculate the number of rows needed to display the images
+    rows = [images[i:i+max_width] for i in range(0, len(images), max_width)]
+    
+    # Create the horizontal stacks for each row
+    hstacks = [np.hstack(row) for row in rows if row]
+    
+    # Stack rows vertically
+    vstack = np.vstack(hstacks)
+    
+    # Display the images
+    cv2.imshow(title, vstack)
+    cv2.waitKey(0)  # Wait until a key is pressed
+    cv2.destroyAllWindows()  # Close the window
 
 def apply_watershed_on_channel(channel):
     # Apply threshold to find major objects
@@ -170,11 +192,9 @@ def apply_watershed_on_channel(channel):
     # Apply watershed
     return markers
 
-
 def apply_watershed_to_hsv(image):
     # Convert image to HSV
 
-    
     hsv_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
     h, s, v = cv2.split(hsv_image)
 
@@ -198,50 +218,34 @@ def apply_watershed_to_hsv(image):
     plt.imshow(overlay)
     plt.show()
     # Merge the overlay with the original image
-    segmented_image = cv2.addWeighted(image, 1, overlay, 1, 0)
+    segmented_image = cv2.addWeighted(image, 1, overlay, 0.25, 1)
 
     return segmented_image
 
+def denoise_bilateral_filter(image):
+    print("denoise_and_bilateral_filter()")
+    # if not uint8, normalize to 0-255 range and convert to uint8
+    if image.dtype != np.uint8:
+        image = normalize(image)
 
-def apply_watershed(image):
-    """
-    Applies the watershed algorithm to segment objects in an image.
-    :param image: Input RGB image as a NumPy array.
-    :return: Segmented image where each segment is marked with a unique color.
-    """
-    # Convert the image to grayscale
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    
-    # Apply a binary threshold to find major objects
-    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-    
-    # Use morphological operations to remove small noises and to find sure background area
-    # Dilation expands the shapes found in the binary image
-    kernel = np.ones((3, 3), np.uint8)
-    sure_bg = cv2.dilate(thresh, kernel, iterations=3)
-    
-    # Use distance transform and thresholding to find sure foreground area
-    dist_transform = cv2.distanceTransform(thresh, cv2.DIST_L2, 5)
-    _, sure_fg = cv2.threshold(dist_transform, 0.7*dist_transform.max(), 255, 0)
-    
-    # Find unknown region (borders between foreground and background)
-    sure_fg = np.uint8(sure_fg)
-    unknown = cv2.subtract(sure_bg, sure_fg)
-    
-    # Label markers for sure foreground
-    _, markers = cv2.connectedComponents(sure_fg)
-    
-    # Add one to all labels so that sure background is not 0, but 1
-    markers = markers + 1
-    
-    # Mark the region of unknown with zero
-    markers[unknown == 255] = 0
-    
-    # Apply watershed
-    markers = cv2.watershed(image, markers)
-    image[markers == -1] = [255, 0, 0]  # Mark boundaries with red
-    
-    return image
+    # convert rgb to bgr
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    # Denoise the image
+    denoised_img = cv2.fastNlMeansDenoisingColored(image, None, 100, 100, 21, 21)
+
+    # # apply bilateral filter and denoised image
+    # cv2.imshow('Denoised', bilateral_filtered_img)
+    # cv2.waitKey(0)  # Wait until a key is pressed
+
+    # Apply bilateral filter
+    bilateral_filtered_img = cv2.bilateralFilter(denoised_img, 35, 64, 64)
+
+    # show the original image, the denoised, and the bilateral filtered + denoised image all side by side in a single window
+    show_images([image, denoised_img, bilateral_filtered_img], "Original | Denoised | Bilateral Filtered")
+    bilateral_filtered_img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    return bilateral_filtered_img_rgb
+
 
 ###### BEGIN ######
 
@@ -293,27 +297,11 @@ max_composite_minus_bright_sobel = normalize(np.max(stacked_sobels, axis=0)-brig
 print("GENERATING SOBEL...")
 Image.fromarray(max_composite_minus_bright_sobel).save(os.path.join(folder_path, folder_name+"_sobel.jpg"))
 
-#cv2.waitKey(0)  # Wait until a key is pressed
-#cv2.destroyAllWindows()  # Close the displayed windows
-
-print("APPLYING DENOISING...")
-
-bright_composite_uint8 = bright_composite.astype(np.uint8)
-
-#apply strong denoising to the composite image
-denoised = cv2.fastNlMeansDenoisingColored(bright_composite_uint8, None, 100, 100, 21, 21)
-cv2.imshow('Denoised', denoised)
-
-print("APPLYING BLURRING...")
-
-# apply bilateral blurring to the denoised image
-blurred = cv2.bilateralFilter(denoised, 35, 64, 64)
-cv2.imshow('Blurred', blurred)
-cv2.waitKey(0)  # Wait until a key is pressed
+denoise_bf_img = denoise_bilateral_filter(bright_composite)
 
 # print("APPLYING WATERSHED (FINDING GRAIN BOUNDARIES)...")
 
-# watershed_img = apply_watershed_to_hsv(cross_polars[0])
+# watershed_img = apply_watershed_to_hsv(blurred)
 # # watershed = create_watersheds(cross_polars)
 # print(watershed_img.shape)
 # print("MAX | MIN: " + str(watershed_img.max()) + " | " + str(watershed_img.min()))
