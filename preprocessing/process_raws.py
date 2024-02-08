@@ -277,7 +277,7 @@ def assign_channel_to_centroids(image_channel, centroids):
 def find_channel_centroids(image_channel, channel_name, max_k=16):
 
     # scale down image_channel by a factor of 4
-    image_channel = cv2.resize(image_channel, (0,0), fx=0.25, fy=0.25)
+    # image_channel = cv2.resize(image_channel, (0,0), fx=0.25, fy=0.25)
 
     channel_range=255
     if channel_name == 'H':
@@ -307,8 +307,52 @@ def find_channel_centroids(image_channel, channel_name, max_k=16):
     print(f"Centroids for optimal k={optimal_k}: {final_centroids}")
     
     # Optionally, you can return centroids for a specific k rather than the one determined by the elbow method
-    return final_centroids
+    return centroids_dict[16]
 
+def bilateral_filter_with_variables(img, diameter, sigma_color, sigma_space):
+    blur = cv2.bilateralFilter(normalize(img), diameter, sigma_color, sigma_space)
+    hsv_blur = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+    # Apply the bilateral filter to each channel
+    sat_filtered = normalize(cv2.bilateralFilter(hsv[:, :, 1], diameter, sigma_color, sigma_space))
+    val_filtered = normalize(cv2.bilateralFilter(hsv[:, :, 2], diameter, sigma_color, sigma_space))
+
+    # Merge the filtered channels back into an HSV image
+    filtered_hsv = cv2.merge([hsv_blur[:, :, 0], sat_filtered, val_filtered])
+    blur = cv2.cvtColor(filtered_hsv, cv2.COLOR_HSV2RGB)
+    return blur;
+
+def median_blur(image, numPixels):
+     # if not uint8, normalize to 0-255 range and convert to uint8
+    if image.dtype != np.uint8:
+        image = normalize(image)
+
+    # convert rgb to bgr
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+
+    mediunBlurred = cv2.medianBlur(image, numPixels);
+
+    return cv2.cvtColor(mediunBlurred, cv2.COLOR_BGR2RGB)
+
+
+def median_blur_with_range(img, start, end, interval):
+    for i in range(start, end, interval):
+        img = median_blur(img, i)
+    return img
+
+def apply_median_shift_bilateral_filter(image):
+    # Run mediun blur with iteratively starting from 9 pixels and going to 15, with an interval of 2.
+    image = median_blur_with_range(image, 9, 15, 2)
+
+    resized_image = cv2.resize(image, (image.shape[1] //4, image.shape[0] // 4), interpolation=cv2.INTER_AREA);
+
+    # Running bilateral filter multiple times on the same image.
+    for i in range(0, 6):
+        resized_image = bilateral_filter_with_variables(resized_image, 50, 25, 25)
+    
+    show_images([resized_image], "Median Shift Bilateral Filter")
+    return resized_image
 
 ###### BEGIN ######
 
@@ -360,14 +404,24 @@ max_composite_minus_bright_sobel = normalize(np.max(stacked_sobels, axis=0)-brig
 print("GENERATING SOBEL...")
 Image.fromarray(max_composite_minus_bright_sobel).save(os.path.join(folder_path, folder_name+"_sobel.jpg"))
 
-denoise_bf_img = apply_denoise_bilateral_filter(bright_composite)
+# denoise_bf_img = apply_denoise_bilateral_filter(bright_composite)
+
+msbf_img = apply_median_shift_bilateral_filter(bright_composite) # this image is smaller than the original
 
 # convert denoised image to hsv
-denoise_bf_img_hsv = cv2.cvtColor(denoise_bf_img, cv2.COLOR_RGB2HSV)
-centroids = find_channel_centroids(denoise_bf_img_hsv[:,:,0], 'H')
+msbf_img_hsv = cv2.cvtColor(msbf_img, cv2.COLOR_RGB2HSV)
+h_centroids = find_channel_centroids(msbf_img_hsv[:,:,0], 'H')
+s_centroids = find_channel_centroids(msbf_img_hsv[:,:,1], 'S')
+v_centroids = find_channel_centroids(msbf_img_hsv[:,:,2], 'V')
 
-assign_channel_to_centroids(denoise_bf_img_hsv[:,:,0], centroids)
+assigned_img_h = assign_channel_to_centroids(msbf_img_hsv[:,:,0], h_centroids)
+assigned_img_s = assign_channel_to_centroids(msbf_img_hsv[:,:,0], s_centroids)
+assigned_img_v = assign_channel_to_centroids(msbf_img_hsv[:,:,0], v_centroids)
 
+# now merge the assigned images back to hsv
+assigned_hsv = cv2.merge([assigned_img_h, assigned_img_s, assigned_img_v])
+assigned_rgb = cv2.cvtColor(assigned_hsv, cv2.COLOR_HSV2RGB)
+show_images([assigned_rgb], "Assigned RGB")
 # now co
 # print("APPLYING WATERSHED (FINDING GRAIN BOUNDARIES)...")
 
