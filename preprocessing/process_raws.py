@@ -415,8 +415,8 @@ s_centroids = find_channel_centroids(msbf_img_hsv[:,:,1], 'S')
 v_centroids = find_channel_centroids(msbf_img_hsv[:,:,2], 'V')
 
 assigned_img_h = assign_channel_to_centroids(msbf_img_hsv[:,:,0], h_centroids)
-assigned_img_s = assign_channel_to_centroids(msbf_img_hsv[:,:,0], s_centroids)
-assigned_img_v = assign_channel_to_centroids(msbf_img_hsv[:,:,0], v_centroids)
+assigned_img_s = assign_channel_to_centroids(msbf_img_hsv[:,:,1], s_centroids)
+assigned_img_v = assign_channel_to_centroids(msbf_img_hsv[:,:,2], v_centroids)
 
 # now merge the assigned images back to hsv
 assigned_hsv = cv2.merge([assigned_img_h, assigned_img_s, assigned_img_v])
