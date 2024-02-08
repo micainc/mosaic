@@ -8,6 +8,11 @@ from skimage.segmentation import watershed
 from scipy import ndimage as ndi
 from skimage.feature import peak_local_max
 import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans
+from skimage.io import imread
+import matplotlib.pyplot as plt
+from kneed import KneeLocator
+from sklearn.metrics import pairwise_distances_argmin
 
 lin_polar = []
 cross_polars = []
@@ -164,6 +169,7 @@ def show_images(images, title="Image Grid", max_width=3):
     # Display the images
     cv2.imshow(title, vstack)
     cv2.waitKey(0)  # Wait until a key is pressed
+
     cv2.destroyAllWindows()  # Close the window
 
 def apply_watershed_on_channel(channel):
@@ -222,7 +228,7 @@ def apply_watershed_to_hsv(image):
 
     return segmented_image
 
-def denoise_bilateral_filter(image):
+def apply_denoise_bilateral_filter(image):
     print("denoise_and_bilateral_filter()")
     # if not uint8, normalize to 0-255 range and convert to uint8
     if image.dtype != np.uint8:
@@ -242,9 +248,66 @@ def denoise_bilateral_filter(image):
 
     # show the original image, the denoised, and the bilateral filtered + denoised image all side by side in a single window
     show_images([image, denoised_img, bilateral_filtered_img], "Original | Denoised | Bilateral Filtered")
-    bilateral_filtered_img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    bilateral_filtered_img_rgb = cv2.cvtColor(bilateral_filtered_img, cv2.COLOR_BGR2RGB)
 
     return bilateral_filtered_img_rgb
+
+def assign_channel_to_centroids(image_channel, centroids):
+    """
+    Assigns each pixel in the image to the nearest centroid and creates a new image
+    where each pixel's color is that of the centroid it's been assigned to.
+    
+    :param image: The input image as a NumPy array.
+    :param centroids: A NumPy array of centroids obtained from K-means.
+    :return: A new image with pixels assigned to the nearest centroid color.
+    """
+    # Flatten the image to turn it into a two-dimensional array where each row is a pixel
+    flat_image = image_channel.reshape((-1, 1))
+    
+    # Find the nearest centroid for each pixel
+    closest_centroids = pairwise_distances_argmin(flat_image, centroids)
+    
+    # Create a numpy array where each pixel is the color of its closest centroid
+    clustered_image = centroids[closest_centroids].reshape(image_channel.shape).astype(np.uint8)
+    print("CLUSTERED IMAGE SHAPE: " + str(clustered_image.shape))
+    show_images([image_channel, clustered_image])
+    
+    return clustered_image.astype(np.uint8)
+
+def find_channel_centroids(image_channel, channel_name, max_k=16):
+
+    # scale down image_channel by a factor of 4
+    image_channel = cv2.resize(image_channel, (0,0), fx=0.25, fy=0.25)
+
+    channel_range=255
+    if channel_name == 'H':
+        channel_range = 180
+    
+    # Flatten the image channel for clustering
+    flat_image_channel = image_channel.reshape((-1, 1))
+    
+    # Initialize a list to store WCSS values for each number of clusters
+    wcss = []
+    centroids_dict = {}
+    
+    for i in range(1, max_k + 1):
+        print(f"Running K-means for k = {i}...")
+        kmeans = KMeans(n_clusters=i, init='k-means++', max_iter=300, n_init=10, random_state=0)
+        kmeans.fit(flat_image_channel)
+        wcss.append(kmeans.inertia_)
+        centroids_dict[i] = kmeans.cluster_centers_
+    
+    # Determine the elbow point using the KneeLocator
+    knee_locator = KneeLocator(range(1, max_k + 1), wcss, curve='convex', direction='decreasing')
+    optimal_k = knee_locator.elbow + 1
+    print(f"Optimal number of clusters (k) found: {optimal_k}")
+    
+    # Ensure centroids are scaled appropriately
+    final_centroids = np.clip(centroids_dict[optimal_k], 0, channel_range).astype(np.uint8)
+    print(f"Centroids for optimal k={optimal_k}: {final_centroids}")
+    
+    # Optionally, you can return centroids for a specific k rather than the one determined by the elbow method
+    return final_centroids
 
 
 ###### BEGIN ######
@@ -297,8 +360,15 @@ max_composite_minus_bright_sobel = normalize(np.max(stacked_sobels, axis=0)-brig
 print("GENERATING SOBEL...")
 Image.fromarray(max_composite_minus_bright_sobel).save(os.path.join(folder_path, folder_name+"_sobel.jpg"))
 
-denoise_bf_img = denoise_bilateral_filter(bright_composite)
+denoise_bf_img = apply_denoise_bilateral_filter(bright_composite)
 
+# convert denoised image to hsv
+denoise_bf_img_hsv = cv2.cvtColor(denoise_bf_img, cv2.COLOR_RGB2HSV)
+centroids = find_channel_centroids(denoise_bf_img_hsv[:,:,0], 'H')
+
+assign_channel_to_centroids(denoise_bf_img_hsv[:,:,0], centroids)
+
+# now co
 # print("APPLYING WATERSHED (FINDING GRAIN BOUNDARIES)...")
 
 # watershed_img = apply_watershed_to_hsv(blurred)
