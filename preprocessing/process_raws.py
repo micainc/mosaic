@@ -80,6 +80,9 @@ def get_images(folder_path, folder_name):
         with Image.open(path) as img:
             arr = np.array(img)
             ms_bf_xms.append(arr)
+    print("TYPE: ", type(ms_bf_xms))
+    print("LEN: ", len(ms_bf_xms))
+    print("TYPE OF ELEMENT: ", type(ms_bf_xms[0]))
 
 #align images
 def align_images(img, reference, blend_width=100):
@@ -168,21 +171,42 @@ def show_images(images, title="Image Grid", max_width=3):
     - title: Window title.
     - max_width: Maximum number of images in a row.
     """
+    if isinstance(images, np.ndarray) and images.ndim == 4:
+        # Convert the 4D NumPy array to a list of 3D arrays (images)
+        images = [images[i] for i in range(images.shape[0])]
+
     # Calculate the number of rows needed to display the images
-    rows = [images[i:i+max_width] for i in range(0, len(images), max_width)]
-    
+    num_rows = len(images) // max_width + (len(images) % max_width > 0)
+
+    # Prepare a dummy (blank) image of the same shape and type as the first image
+    if images:
+        dummy_shape = images[0].shape
+        dummy_image = np.zeros(dummy_shape, dtype=images[0].dtype)
+
     # Create the horizontal stacks for each row
-    hstacks = [np.hstack(row) for row in rows if row]
-    
+    rows = []
+    for i in range(num_rows):
+        row_images = images[i * max_width:(i + 1) * max_width]
+
+        # If this row is not fully populated, pad it with dummy images
+        while len(row_images) < max_width:
+            row_images.append(dummy_image)
+
+        # Stack images in this row horizontally
+        row_stack = np.hstack(row_images)
+        rows.append(row_stack)
+
     # Stack rows vertically
-    vstack = np.vstack(hstacks)
-    
-    # Display the images
-    cv2.imshow(title, vstack)
-    cv2.waitKey(0)  # Wait until a key is pressed
+    if rows:
+        vstack = np.vstack(rows)
 
-    cv2.destroyAllWindows()  # Close the window
-
+        # Display the images
+        cv2.imshow(title, vstack)
+        cv2.waitKey(0)  # Wait until a key is pressed
+        cv2.destroyAllWindows()  # Close the window
+    else:
+        print("No images to display.")
+        
 def apply_watershed_on_channel(channel):
     # Apply threshold to find major objects
     _, thresh = cv2.threshold(channel, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
@@ -315,7 +339,7 @@ def find_channel_centroids(image_channel, channel_name, max_k=16):
     
     # Ensure centroids are scaled appropriately
     final_centroids = np.clip(centroids_dict[optimal_k], 0, channel_range).astype(np.uint8)
-    print(f"Optimal "+optimal_k+" centroids for channel "+channel_name+": "+final_centroids)
+    print(f"Optimal "+str(optimal_k)+" centroids for channel "+channel_name+": "+str(final_centroids))
     
     # Optionally, you can return centroids for a specific k rather than the one determined by the elbow method
     return centroids_dict[optimal_k]
@@ -449,7 +473,13 @@ if len(ms_bf_xms) == 0:
     ms_bf_xms.append(ms_bf_xm_img)
     Image.fromarray(ms_bf_xm_img).save(os.path.join(folder_path, folder_name+"_msbfxm_lin.jpg"))
 
+# now show ms_bf_xm images: ms_bf_xm is a numpy array: we need to input as list
+show_images(ms_bf_xms, 'MS_BF_XMS')
 
+# show_images(ms_bf_xms, 'MS_BF_XMS')
+# for ms_bf_xm in ms_bf_xms:
+#     print("GENERATING MS_BF_XM...")
+#     Image.fromarray(ms_bf_xm).save(os.path.join(folder_path, folder_name+"_msbfxm.jpg"))
 
 
 # print("APPLYING WATERSHED (FINDING GRAIN BOUNDARIES)...")
