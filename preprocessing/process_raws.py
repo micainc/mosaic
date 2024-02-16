@@ -269,8 +269,8 @@ def assign_channel_to_centroids(image_channel, centroids):
     
     # Create a numpy array where each pixel is the color of its closest centroid
     clustered_image = centroids[closest_centroids].reshape(image_channel.shape).astype(np.uint8)
-    print("CLUSTERED IMAGE SHAPE: " + str(clustered_image.shape))
-    show_images([image_channel, clustered_image])
+    #print("CLUSTERED IMAGE SHAPE: " + str(clustered_image.shape))
+    #show_images([image_channel, clustered_image])
     
     return clustered_image.astype(np.uint8)
 
@@ -304,10 +304,10 @@ def find_channel_centroids(image_channel, channel_name, max_k=16):
     
     # Ensure centroids are scaled appropriately
     final_centroids = np.clip(centroids_dict[optimal_k], 0, channel_range).astype(np.uint8)
-    print(f"Centroids for optimal k={optimal_k}: {final_centroids}")
+    print(f"Optimal "+optimal_k+" centroids for channel "+channel_name+": "+final_centroids)
     
     # Optionally, you can return centroids for a specific k rather than the one determined by the elbow method
-    return centroids_dict[16]
+    return centroids_dict[optimal_k]
 
 def bilateral_filter_with_variables(img, diameter, sigma_color, sigma_space):
     blur = cv2.bilateralFilter(normalize(img), diameter, sigma_color, sigma_space)
@@ -321,7 +321,7 @@ def bilateral_filter_with_variables(img, diameter, sigma_color, sigma_space):
     # Merge the filtered channels back into an HSV image
     filtered_hsv = cv2.merge([hsv_blur[:, :, 0], sat_filtered, val_filtered])
     blur = cv2.cvtColor(filtered_hsv, cv2.COLOR_HSV2RGB)
-    return blur;
+    return blur
 
 def median_blur(image, numPixels):
      # if not uint8, normalize to 0-255 range and convert to uint8
@@ -353,6 +353,27 @@ def apply_median_shift_bilateral_filter(image):
     
     show_images([resized_image], "Median Shift Bilateral Filter")
     return resized_image
+
+
+def apply_ms_bf_xm(image):
+    msbf = apply_median_shift_bilateral_filter(image)
+
+    # convert denoised image to hsv
+    msbf_hsv = cv2.cvtColor(msbf, cv2.COLOR_RGB2HSV)
+    h_centroids = find_channel_centroids(msbf_hsv[:,:,0], 'H')
+    s_centroids = find_channel_centroids(msbf_hsv[:,:,1], 'S')
+    v_centroids = find_channel_centroids(msbf_hsv[:,:,2], 'V')
+
+    assigned_h = assign_channel_to_centroids(msbf_hsv[:,:,0], h_centroids)
+    assigned_s = assign_channel_to_centroids(msbf_hsv[:,:,1], s_centroids)
+    assigned_v = assign_channel_to_centroids(msbf_hsv[:,:,2], v_centroids)
+
+    # now merge the assigned images back to hsv
+    assigned_hsv = cv2.merge([assigned_h, assigned_s, assigned_v])
+    assigned_rgb = cv2.cvtColor(assigned_hsv, cv2.COLOR_HSV2RGB)
+    show_images([assigned_rgb], "Centroid-Assigned RGB")
+
+    return assigned_rgb
 
 ###### BEGIN ######
 
@@ -404,25 +425,19 @@ max_composite_minus_bright_sobel = normalize(np.max(stacked_sobels, axis=0)-brig
 print("GENERATING SOBEL...")
 Image.fromarray(max_composite_minus_bright_sobel).save(os.path.join(folder_path, folder_name+"_sobel.jpg"))
 
-# denoise_bf_img = apply_denoise_bilateral_filter(bright_composite)
+msbfx_images = []
+idx = 1
+for cp in cross_polars:
+    ms_bf_xm_img = apply_ms_bf_xm(cp)
+    msbfx_images.append(ms_bf_xm_img)
+    Image.fromarray(ms_bf_xm_img).save(os.path.join(folder_path, folder_name+"_msbfxm_"+str(idx)+".jpg"))
+    idx += 1
 
-msbf_img = apply_median_shift_bilateral_filter(bright_composite) # this image is smaller than the original
+ms_bf_xm_img = apply_ms_bf_xm(lin_polar)
+msbfx_images.append(ms_bf_xm_img)
+Image.fromarray(ms_bf_xm_img).save(os.path.join(folder_path, folder_name+"_msbfxm_lin.jpg"))
 
-# convert denoised image to hsv
-msbf_img_hsv = cv2.cvtColor(msbf_img, cv2.COLOR_RGB2HSV)
-h_centroids = find_channel_centroids(msbf_img_hsv[:,:,0], 'H')
-s_centroids = find_channel_centroids(msbf_img_hsv[:,:,1], 'S')
-v_centroids = find_channel_centroids(msbf_img_hsv[:,:,2], 'V')
 
-assigned_img_h = assign_channel_to_centroids(msbf_img_hsv[:,:,0], h_centroids)
-assigned_img_s = assign_channel_to_centroids(msbf_img_hsv[:,:,1], s_centroids)
-assigned_img_v = assign_channel_to_centroids(msbf_img_hsv[:,:,2], v_centroids)
-
-# now merge the assigned images back to hsv
-assigned_hsv = cv2.merge([assigned_img_h, assigned_img_s, assigned_img_v])
-assigned_rgb = cv2.cvtColor(assigned_hsv, cv2.COLOR_HSV2RGB)
-show_images([assigned_rgb], "Assigned RGB")
-# now co
 # print("APPLYING WATERSHED (FINDING GRAIN BOUNDARIES)...")
 
 # watershed_img = apply_watershed_to_hsv(blurred)
