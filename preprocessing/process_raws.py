@@ -360,7 +360,7 @@ def apply_median_shift_bilateral_filter(image):
 
     # Running bilateral filter multiple times on the same image.
     for i in range(0, 6):
-        resized_image = bilateral_filter_with_variables(resized_image, 50, 25, 25)
+        resized_image = bilateral_filter_with_variables(resized_image, -1, 25, 25)
     
     show_images([resized_image], "Median Shift Bilateral Filter")
     return resized_image
