@@ -16,6 +16,7 @@ from sklearn.metrics import pairwise_distances_argmin
 
 lin_polar = []
 cross_polars = []
+ms_bf_xms = []
 
 # aligns images to the lin. if not aligned already
 def get_images(folder_path, folder_name):
@@ -37,7 +38,7 @@ def get_images(folder_path, folder_name):
     image_dict = {}
     
     # Filter for cross-polar images and exclude ones that are already aligned
-    cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'sobel' not in f]
+    cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'sobel' not in f and 'msbfxm' not in f]
     
     lin_aligned = True
     for cp in cps:
@@ -69,6 +70,16 @@ def get_images(folder_path, folder_name):
         Image.fromarray(lin_polar).save(lin_img_path)
 
     cross_polars = list(image_dict.values())
+
+    # get ms_bf_xm images, if they exist
+    ms_bf_xm_files = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'msbfxm' in f]
+    if(len(ms_bf_xm_files) > 0):
+        print("MS_BF_XM IMAGES FOUND. FETCHING...")
+    for file in ms_bf_xm_files:
+        path = os.path.join(folder_path, file)
+        with Image.open(path) as img:
+            arr = np.array(img)
+            ms_bf_xms.append(arr)
 
 #align images
 def align_images(img, reference, blend_width=100):
@@ -425,17 +436,20 @@ max_composite_minus_bright_sobel = normalize(np.max(stacked_sobels, axis=0)-brig
 print("GENERATING SOBEL...")
 Image.fromarray(max_composite_minus_bright_sobel).save(os.path.join(folder_path, folder_name+"_sobel.jpg"))
 
-msbfx_images = []
-idx = 1
-for cp in cross_polars:
-    ms_bf_xm_img = apply_ms_bf_xm(cp)
-    msbfx_images.append(ms_bf_xm_img)
-    Image.fromarray(ms_bf_xm_img).save(os.path.join(folder_path, folder_name+"_msbfxm_"+str(idx)+".jpg"))
-    idx += 1
+# check if ms_bf_xm images array is already populated
+if len(ms_bf_xms) == 0:
+    idx = 1
+    for cp in cross_polars:
+        ms_bf_xm_img = apply_ms_bf_xm(cp)
+        ms_bf_xms.append(ms_bf_xm_img)
+        Image.fromarray(ms_bf_xm_img).save(os.path.join(folder_path, folder_name+"_msbfxm_"+str(idx)+".jpg"))
+        idx += 1
 
-ms_bf_xm_img = apply_ms_bf_xm(lin_polar)
-msbfx_images.append(ms_bf_xm_img)
-Image.fromarray(ms_bf_xm_img).save(os.path.join(folder_path, folder_name+"_msbfxm_lin.jpg"))
+    ms_bf_xm_img = apply_ms_bf_xm(lin_polar)
+    ms_bf_xms.append(ms_bf_xm_img)
+    Image.fromarray(ms_bf_xm_img).save(os.path.join(folder_path, folder_name+"_msbfxm_lin.jpg"))
+
+
 
 
 # print("APPLYING WATERSHED (FINDING GRAIN BOUNDARIES)...")
