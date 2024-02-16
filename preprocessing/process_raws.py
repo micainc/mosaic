@@ -17,6 +17,7 @@ from sklearn.metrics import pairwise_distances_argmin
 lin_polar = []
 cross_polars = []
 ms_bf_xms = []
+pause_to_display_images = True;
 
 # aligns images to the lin. if not aligned already
 def get_images(folder_path, folder_name):
@@ -200,10 +201,13 @@ def show_images(images, title="Image Grid", max_width=3):
     if rows:
         vstack = np.vstack(rows)
 
-        # Display the images
-        cv2.imshow(title, vstack)
-        cv2.waitKey(0)  # Wait until a key is pressed
-        cv2.destroyAllWindows()  # Close the window
+        if pause_to_display_images:
+            # Display the images
+            cv2.imshow(title, vstack)
+            cv2.waitKey(0)  # Wait until a key is pressed
+
+            cv2.destroyAllWindows()  # Close the window
+
     else:
         print("No images to display.")
         
@@ -339,7 +343,8 @@ def find_channel_centroids(image_channel, channel_name, max_k=16):
     
     # Ensure centroids are scaled appropriately
     final_centroids = np.clip(centroids_dict[optimal_k], 0, channel_range).astype(np.uint8)
-    print(f"Optimal "+str(optimal_k)+" centroids for channel "+channel_name+": "+str(final_centroids))
+
+    print(f"Optimal "+ str(optimal_k) +" centroids for channel "+ channel_name+": "+ str(final_centroids))
     
     # Optionally, you can return centroids for a specific k rather than the one determined by the elbow method
     return centroids_dict[optimal_k]
@@ -415,17 +420,18 @@ def apply_ms_bf_xm(image):
 folder_path = ''
 folder_name = ''
 
-if len(sys.argv) > 3 | len(sys.argv) <= 1:
-    print("Usage: python3 process_raws.py <input_folder> <identifier>")
+if len(sys.argv) > 4 | len(sys.argv) <= 1:
+    print("Usage: python3 process_raws.py <input_folder> <identifier> <option>")
     sys.exit(1)
 
-if len(sys.argv) == 3: 
-    folder_path = sys.argv[1]
-    folder_name = sys.argv[2]
+folder_path = sys.argv[1]
+folder_name = os.path.basename(folder_path)
 
-if len(sys.argv) == 2: 
-    folder_path = sys.argv[1]
-    folder_name = os.path.basename(folder_path)
+for arg in sys.argv:
+    if arg == '--no-show':
+        pause_to_display_images = False
+    if arg.startswith("identifier="):
+        folder_name = arg.replace("identifier=", "")
 
 ###### GET + ALIGN IMAGES ######
 
