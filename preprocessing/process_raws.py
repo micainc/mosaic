@@ -14,6 +14,9 @@ import matplotlib.pyplot as plt
 from kneed import KneeLocator
 from sklearn.metrics import pairwise_distances_argmin
 
+from edge_detection import detect_edges_and_combine_for_images, overlay_edges_on_image
+from contouring import mark_area_on_image_which_resemble_color_scheme
+
 lin_polar = []
 cross_polars = []
 ms_bf_xms = []
@@ -83,7 +86,8 @@ def get_images(folder_path, folder_name):
             ms_bf_xms.append(arr)
     print("TYPE: ", type(ms_bf_xms))
     print("LEN: ", len(ms_bf_xms))
-    print("TYPE OF ELEMENT: ", type(ms_bf_xms[0]))
+    if len(ms_bf_xms) > 0: 
+        print("TYPE OF ELEMENT: ", type(ms_bf_xms[0]))
 
 #align images
 def align_images(img, reference, blend_width=100):
@@ -163,6 +167,33 @@ def get_value(image):
     # Extract the H, S, or V channel
     return hsv[:,:,2]
 
+def resize_images(images):
+    """
+    Resize a list of images to the same size.
+
+    Parameters:
+    - images: List of input images (as numpy arrays).
+
+    Returns:
+    - List of resized images.
+    """
+    if not images:
+        return []
+
+    # Get the size of the first image
+    output_size = images[0].shape[1], images[0].shape[0]
+
+    resized_images = []
+
+    for img in images:
+        # Resize the image
+        resized_img = cv2.resize(img, output_size)
+
+        # Append the resized image to the list
+        resized_images.append(resized_img)
+
+    return resized_images
+
 def show_images(images, title="Image Grid", max_width=3):
     """
     Shows images in a wxh grid, where the max width is 3.
@@ -175,6 +206,8 @@ def show_images(images, title="Image Grid", max_width=3):
     if isinstance(images, np.ndarray) and images.ndim == 4:
         # Convert the 4D NumPy array to a list of 3D arrays (images)
         images = [images[i] for i in range(images.shape[0])]
+
+    images = resize_images(images)    
 
     # Calculate the number of rows needed to display the images
     num_rows = len(images) // max_width + (len(images) % max_width > 0)
@@ -481,6 +514,13 @@ if len(ms_bf_xms) == 0:
 
 # now show ms_bf_xm images: ms_bf_xm is a numpy array: we need to input as list
 show_images(ms_bf_xms, 'MS_BF_XMS')
+
+edges = detect_edges_and_combine_for_images(ms_bf_xms)
+overlaied_image = overlay_edges_on_image(edges, np.copy(bright_composite))
+
+show_images([edges, overlaied_image], "edges and overlaid image")
+show_images([mark_area_on_image_which_resemble_color_scheme(bright_composite)], "countoured image")
+
 
 # show_images(ms_bf_xms, 'MS_BF_XMS')
 # for ms_bf_xm in ms_bf_xms:
