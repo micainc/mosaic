@@ -1,0 +1,100 @@
+import numpy as np
+import cv2
+
+def show_images(images, title="Image Grid", pause_to_display_images=True, max_width=3):
+    """
+    Shows images in a wxh grid, where the max width is 3.
+    
+    Parameters:
+    - images: List of images to show.
+    - title: Window title.
+    - max_width: Maximum number of images in a row.
+    - pause_to_display_images: Flag to wait for key press before closing images.
+    """
+    images = resize_images(images)    
+
+    # Only pad with dummy images if the number of images is greater than max_width
+    needs_padding = len(images) > max_width
+    
+    # Calculate the number of rows needed to display the images
+    num_rows = len(images) // max_width + (len(images) % max_width > 0)
+
+    # Prepare a dummy (blank) image of the same shape and type as the first image if padding is needed
+    if needs_padding and images:
+        dummy_shape = images[0].shape
+        dummy_image = np.zeros(dummy_shape, dtype=images[0].dtype)
+
+    # Create the horizontal stacks for each row
+    rows = []
+    for i in range(num_rows):
+        row_images = images[i * max_width:(i + 1) * max_width]
+
+        # If this row is not fully populated and padding is needed, pad it with dummy images
+        if needs_padding:
+            while len(row_images) < max_width:
+                row_images.append(dummy_image)
+
+        row_stack = np.hstack(row_images)
+        rows.append(row_stack)
+
+    # Stack rows vertically
+    if rows:
+        vstack = np.vstack(rows)
+
+        if pause_to_display_images:
+            # Display the images
+            cv2.imshow(title, vstack)
+            cv2.waitKey(0)  # Wait until a key is pressed
+
+            cv2.destroyAllWindows()  # Close the window
+
+    else:
+        print("No images to display.")
+
+def normalize(image):
+
+    # if any negative values, dont lose that data: shift all values into positive, to create floor at 0.
+    absolute = image
+    min_val = np.min(image)
+
+    if(min_val < 0):
+        absolute = absolute + abs(min_val)
+    
+    min_val = np.min(absolute)
+    max_val = np.max(absolute)
+
+    normalized = ((absolute - min_val) / (max_val - min_val)) * 255
+    return normalized.astype(np.uint8)
+
+def resize_images(images, ref_image=None):
+    if not images:
+        return []
+
+    if not ref_image:
+            
+        # Get the size of the first image
+        output_size = images[0].shape[1], images[0].shape[0]
+
+        resized_images = []
+
+        for img in images:
+            # Resize the image
+            resized_img = cv2.resize(img, output_size)
+
+            # Append the resized image to the list
+            resized_images.append(resized_img)
+
+        return resized_images
+    else:
+        output_size = ref_image.shape[1], ref_image.shape[0]
+
+        resized_images = []
+
+        for img in images:
+            # Resize the image
+            resized_img = cv2.resize(img, output_size)
+
+            # Append the resized image to the list
+            resized_images.append(resized_img)
+
+        return resized_images

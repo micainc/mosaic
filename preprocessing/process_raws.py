@@ -16,12 +16,14 @@ from sklearn.metrics import pairwise_distances_argmin
 
 from edge_detection import detect_edges_and_combine_for_images, overlay_edges_on_image
 from contouring import mark_area_on_image_which_resemble_color_scheme
+from utils import show_images, resize_images, normalize
 
 lin_polar = []
 cross_polars = []
 composite = []
 sobel = []
 ms_bf_xms = []
+
 pause_to_display_images = True
 
 # aligns images to the lin. if not aligned already
@@ -61,7 +63,7 @@ def get_images(folder_path, folder_name):
 
     
     # Filter for cross-polar images and exclude ones that are already aligned
-    cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'sobel' not in f and 'msbfxm' not in f]
+    cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'sobel' not in f and 'msbfxm' not in f and 'edges' not in f]
     
     # For storing the cross-polarized images
     temp_dict = {}
@@ -145,21 +147,6 @@ def create_composite(arrays):
     composite = np.max(stacked, axis=0)
     return composite  # convert back to uint8 type
 
-def normalize(image):
-
-    # if any negative values, dont lose that data: shift all values into positive, to create floor at 0.
-    absolute = image
-    min_val = np.min(image)
-
-    if(min_val < 0):
-        absolute = absolute + abs(min_val)
-    
-    min_val = np.min(absolute)
-    max_val = np.max(absolute)
-
-    normalized = ((absolute - min_val) / (max_val - min_val)) * 255
-    return normalized.astype(np.uint8)
-
 def create_sobel(image):
     # Convert the image to HSV
     hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
@@ -184,83 +171,6 @@ def get_value(image):
     hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
     # Extract the H, S, or V channel
     return hsv[:,:,2]
-
-def resize_images(images):
-    """
-    Resize a list of images to the same size.
-
-    Parameters:
-    - images: List of input images (as numpy arrays).
-
-    Returns:
-    - List of resized images.
-    """
-    if not images:
-        return []
-
-    # Get the size of the first image
-    output_size = images[0].shape[1], images[0].shape[0]
-
-    resized_images = []
-
-    for img in images:
-        # Resize the image
-        resized_img = cv2.resize(img, output_size)
-
-        # Append the resized image to the list
-        resized_images.append(resized_img)
-
-    return resized_images
-
-def show_images(images, title="Image Grid", max_width=3):
-    """
-    Shows images in a wxh grid, where the max width is 3.
-    
-    Parameters:
-    - images: List of images to show.
-    - title: Window title.
-    - max_width: Maximum number of images in a row.
-    - pause_to_display_images: Flag to wait for key press before closing images.
-    """
-    images = resize_images(images)    
-
-    # Only pad with dummy images if the number of images is greater than max_width
-    needs_padding = len(images) > max_width
-    
-    # Calculate the number of rows needed to display the images
-    num_rows = len(images) // max_width + (len(images) % max_width > 0)
-
-    # Prepare a dummy (blank) image of the same shape and type as the first image if padding is needed
-    if needs_padding and images:
-        dummy_shape = images[0].shape
-        dummy_image = np.zeros(dummy_shape, dtype=images[0].dtype)
-
-    # Create the horizontal stacks for each row
-    rows = []
-    for i in range(num_rows):
-        row_images = images[i * max_width:(i + 1) * max_width]
-
-        # If this row is not fully populated and padding is needed, pad it with dummy images
-        if needs_padding:
-            while len(row_images) < max_width:
-                row_images.append(dummy_image)
-
-        row_stack = np.hstack(row_images)
-        rows.append(row_stack)
-
-    # Stack rows vertically
-    if rows:
-        vstack = np.vstack(rows)
-
-        if pause_to_display_images:
-            # Display the images
-            cv2.imshow(title, vstack)
-            cv2.waitKey(0)  # Wait until a key is pressed
-
-            cv2.destroyAllWindows()  # Close the window
-
-    else:
-        print("No images to display.")
 
 def apply_watershed_on_channel(channel):
     # Apply threshold to find major objects
@@ -337,7 +247,7 @@ def apply_denoise_bilateral_filter(image):
     bilateral_filtered_img = cv2.bilateralFilter(denoised_img, 35, 64, 64)
 
     # show the original image, the denoised, and the bilateral filtered + denoised image all side by side in a single window
-    show_images([image, denoised_img, bilateral_filtered_img], "Original | Denoised | Bilateral Filtered")
+    show_images([image, denoised_img, bilateral_filtered_img], "Original | Denoised | Bilateral Filtered", pause_to_display_images)
     bilateral_filtered_img_rgb = cv2.cvtColor(bilateral_filtered_img, cv2.COLOR_BGR2RGB)
 
     return bilateral_filtered_img_rgb
@@ -422,7 +332,7 @@ def median_blur(image, numPixels):
     # convert rgb to bgr
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
-    mediunBlurred = cv2.medianBlur(image, numPixels);
+    mediunBlurred = cv2.medianBlur(image, numPixels)
 
     return cv2.cvtColor(mediunBlurred, cv2.COLOR_BGR2RGB)
 
@@ -436,13 +346,13 @@ def apply_median_shift_bilateral_filter(image):
     # Run mediun blur with iteratively starting from 9 pixels and going to 15, with an interval of 2.
     image = median_blur_with_range(image, 9, 15, 2)
 
-    resized_image = cv2.resize(image, (image.shape[1] //4, image.shape[0] // 4), interpolation=cv2.INTER_AREA);
+    resized_image = cv2.resize(image, (image.shape[1] //4, image.shape[0] // 4), interpolation=cv2.INTER_AREA)
 
     # Running bilateral filter multiple times on the same image.
     for i in range(0, 6):
         resized_image = bilateral_filter_with_variables(resized_image, -1, 25, 25)
     
-    show_images([resized_image], "Median Shift Bilateral Filter")
+    show_images([resized_image], "Median Shift Bilateral Filter", pause_to_display_images)
     return resized_image
 
 
@@ -462,7 +372,7 @@ def apply_ms_bf_xm(image):
     # now merge the assigned images back to hsv
     assigned_hsv = cv2.merge([assigned_h, assigned_s, assigned_v])
     assigned_rgb = cv2.cvtColor(assigned_hsv, cv2.COLOR_HSV2RGB)
-    show_images([assigned_rgb], "Centroid-Assigned RGB")
+    show_images([assigned_rgb], "Centroid-Assigned RGB", pause_to_display_images)
 
     return assigned_rgb
 
@@ -523,17 +433,17 @@ if len(sobel) == 0:
     Image.fromarray(max_composite_minus_bright_sobel).save(os.path.join(folder_path, folder_name+"_sobel.jpg"))
 
 # check if ms_bf_xm images array is already populated
-if len(ms_bf_xms) == 0:
-    idx = 1
-    for cp in cross_polars:
-        ms_bf_xm_img = apply_ms_bf_xm(cp)
-        ms_bf_xms.append(ms_bf_xm_img)
-        Image.fromarray(ms_bf_xm_img).save(os.path.join(folder_path, folder_name+"_msbfxm_"+str(idx)+".jpg"))
-        idx += 1
+# if len(ms_bf_xms) == 0:
+#     idx = 1
+#     for cp in cross_polars:
+#         ms_bf_xm_img = apply_ms_bf_xm(cp)
+#         ms_bf_xms.append(ms_bf_xm_img)
+#         Image.fromarray(ms_bf_xm_img).save(os.path.join(folder_path, folder_name+"_msbfxm_"+str(idx)+".jpg"))
+#         idx += 1
 
-    ms_bf_xm_img = apply_ms_bf_xm(lin_polar)
-    ms_bf_xms.append(ms_bf_xm_img)
-    Image.fromarray(ms_bf_xm_img).save(os.path.join(folder_path, folder_name+"_msbfxm_lin.jpg"))
+#     ms_bf_xm_img = apply_ms_bf_xm(lin_polar)
+#     ms_bf_xms.append(ms_bf_xm_img)
+#     Image.fromarray(ms_bf_xm_img).save(os.path.join(folder_path, folder_name+"_msbfxm_lin.jpg"))
 
 # # now show ms_bf_xm images: ms_bf_xm is a numpy array: we need to input as list
 # show_images(ms_bf_xms, 'MS_BF_XMS')
@@ -550,41 +460,21 @@ print("APPLYING MEDIAN SHIFT BILATERAL FILTER TO CROSS POLARS + LIN POLAR...")
 ms_bfs = [apply_median_shift_bilateral_filter(cp) for cp in cross_polars]
 ms_bfs.append(apply_median_shift_bilateral_filter(lin_polar))
 
-show_images(ms_bfs, 'MS_BFS')
+show_images(ms_bfs, 'MS_BFS', pause_to_display_images)
 print("DETECTING EDGES...")
 
 edges = detect_edges_and_combine_for_images(ms_bfs)
 overlaid_image = overlay_edges_on_image(edges, np.copy(composite))
 
-show_images([edges, overlaid_image], "edges and overlaid image")
+show_images([edges, overlaid_image], "edges and overlaid image", pause_to_display_images)
 
 # upscale edges image by four times to match original image size
 edges = cv2.resize(edges, (composite.shape[1], composite.shape[0]), interpolation=cv2.INTER_NEAREST)
+#save edges to local
+Image.fromarray(edges).save(os.path.join(folder_path, folder_name+"_edges.jpg"))
 # show_images([mark_area_on_image_which_resemble_color_scheme(composite)], "countoured image")
 
 
 
-# show_images(ms_bf_xms, 'MS_BF_XMS')
-# for ms_bf_xm in ms_bf_xms:
-#     print("GENERATING MS_BF_XM...")
-#     Image.fromarray(ms_bf_xm).save(os.path.join(folder_path, folder_name+"_msbfxm.jpg"))
-
-
 # print("APPLYING WATERSHED (FINDING GRAIN BOUNDARIES)...")
 
-# watershed_img = apply_watershed_to_hsv(blurred)
-# # watershed = create_watersheds(cross_polars)
-# print(watershed_img.shape)
-# print("MAX | MIN: " + str(watershed_img.max()) + " | " + str(watershed_img.min()))
-# plt.imshow(watershed_img)
-# plt.show()
-# Convert the watershed array to a 2D or 3D array
-# watershed_2d = np.squeeze(watershed)
-
-# # Convert the data type to uint8
-# watershed_uint8 = (watershed_2d * 255).astype(np.uint8)
-
-# # Save the image
-# Image.fromarray(watershed_uint8).save(os.path.join(folder_path, folder_name+"_watershed.jpg"))
-
-# # Image.fromarray(watershed).save(os.path.join(folder_path, folder_name+"_watershed.jpg"))
