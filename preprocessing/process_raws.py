@@ -454,10 +454,9 @@ if len(sobel) == 0:
 # show_images([edges, overlaid_image], "edges and overlaid image")
 # show_images([mark_area_on_image_which_resemble_color_scheme(composite)], "countoured image")
 
-print("APPLYING MEDIAN SHIFT BILATERAL FILTER TO CROSS POLARS + LIN POLAR...")
-
 # check if ms_bfs images array is already populated
 if len(blurred_images) == 0:
+    print("APPLYING MEDIAN SHIFT BILATERAL FILTER TO CROSS POLARS + LIN POLAR...")
     idx = 1
     for cp in cross_polars:
         ms_bf_img = apply_median_shift_bilateral_filter(cp)
