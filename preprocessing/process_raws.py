@@ -19,31 +19,53 @@ from contouring import mark_area_on_image_which_resemble_color_scheme
 
 lin_polar = []
 cross_polars = []
+composite = []
+sobel = []
 ms_bf_xms = []
-pause_to_display_images = True;
+pause_to_display_images = True
 
 # aligns images to the lin. if not aligned already
 def get_images(folder_path, folder_name):
     global lin_polar
     global cross_polars
+    global sobel
+    global composite
     all_files = os.listdir(folder_path)
 
     # Get the linear-polarized image
     lin_file = next((f for f in all_files if 'lin' in f and f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG'))), None)
     if not lin_file:
-        print("No linear-polarized file found!")
-        return {}
+        print("NO LIN POLAR IMAGE FOUND: please label linearly polarized image with '_lin' suffix. Exiting...")
+        # terminate program if no lin polar image found
+        sys.exit(1)
     
     lin_img_path = os.path.join(folder_path, lin_file)
     with Image.open(lin_img_path) as img:
         lin_polar = np.array(img)
 
-    # For storing the arrays
-    image_dict = {}
+    # get the composite image, if it exists
+    composite_file = next((f for f in all_files if 'composite' in f and f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG'))), None)
+    if composite_file:
+        print("COMPOSITE IMAGE FOUND. FETCHING...")
+        composite_path = os.path.join(folder_path, composite_file)
+        with Image.open(composite_path) as img:
+            composite = np.array(img)
+
+    # get the sobel image, if it exists
+    sobel_file = next((f for f in all_files if 'sobel' in f and f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG'))), None)
+    if sobel_file:
+        print("SOBEL IMAGE FOUND. FETCHING...")
+        sobel_path = os.path.join(folder_path, sobel_file)
+        with Image.open(sobel_path) as img:
+            sobel = np.array(img)
+
     
     # Filter for cross-polar images and exclude ones that are already aligned
     cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'sobel' not in f and 'msbfxm' not in f]
     
+    # For storing the cross-polarized images
+    temp_dict = {}
+
     lin_aligned = True
     for cp in cps:
         img_path = os.path.join(folder_path, cp)
@@ -61,19 +83,19 @@ def get_images(folder_path, folder_name):
                 # Delete the original image
                 os.remove(img_path)
                 
-                image_dict["aligned_" + cp] = aligned_image
+                temp_dict["aligned_" + cp] = aligned_image
         else:
             print("CPs ALIGNED. FETCHING...")
             # If the image is already aligned, just read it and add to the dictionary
             with Image.open(img_path) as img:
                 arr = np.array(img)
-                image_dict[cp] = arr
+                temp_dict[cp] = arr
     
     # save the lin polar in the same orientation as the aligned images
     if not lin_aligned:
         Image.fromarray(lin_polar).save(lin_img_path)
 
-    cross_polars = list(image_dict.values())
+    cross_polars = list(temp_dict.values())
 
     # get ms_bf_xm images, if they exist
     ms_bf_xm_files = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'msbfxm' in f]
@@ -84,10 +106,6 @@ def get_images(folder_path, folder_name):
         with Image.open(path) as img:
             arr = np.array(img)
             ms_bf_xms.append(arr)
-    print("TYPE: ", type(ms_bf_xms))
-    print("LEN: ", len(ms_bf_xms))
-    if len(ms_bf_xms) > 0: 
-        print("TYPE OF ELEMENT: ", type(ms_bf_xms[0]))
 
 #align images
 def align_images(img, reference, blend_width=100):
@@ -121,7 +139,7 @@ def align_images(img, reference, blend_width=100):
     
     return blended.astype(np.uint8)
 
-def create_bright_composite(arrays):
+def create_composite(arrays):
     stacked = np.stack(arrays)
     # For every pixel, get the maximum value across all images
     composite = np.max(stacked, axis=0)
@@ -202,18 +220,18 @@ def show_images(images, title="Image Grid", max_width=3):
     - images: List of images to show.
     - title: Window title.
     - max_width: Maximum number of images in a row.
+    - pause_to_display_images: Flag to wait for key press before closing images.
     """
-    if isinstance(images, np.ndarray) and images.ndim == 4:
-        # Convert the 4D NumPy array to a list of 3D arrays (images)
-        images = [images[i] for i in range(images.shape[0])]
-
     images = resize_images(images)    
 
+    # Only pad with dummy images if the number of images is greater than max_width
+    needs_padding = len(images) > max_width
+    
     # Calculate the number of rows needed to display the images
     num_rows = len(images) // max_width + (len(images) % max_width > 0)
 
-    # Prepare a dummy (blank) image of the same shape and type as the first image
-    if images:
+    # Prepare a dummy (blank) image of the same shape and type as the first image if padding is needed
+    if needs_padding and images:
         dummy_shape = images[0].shape
         dummy_image = np.zeros(dummy_shape, dtype=images[0].dtype)
 
@@ -222,11 +240,11 @@ def show_images(images, title="Image Grid", max_width=3):
     for i in range(num_rows):
         row_images = images[i * max_width:(i + 1) * max_width]
 
-        # If this row is not fully populated, pad it with dummy images
-        while len(row_images) < max_width:
-            row_images.append(dummy_image)
+        # If this row is not fully populated and padding is needed, pad it with dummy images
+        if needs_padding:
+            while len(row_images) < max_width:
+                row_images.append(dummy_image)
 
-        # Stack images in this row horizontally
         row_stack = np.hstack(row_images)
         rows.append(row_stack)
 
@@ -243,7 +261,7 @@ def show_images(images, title="Image Grid", max_width=3):
 
     else:
         print("No images to display.")
-        
+
 def apply_watershed_on_channel(channel):
     # Apply threshold to find major objects
     _, thresh = cv2.threshold(channel, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
@@ -361,9 +379,9 @@ def find_channel_centroids(image_channel, channel_name, max_k=16):
     # Initialize a list to store WCSS values for each number of clusters
     wcss = []
     centroids_dict = {}
-    
+    print(f"Running K-means for k = 1 - 16...")
+
     for i in range(1, max_k + 1):
-        print(f"Running K-means for k = {i}...")
         kmeans = KMeans(n_clusters=i, init='k-means++', max_iter=300, n_init=10, random_state=0)
         kmeans.fit(flat_image_channel)
         wcss.append(kmeans.inertia_)
@@ -473,31 +491,36 @@ get_images(folder_path, folder_name)
 ###### CREATE LIN POLAR COMPOSITE SOBEL ######
 lin_sobel = create_sobel(lin_polar) 
 lin_value = get_value(lin_polar)
-###### CREATE BRIGHT COMPOSITE + SOBEL ######
-bright_composite = create_bright_composite(cross_polars)
 
-print("GENERATING COMPOSITE...")
-Image.fromarray(bright_composite).save(os.path.join(folder_path, folder_name+"_composite.jpg"))
-bright_composite_sobel = create_sobel(bright_composite)
-bright_composite_value = get_value(bright_composite)
+
+###### CREATE BRIGHT COMPOSITE + SOBEL ######
+if len(composite) == 0:
+    print("GENERATING COMPOSITE...")
+    composite = create_composite(cross_polars)
+    Image.fromarray(composite).save(os.path.join(folder_path, folder_name+"_composite.jpg"))
+
+composite_sobel = create_sobel(composite)
+composite_value = get_value(composite)
 
 ###### CREATE SOBELS FROM CROSS POLARS ######
-# note these sobels havent been normalized yet
-sobels = [create_sobel(cp) for cp in cross_polars]
-values = [get_value(cp) for cp in cross_polars]
-stacked_sobels = np.stack(sobels)
-stacked_values = np.stack(values)
 
-#sum_composite_sobel = normalize(np.sum(stacked_sobels, axis=0)) 
-max_composite_minus_bright_sobel = normalize(np.max(stacked_sobels, axis=0)-bright_composite_sobel) # WINNER
-#bright_minus_values = normalize(np.max(bright_composite_value-stacked_values, axis=0))
 
-#xpls_minus_bright_minus_lin_sobel = normalize(np.max(stacked_sobels, axis=0)-lin_sobel) 
-#cv2.imshow('MAX - BRIGHT', max_composite_minus_bright_sobel)
-#cv2.imshow('BRIGHT - VALUES', cv2.cvtColor(bright_minus_values, cv2.COLOR_RGB2BGR))
+if len(sobel) == 0:
+    print("GENERATING SOBEL...")
+    # note these sobels havent been normalized yet
+    sobels = [create_sobel(cp) for cp in cross_polars]
+    values = [get_value(cp) for cp in cross_polars]
+    stacked_sobels = np.stack(sobels)
+    stacked_values = np.stack(values)
+    #sum_composite_sobel = normalize(np.sum(stacked_sobels, axis=0)) 
+    max_composite_minus_bright_sobel = normalize(np.max(stacked_sobels, axis=0)-composite_sobel) # WINNER
+    #bright_minus_values = normalize(np.max(composite_value-stacked_values, axis=0))
 
-print("GENERATING SOBEL...")
-Image.fromarray(max_composite_minus_bright_sobel).save(os.path.join(folder_path, folder_name+"_sobel.jpg"))
+    #xpls_minus_bright_minus_lin_sobel = normalize(np.max(stacked_sobels, axis=0)-lin_sobel) 
+    #cv2.imshow('MAX - BRIGHT', max_composite_minus_bright_sobel)
+    #cv2.imshow('BRIGHT - VALUES', cv2.cvtColor(bright_minus_values, cv2.COLOR_RGB2BGR))
+
+    Image.fromarray(max_composite_minus_bright_sobel).save(os.path.join(folder_path, folder_name+"_sobel.jpg"))
 
 # check if ms_bf_xm images array is already populated
 if len(ms_bf_xms) == 0:
@@ -512,14 +535,33 @@ if len(ms_bf_xms) == 0:
     ms_bf_xms.append(ms_bf_xm_img)
     Image.fromarray(ms_bf_xm_img).save(os.path.join(folder_path, folder_name+"_msbfxm_lin.jpg"))
 
-# now show ms_bf_xm images: ms_bf_xm is a numpy array: we need to input as list
-show_images(ms_bf_xms, 'MS_BF_XMS')
+# # now show ms_bf_xm images: ms_bf_xm is a numpy array: we need to input as list
+# show_images(ms_bf_xms, 'MS_BF_XMS')
 
-edges = detect_edges_and_combine_for_images(ms_bf_xms)
-overlaied_image = overlay_edges_on_image(edges, np.copy(bright_composite))
+# edges = detect_edges_and_combine_for_images(ms_bf_xms)
+# overlaid_image = overlay_edges_on_image(edges, np.copy(composite))
 
-show_images([edges, overlaied_image], "edges and overlaid image")
-show_images([mark_area_on_image_which_resemble_color_scheme(bright_composite)], "countoured image")
+# show_images([edges, overlaid_image], "edges and overlaid image")
+# show_images([mark_area_on_image_which_resemble_color_scheme(composite)], "countoured image")
+
+
+# apply median shift bilateral filter to cross polars
+print("APPLYING MEDIAN SHIFT BILATERAL FILTER TO CROSS POLARS + LIN POLAR...")
+ms_bfs = [apply_median_shift_bilateral_filter(cp) for cp in cross_polars]
+ms_bfs.append(apply_median_shift_bilateral_filter(lin_polar))
+
+show_images(ms_bfs, 'MS_BFS')
+print("DETECTING EDGES...")
+
+edges = detect_edges_and_combine_for_images(ms_bfs)
+overlaid_image = overlay_edges_on_image(edges, np.copy(composite))
+
+show_images([edges, overlaid_image], "edges and overlaid image")
+
+# upscale edges image by four times to match original image size
+edges = cv2.resize(edges, (composite.shape[1], composite.shape[0]), interpolation=cv2.INTER_NEAREST)
+# show_images([mark_area_on_image_which_resemble_color_scheme(composite)], "countoured image")
+
 
 
 # show_images(ms_bf_xms, 'MS_BF_XMS')
