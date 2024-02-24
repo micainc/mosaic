@@ -51,7 +51,7 @@ def show_images(images, title="Image Grid", pause_to_display_images=True, max_wi
     else:
         print("No images to display.")
 
-def normalize(image):
+def normalize_image(image):
 
     # if any negative values, dont lose that data: shift all values into positive, to create floor at 0.
     absolute = image

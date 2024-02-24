@@ -16,7 +16,7 @@ from sklearn.metrics import pairwise_distances_argmin
 
 from edge_detection import detect_edges_and_combine_for_images, overlay_edges_on_image
 from contouring import mark_area_on_image_which_resemble_color_scheme
-from utils import show_images, resize_images, normalize
+from utils import show_images, resize_images, normalize_image
 
 lin_polar = []
 cross_polars = []
@@ -193,8 +193,6 @@ def apply_watershed_on_channel(channel):
     markers = markers + 1
     markers[unknown == 255] = 0
     print("MAX | MIN: " + str(markers.max()) + " | " + str(markers.min()))
-    plt.imshow(markers)
-    plt.show()
     # Apply watershed
     return markers
 
@@ -232,7 +230,7 @@ def apply_denoise_bilateral_filter(image):
     print("denoise_and_bilateral_filter()")
     # if not uint8, normalize to 0-255 range and convert to uint8
     if image.dtype != np.uint8:
-        image = normalize(image)
+        image = normalize_image(image)
 
     # convert rgb to bgr
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
@@ -311,13 +309,13 @@ def find_channel_centroids(image_channel, channel_name, max_k=16):
     return centroids_dict[optimal_k]
 
 def bilateral_filter_with_variables(img, diameter, sigma_color, sigma_space):
-    blur = cv2.bilateralFilter(normalize(img), diameter, sigma_color, sigma_space)
+    blur = cv2.bilateralFilter(normalize_image(img), diameter, sigma_color, sigma_space)
     hsv_blur = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
     # Apply the bilateral filter to each channel
-    sat_filtered = normalize(cv2.bilateralFilter(hsv[:, :, 1], diameter, sigma_color, sigma_space))
-    val_filtered = normalize(cv2.bilateralFilter(hsv[:, :, 2], diameter, sigma_color, sigma_space))
+    sat_filtered = normalize_image(cv2.bilateralFilter(hsv[:, :, 1], diameter, sigma_color, sigma_space))
+    val_filtered = normalize_image(cv2.bilateralFilter(hsv[:, :, 2], diameter, sigma_color, sigma_space))
 
     # Merge the filtered channels back into an HSV image
     filtered_hsv = cv2.merge([hsv_blur[:, :, 0], sat_filtered, val_filtered])
@@ -327,7 +325,7 @@ def bilateral_filter_with_variables(img, diameter, sigma_color, sigma_space):
 def median_blur(image, numPixels):
      # if not uint8, normalize to 0-255 range and convert to uint8
     if image.dtype != np.uint8:
-        image = normalize(image)
+        image = normalize_image(image)
 
     # convert rgb to bgr
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
@@ -406,14 +404,27 @@ lin_value = get_value(lin_polar)
 ###### CREATE BRIGHT COMPOSITE + SOBEL ######
 if len(composite) == 0:
     print("GENERATING COMPOSITE...")
-    composite = create_composite(cross_polars)
+    composite = np.max(np.stack(cross_polars), axis=0)
     Image.fromarray(composite).save(os.path.join(folder_path, folder_name+"_composite.jpg"))
 
 composite_sobel = create_sobel(composite)
 composite_value = get_value(composite)
 
-###### CREATE SOBELS FROM CROSS POLARS ######
+# average cross polar images together, then normalize
+composite_mean = normalize_image(np.mean(np.stack(cross_polars), axis=0))
+composite_var = normalize_image(np.var(np.stack(cross_polars), axis=0))
+composite_std = normalize_image(np.std(np.stack(cross_polars), axis=0))
+# resize composite2 by a factor of 0.25
+composite_mean = cv2.resize(composite_mean, (composite_mean.shape[1] // 4, composite_mean.shape[0] // 4), interpolation=cv2.INTER_NEAREST)
+composite_var = cv2.resize(composite_var, (composite_var.shape[1] // 4, composite_var.shape[0] // 4), interpolation=cv2.INTER_NEAREST)
+composite_std = cv2.resize(composite_std, (composite_std.shape[1] // 4, composite_std.shape[0] // 4), interpolation=cv2.INTER_NEAREST)
+# turn type of composite_mean into float
 
+composite_diff = normalize_image(composite_mean.astype(float)-composite_var.astype(float))
+show_images([composite_mean, composite_var, composite_diff, composite_std], "Composite MEAN / VAR", pause_to_display_images, 2)
+
+# sys.exit(1)
+###### CREATE SOBELS FROM CROSS POLARS ######
 
 if len(sobel) == 0:
     print("GENERATING SOBEL...")
@@ -423,7 +434,7 @@ if len(sobel) == 0:
     stacked_sobels = np.stack(sobels)
     stacked_values = np.stack(values)
     #sum_composite_sobel = normalize(np.sum(stacked_sobels, axis=0)) 
-    max_composite_minus_bright_sobel = normalize(np.max(stacked_sobels, axis=0)-composite_sobel) # WINNER
+    max_composite_minus_bright_sobel = normalize_image(np.max(stacked_sobels, axis=0)-composite_sobel) # WINNER
     #bright_minus_values = normalize(np.max(composite_value-stacked_values, axis=0))
 
     #xpls_minus_bright_minus_lin_sobel = normalize(np.max(stacked_sobels, axis=0)-lin_sobel) 
@@ -459,7 +470,7 @@ if len(sobel) == 0:
 print("APPLYING MEDIAN SHIFT BILATERAL FILTER TO CROSS POLARS + LIN POLAR...")
 ms_bfs = [apply_median_shift_bilateral_filter(cp) for cp in cross_polars]
 ms_bfs.append(apply_median_shift_bilateral_filter(lin_polar))
-
+ms_bfs.append(apply_median_shift_bilateral_filter(composite))
 show_images(ms_bfs, 'MS_BFS', pause_to_display_images)
 print("DETECTING EDGES...")
 
@@ -474,7 +485,4 @@ edges = cv2.resize(edges, (composite.shape[1], composite.shape[0]), interpolatio
 Image.fromarray(edges).save(os.path.join(folder_path, folder_name+"_edges.jpg"))
 # show_images([mark_area_on_image_which_resemble_color_scheme(composite)], "countoured image")
 
-
-
-# print("APPLYING WATERSHED (FINDING GRAIN BOUNDARIES)...")
 
