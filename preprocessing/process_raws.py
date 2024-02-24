@@ -348,8 +348,10 @@ def apply_median_shift_bilateral_filter(image):
 
     resized_image = cv2.resize(image, (image.shape[1] //4, image.shape[0] // 4), interpolation=cv2.INTER_AREA)
 
+    max_rounds_of_bilateral_filter = 6
     # Running bilateral filter multiple times on the same image.
-    for i in range(0, 6):
+    for i in range(0, max_rounds_of_bilateral_filter):
+        print("Applying bilateral blur. Round: " + str(i) + "/" + str(max_rounds_of_bilateral_filter))
         resized_image = bilateral_filter_with_variables(resized_image, -1, 25, 25)
     
     show_images([resized_image], "Median Shift Bilateral Filter", pause_to_display_images)
