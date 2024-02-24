@@ -22,7 +22,7 @@ lin_polar = []
 cross_polars = []
 composite = []
 sobel = []
-ms_bf_xms = []
+blurred_images = []
 
 pause_to_display_images = True
 
@@ -99,15 +99,15 @@ def get_images(folder_path, folder_name):
 
     cross_polars = list(temp_dict.values())
 
-    # get ms_bf_xm images, if they exist
-    ms_bf_xm_files = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'msbfxm' in f]
-    if(len(ms_bf_xm_files) > 0):
-        print("MS_BF_XM IMAGES FOUND. FETCHING...")
-    for file in ms_bf_xm_files:
+    # get ms_bfs images, if they exist
+    ms_bf_files = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'msbf' in f]
+    if(len(ms_bf_files) > 0):
+        print("MS_BF IMAGES FOUND. FETCHING...")
+    for file in ms_bf_files:
         path = os.path.join(folder_path, file)
         with Image.open(path) as img:
             arr = np.array(img)
-            ms_bf_xms.append(arr)
+            blurred_images.append(arr)
 
 #align images
 def align_images(img, reference, blend_width=100):
@@ -454,16 +454,25 @@ if len(sobel) == 0:
 # show_images([edges, overlaid_image], "edges and overlaid image")
 # show_images([mark_area_on_image_which_resemble_color_scheme(composite)], "countoured image")
 
-
-# apply median shift bilateral filter to cross polars
 print("APPLYING MEDIAN SHIFT BILATERAL FILTER TO CROSS POLARS + LIN POLAR...")
-ms_bfs = [apply_median_shift_bilateral_filter(cp) for cp in cross_polars]
-ms_bfs.append(apply_median_shift_bilateral_filter(lin_polar))
 
-show_images(ms_bfs, 'MS_BFS', pause_to_display_images)
+# check if ms_bfs images array is already populated
+if len(blurred_images) == 0:
+    idx = 1
+    for cp in cross_polars:
+        ms_bf_img = apply_median_shift_bilateral_filter(cp)
+        blurred_images.append(ms_bf_img)
+        Image.fromarray(ms_bf_img).save(os.path.join(folder_path, folder_name+"_msbf_"+str(idx)+".jpg"))
+        idx += 1
+
+    ms_bf_img = apply_median_shift_bilateral_filter(lin_polar)
+    blurred_images.append(ms_bf_img)
+    Image.fromarray(ms_bf_img).save(os.path.join(folder_path, folder_name+"_msbf_lin.jpg"))
+    
+show_images(blurred_images, 'MS_BFS', pause_to_display_images)
 print("DETECTING EDGES...")
 
-edges = detect_edges_and_combine_for_images(ms_bfs)
+edges = detect_edges_and_combine_for_images(blurred_images)
 overlaid_image = overlay_edges_on_image(edges, np.copy(composite))
 
 show_images([edges, overlaid_image], "edges and overlaid image", pause_to_display_images)
