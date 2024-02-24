@@ -63,7 +63,7 @@ def get_images(folder_path, folder_name):
 
     
     # Filter for cross-polar images and exclude ones that are already aligned
-    cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'sobel' not in f and 'msbfxm' not in f and 'edges' not in f]
+    cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'sobel' not in f and 'msbf' not in f and 'edges' not in f]
     
     # For storing the cross-polarized images
     temp_dict = {}
