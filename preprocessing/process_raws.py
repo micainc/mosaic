@@ -16,13 +16,15 @@ from sklearn.metrics import pairwise_distances_argmin
 
 from edge_detection import detect_edges_and_combine_for_images, overlay_edges_on_image
 from contouring import mark_area_on_image_which_resemble_color_scheme
-from utils import show_images, resize_images, normalize
+from segregate_anything_model import process_image_with_sam_model
+from utils import show_images, resize_images, normalize, get_images_with_substring, get_image_with_substring_if_exists
 
-lin_polar = []
+lin_polar = None
 cross_polars = []
 composite = []
 sobel = []
 blurred_images = []
+segregated_image = None
 
 pause_to_display_images = True
 
@@ -32,19 +34,17 @@ def get_images(folder_path, folder_name):
     global cross_polars
     global sobel
     global composite
+    global segregated_image
+    global blurred_images
     all_files = os.listdir(folder_path)
 
     # Get the linear-polarized image
-    lin_file = next((f for f in all_files if 'lin' in f and f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG'))), None)
-    if not lin_file:
+    lin_polar = get_image_with_substring_if_exists(all_files, folder_path, 'lin')
+    if lin_polar is None:
         print("NO LIN POLAR IMAGE FOUND: please label linearly polarized image with '_lin' suffix. Exiting...")
         # terminate program if no lin polar image found
         sys.exit(1)
     
-    lin_img_path = os.path.join(folder_path, lin_file)
-    with Image.open(lin_img_path) as img:
-        lin_polar = np.array(img)
-
     # get the composite image, if it exists
     composite_file = next((f for f in all_files if 'composite' in f and f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG'))), None)
     if composite_file:
@@ -54,16 +54,10 @@ def get_images(folder_path, folder_name):
             composite = np.array(img)
 
     # get the sobel image, if it exists
-    sobel_file = next((f for f in all_files if 'sobel' in f and f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG'))), None)
-    if sobel_file:
-        print("SOBEL IMAGE FOUND. FETCHING...")
-        sobel_path = os.path.join(folder_path, sobel_file)
-        with Image.open(sobel_path) as img:
-            sobel = np.array(img)
+    sobel = get_image_with_substring_if_exists(all_files, folder_path, 'sobel')
 
-    
     # Filter for cross-polar images and exclude ones that are already aligned
-    cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'sobel' not in f and 'msbf' not in f and 'edges' not in f]
+    cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'sobel' not in f and 'msbf' not in f and 'segregated' not in f and 'edges' not in f]
     
     # For storing the cross-polarized images
     temp_dict = {}
@@ -95,19 +89,16 @@ def get_images(folder_path, folder_name):
     
     # save the lin polar in the same orientation as the aligned images
     if not lin_aligned:
+        lin_file = next((f for f in all_files if 'lin' in f and f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG'))), None)
+        lin_img_path = os.path.join(folder_path, lin_file)
         Image.fromarray(lin_polar).save(lin_img_path)
 
     cross_polars = list(temp_dict.values())
 
+
     # get ms_bfs images, if they exist
-    ms_bf_files = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'msbf' in f]
-    if(len(ms_bf_files) > 0):
-        print("MS_BF IMAGES FOUND. FETCHING...")
-    for file in ms_bf_files:
-        path = os.path.join(folder_path, file)
-        with Image.open(path) as img:
-            arr = np.array(img)
-            blurred_images.append(arr)
+    blurred_images = get_images_with_substring(all_files, folder_path, 'msbf')
+    segregated_image = get_image_with_substring_if_exists(all_files, folder_path, 'segregated')
 
 #align images
 def align_images(img, reference, blend_width=100):
@@ -414,6 +405,15 @@ if len(composite) == 0:
 composite_sobel = create_sobel(composite)
 composite_value = get_value(composite)
 
+###### Create Segregated Image
+if segregated_image is None:
+    print("Creating segregated image using SAM model..")
+    composite_with_segregated_marks, segregated_image = process_image_with_sam_model(composite)
+    Image.fromarray(segregated_image).save(os.path.join(folder_path, folder_name+"_segregated.jpg"))
+
+segregated_image = cv2.resize(segregated_image, (segregated_image.shape[1] //4, segregated_image.shape[0] // 4), interpolation=cv2.INTER_AREA)
+show_images([segregated_image], "segregated image", pause_to_display_images)
+
 ###### CREATE SOBELS FROM CROSS POLARS ######
 
 
@@ -473,7 +473,10 @@ if len(blurred_images) == 0:
 show_images(blurred_images, 'MS_BFS', pause_to_display_images)
 print("DETECTING EDGES...")
 
-edges = detect_edges_and_combine_for_images(blurred_images)
+images_to_generate_edges = blurred_images
+images_to_generate_edges.append(segregated_image)
+
+edges = detect_edges_and_combine_for_images(images_to_generate_edges)
 overlaid_image = overlay_edges_on_image(edges, np.copy(composite))
 
 show_images([edges, overlaid_image], "edges and overlaid image", pause_to_display_images)
