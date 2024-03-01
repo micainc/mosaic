@@ -50,17 +50,17 @@ def detect_edges(images):
     else:
         return None
     
-def detect_edges_and_combine_for_images(images):
+def create_composite_edge_map(images):
     if len(images) == 0:
             raise TypeError("images should not be empty")
-    combined_edges = np.zeros_like(detect_edges([images[0]]))
+    edge_map = np.zeros_like(detect_edges([images[0]]))
 
         
     for img in images:
         edges = detect_edges([img])
-        combined_edges = cv2.bitwise_or(combined_edges, edges)
-
-    return combined_edges
+        edge_map = cv2.bitwise_or(edge_map, edges)
+    
+    return edge_map
 
 def overlay_edges_on_image(edges, image):
      # Resize combined_edges to match the target image size if necessary

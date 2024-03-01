@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from kneed import KneeLocator
 from sklearn.metrics import pairwise_distances_argmin
 
-from edge_detection import detect_edges_and_combine_for_images, overlay_edges_on_image
+from edge_detection import create_composite_edge_map, overlay_edges_on_image
 from contouring import mark_area_on_image_which_resemble_color_scheme
 
 from utils import show_images, resize_images, normalize_image, get_images_with_substring, get_image_with_substring_if_exists
@@ -30,7 +30,7 @@ cross_polars = []
 composite = []
 sobel = []
 blurred_images = []
-segregated_image = None
+segmentation_maps = []
 
 pause_to_display_images = True
 
@@ -40,7 +40,7 @@ def get_images(folder_path, folder_name):
     global cross_polars
     global sobel
     global composite
-    global segregated_image
+    global segmentation_maps
     global blurred_images
     all_files = os.listdir(folder_path)
 
@@ -62,8 +62,8 @@ def get_images(folder_path, folder_name):
     # get the sobel image, if it exists
     sobel = get_image_with_substring_if_exists(all_files, folder_path, 'sobel')
 
-    # Filter for cross-polar images and exclude ones that are already aligned
-    cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'sobel' not in f and 'msbf' not in f and 'segregated' not in f and 'edges' not in f]
+    # Filter for non-aligned cross-polar images: ignore all processed images
+    cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'sobel' not in f and 'msbf' not in f and 'segmentation_map' not in f and 'segregated' not in f and 'edge_map' not in f]
     
     # For storing the cross-polarized images
     temp_dict = {}
@@ -71,8 +71,8 @@ def get_images(folder_path, folder_name):
     lin_aligned = True
     for cp in cps:
         img_path = os.path.join(folder_path, cp)
-        if not cp.startswith('aligned_'):
-            print("CPs NOT ALIGNED")
+        if 'aligned' not in cp:
+            print(cp + " NOT ALIGNED")
             lin_aligned = False
             with Image.open(img_path) as img:
                 arr = np.array(img)
@@ -102,9 +102,15 @@ def get_images(folder_path, folder_name):
     cross_polars = list(temp_dict.values())
 
 
-    # get ms_bfs images, if they exist
+    # get ms_bfs, if they exist
     blurred_images = get_images_with_substring(all_files, folder_path, 'msbf')
-    segregated_image = get_image_with_substring_if_exists(all_files, folder_path, 'segregated')
+    #downscale blurred images by 1/4
+    blurred_images = [cv2.resize(bi, (bi.shape[1] //4, bi.shape[0] // 4), interpolation=cv2.INTER_NEAREST) for bi in blurred_images]
+
+    # get segmentation maps, if they exist
+    segmentation_maps = get_images_with_substring(all_files, folder_path, 'segmentation_map')
+    #downscale seg maps by 1/4
+    segmentation_maps = [cv2.resize(sm, (sm.shape[1] //4, sm.shape[0] // 4), interpolation=cv2.INTER_NEAREST) for sm in segmentation_maps]
 
 #align images
 def align_images(img, reference, blend_width=100):
@@ -151,7 +157,7 @@ def create_sobel(image):
     channel = hsv[:,:,2]
     scales = [0.2, 0.4, 0.6, 0.8, 1]  # You can modify these values based on your needs.
 
-    combined_edges = np.zeros_like(channel, dtype=float)
+    sobel = np.zeros_like(channel, dtype=float)
 
     for scale in scales:
         resized = cv2.resize(channel, (0,0), fx=scale, fy=scale)
@@ -159,9 +165,9 @@ def create_sobel(image):
         sobely = cv2.Sobel(resized, cv2.CV_64F, 0, 1, ksize=3)
         magnitude = np.sqrt(sobelx**2 + sobely**2)
         magnitude = cv2.resize(magnitude, (channel.shape[1], channel.shape[0]))  # Resize back to original size
-        combined_edges += magnitude
+        sobel += magnitude
 
-    return combined_edges
+    return sobel
 
 def get_value(image):
     # Convert the image to HSV
@@ -324,12 +330,8 @@ def median_blur(image, numPixels):
     if image.dtype != np.uint8:
         image = normalize_image(image)
 
-    # convert rgb to bgr
-    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
     medianBlurred = cv2.medianBlur(image, numPixels)
-
-    return cv2.cvtColor(medianBlurred, cv2.COLOR_BGR2RGB)
+    return medianBlurred
 
 
 def median_blur_with_range(img, start, end, interval):
@@ -338,20 +340,20 @@ def median_blur_with_range(img, start, end, interval):
     return img
 
 def apply_median_shift_bilateral_filter(image):
-    image = cv2.resize(image, (image.shape[1] //4, image.shape[0] // 4), interpolation=cv2.INTER_AREA)
+    image = cv2.resize(image, (image.shape[1] //4, image.shape[0] // 4), interpolation=cv2.INTER_NEAREST)
 
     # Run median blur with iteratively starting from 9 pixels and going to 15, with an interval of 2.
     #image = median_blur_with_range(image, 5, 21, 2)
     # show_images([image], "Median Shift", pause_to_display_images)
 
-    max_rounds_of_bilateral_filter = 5
+    max_rounds_of_bilateral_filter = 2
     # Running bilateral filter multiple times on the same image.
     for i in range(0, max_rounds_of_bilateral_filter):
         print("Bilateral Blur Round: " + str(i) + "/" + str(max_rounds_of_bilateral_filter))
         image = bilateral_filter_with_variables(image, -1, 15, 15)
         image = median_blur_with_range(image, 3, 5, 2)
 
-    show_images([image], "Median Shift Bilateral Filter", pause_to_display_images)
+    show_images([cv2.cvtColor(image, cv2.COLOR_BGR2RGB)], "Median Shift Bilateral Filter", pause_to_display_images)
     return image
 
 
@@ -381,7 +383,7 @@ folder_path = ''
 folder_name = ''
 
 if len(sys.argv) > 4 | len(sys.argv) <= 1:
-    print("Usage: python3 process_raws.py <input_folder> <identifier> <option>")
+    print("Usage: python3 micas.py <input_folder> <identifier> <option>")
     sys.exit(1)
 
 folder_path = sys.argv[1]
@@ -406,21 +408,12 @@ lin_value = get_value(lin_polar)
 if len(composite) == 0:
     print("GENERATING COMPOSITE...")
     composite = np.max(np.stack(cross_polars), axis=0)
-    Image.fromarray(composite).save(os.path.join(folder_path, folder_name+"_composite.jpg"))
+    Image.fromarray(composite).save(os.path.join(folder_path, folder_name+"_composite.png"))
 
 composite_sobel = create_sobel(composite)
 composite_value = get_value(composite)
 
-###### Create Segregated Image
-if segregated_image is None:
-    print("Creating segregated image using SAM model..")
-    composite_with_segregated_marks, segregated_image = process_image_with_sam_model(composite)
-    Image.fromarray(segregated_image).save(os.path.join(folder_path, folder_name+"_segregated.jpg"))
-
-segregated_image = cv2.resize(segregated_image, (segregated_image.shape[1] //4, segregated_image.shape[0] // 4), interpolation=cv2.INTER_AREA)
-show_images([segregated_image], "segregated image", pause_to_display_images)
-
-###### CREATE SOBELS FROM CROSS POLARS ######
+###### CREATE SOBEL FROM CROSS POLARS ######
 
 if len(sobel) == 0:
     print("GENERATING SOBEL...")
@@ -437,7 +430,8 @@ if len(sobel) == 0:
     #cv2.imshow('MAX - BRIGHT', max_composite_minus_bright_sobel)
     #cv2.imshow('BRIGHT - VALUES', cv2.cvtColor(bright_minus_values, cv2.COLOR_RGB2BGR))
 
-    Image.fromarray(max_composite_minus_bright_sobel).save(os.path.join(folder_path, folder_name+"_sobel.jpg"))
+    Image.fromarray(max_composite_minus_bright_sobel).save(os.path.join(folder_path, folder_name+"_sobel.png"))
+
 
 # check if ms_bfs images array is already populated
 if len(blurred_images) == 0:
@@ -446,28 +440,112 @@ if len(blurred_images) == 0:
     for cp in cross_polars:
         ms_bf_img = apply_median_shift_bilateral_filter(cp)
         blurred_images.append(ms_bf_img)
-        Image.fromarray(ms_bf_img).save(os.path.join(folder_path, folder_name+"_msbf_"+str(idx)+".jpg"))
+        Image.fromarray(cv2.resize(ms_bf_img, (cp.shape[1], cp.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_cross_polar_msbf_"+str(idx)+".png"))
         idx += 1
 
     ms_bf_img = apply_median_shift_bilateral_filter(lin_polar)
     blurred_images.append(ms_bf_img)
-    Image.fromarray(ms_bf_img).save(os.path.join(folder_path, folder_name+"_msbf_lin.jpg"))
+    Image.fromarray(cv2.resize(ms_bf_img, (lin_polar.shape[1], lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_lin_polar_msbf.png"))
     
 show_images(blurred_images, 'MS_BFS', pause_to_display_images)
-print("DETECTING EDGES...")
 
-images_to_generate_edges = blurred_images
-images_to_generate_edges.append(segregated_image)
 
-edges = detect_edges_and_combine_for_images(images_to_generate_edges)
-overlaid_image = overlay_edges_on_image(edges, np.copy(composite))
+###### CREATE SEGMENTATION MAP FROM BLURRED IMAGES ######
+if len(segmentation_maps) == 0:
+    b_idx = 1
+    segmentation_map_overlays = []
 
-show_images([edges, overlaid_image], "edges and overlaid image", pause_to_display_images)
+    for b in blurred_images:
+        print("CREATING BLUR SEGMENTION MAP "+str(b_idx)+"/"+str(len(blurred_images))+"...")
+        # downscale by 1/4
+        b_with_segmentation_map_overlay, b_segmentation_map = process_image_with_sam_model(b)
+        segmentation_maps.append(b_segmentation_map.copy())
+        segmentation_map_overlays.append(b_with_segmentation_map_overlay)
 
-# upscale edges image by four times to match original image size
-edges = cv2.resize(edges, (composite.shape[1], composite.shape[0]), interpolation=cv2.INTER_NEAREST)
-#save edges to local
-Image.fromarray(edges).save(os.path.join(folder_path, folder_name+"_edges.jpg"))
-# show_images([mark_area_on_image_which_resemble_color_scheme(composite)], "countoured image")
+        Image.fromarray(cv2.resize(b_segmentation_map, (lin_polar.shape[1] , lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_blur_segmentation_map_"+str(b_idx)+".png"))
+        b_idx += 1
+
+    show_images(segmentation_map_overlays, "Blur Segmentation Map Overlays", pause_to_display_images)
+
+else:
+    show_images(segmentation_maps, "Segmentation Maps", pause_to_display_images)
+
+###### CREATE EDGE MAP FROM SEGMENTATION MAPS ######
+
+edge_map = create_composite_edge_map(segmentation_maps)
+Image.fromarray(edge_map).save(os.path.join(folder_path, folder_name+"_edge_map.png"))
+
+# perform bilateral filter on edge map
+bf_edge_map = bilateral_filter_with_variables(edge_map, 30, 30, 30)
+show_images([bf_edge_map], "BF Edge Map", pause_to_display_images)
+
+
+###### CREATE SEGMENTATION MAP FROM CROSS POLARS + LIN ######
+# if len(segmentation_maps) == 0:
+#     print("CREATING LP SEGMENTION MAP...")
+#     segmentation_map_overlays = []
+#     # downscale by 1/4
+#     lin_polar_with_segmentation_map_overlay, lin_polar_segmentation_map = process_image_with_sam_model(cv2.resize(lin_polar, (lin_polar.shape[1] //4, lin_polar.shape[0] // 4), interpolation=cv2.INTER_NEAREST))
+#     segmentation_maps.append(lin_polar_segmentation_map)
+#     segmentation_map_overlays.append(lin_polar_with_segmentation_map_overlay)
+
+#     Image.fromarray(cv2.resize(lin_polar_segmentation_map, (lin_polar.shape[1] , lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_lin_polar_segmentation_map.png")) # save as png to avoid compression artifacts
+
+#     cp_idx = 1
+#     for cp in cross_polars:
+#         print("CREATING CP SEGMENTION MAP "+str(cp_idx)+"/"+str(len(cross_polars))+"...")
+#         # downscale by 1/4
+#         cp_with_segmentation_map_overlay, cp_segmentation_map = process_image_with_sam_model(cv2.resize(cp, (cp.shape[1] //4, cp.shape[0] // 4), interpolation=cv2.INTER_NEAREST))
+#         segmentation_maps.append(cp_segmentation_map.copy())
+#         segmentation_map_overlays.append(cp_with_segmentation_map_overlay)
+
+#         Image.fromarray(cv2.resize(cp_segmentation_map, (cp.shape[1] , cp.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_cross_polar_segmentation_map_"+str(cp_idx)+".png"))
+#         cp_idx += 1
+
+#     show_images(segmentation_map_overlays, "Segmentation Map Overlays", pause_to_display_images)
+
+# else:
+#     show_images(segmentation_maps, "Segmentation Maps", pause_to_display_images)
+#     # create edge map:
+#     edge_map = create_composite_edge_map(segmentation_maps)
+#     Image.fromarray(edge_map).save(os.path.join(folder_path, folder_name+"_edge_map.png"))
+
+
+# # check if ms_bfs images array is already populated
+# if len(blurred_images) == 0:
+#     print("APPLYING MEDIAN SHIFT BILATERAL FILTER TO CROSS POLARS + LIN POLAR...")
+#     idx = 1
+#     for cp in cross_polars:
+#         ms_bf_img = apply_median_shift_bilateral_filter(cp)
+#         blurred_images.append(ms_bf_img)
+#         Image.fromarray(ms_bf_img).save(os.path.join(folder_path, folder_name+"_msbf_"+str(idx)+".png]"))
+#         idx += 1
+
+#     ms_bf_img = apply_median_shift_bilateral_filter(lin_polar)
+#     blurred_images.append(ms_bf_img)
+#     Image.fromarray(ms_bf_img).save(os.path.join(folder_path, folder_name+"_msbf_lin.png"))
+    
+# show_images(blurred_images, 'MS_BFS', pause_to_display_images)
+
+# # for every blurred image, apply segmentation map
+
+
+
+
+# print("DETECTING EDGES...")
+
+# images_to_generate_edges = blurred_images
+# images_to_generate_edges.append(segmentation_maps)
+
+# edge_map = detect_edges_and_combine_for_images(images_to_generate_edges)
+# overlaid_image = overlay_edges_on_image(edge_map, np.copy(composite))
+
+# show_images([edge_map, overlaid_image], "edges and overlaid image", pause_to_display_images)
+
+# # upscale edges image by four times to match original image size
+# edge_map = cv2.resize(edge_map, (composite.shape[1], composite.shape[0]), interpolation=cv2.INTER_NEAREST)
+# #save edges to local
+# Image.fromarray(edge_map).save(os.path.join(folder_path, folder_name+"_edge_map.png"))
+# # show_images([mark_area_on_image_which_resemble_color_scheme(composite)], "countoured image")
 
 

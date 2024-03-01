@@ -42,6 +42,8 @@ var floodStack = []
 var images = {}
 var currentImage = '';
 
+// Multi Image Classification And Segmentation : MICAS
+
 function init() {
     draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height);
     save_ctx.fillStyle = "#000000"; // flood with black
@@ -582,6 +584,7 @@ function dropFiles(event) {
                 filePromises.push(procFile(event.dataTransfer.files[i]));
             }
         }
+
         
         // Handle other files...
         Promise.all(filePromises).then(() => {
