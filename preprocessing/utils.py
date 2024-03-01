@@ -1,5 +1,7 @@
+import os
 import numpy as np
 import cv2
+from PIL import Image
 
 def show_images(images, title="Image Grid", pause_to_display_images=True, max_width=3):
     """
@@ -99,3 +101,25 @@ def resize_images(images, ref_image=None):
             resized_images.append(resized_img)
 
         return resized_images
+    
+def get_images_with_substring(file_paths, folder_path, substring_to_match):
+    # get ms_bfs images, if they exist
+    images = []
+    ms_bf_files = [f for f in file_paths if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and substring_to_match in f]
+    if(len(ms_bf_files) > 0):
+        print(substring_to_match + " IMAGES FOUND. FETCHING...")
+    for file in ms_bf_files:
+        path = os.path.join(folder_path, file)
+        with Image.open(path) as img:
+            arr = np.array(img)
+            images.append(arr)
+    return images
+
+def get_image_with_substring_if_exists(file_paths, folder_path, substring_to_match):
+    images = get_images_with_substring(file_paths, folder_path, substring_to_match)
+
+    if images:
+        return images[0]
+    else:
+        print(substring_to_match + " IMAGE NOT FOUND.")
+        return None
