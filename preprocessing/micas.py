@@ -451,85 +451,69 @@ show_images(blurred_images, 'MS_BFS', pause_to_display_images)
 
 
 ###### CREATE SEGMENTATION MAP FROM BLURRED IMAGES ######
+# if len(segmentation_maps) == 0:
+#     b_idx = 1
+#     segmentation_map_overlays = []
+
+#     for b in blurred_images:
+#         print("CREATING BLUR SEGMENTION MAP "+str(b_idx)+"/"+str(len(blurred_images))+"...")
+#         # downscale by 1/4
+#         b_with_segmentation_map_overlay, b_segmentation_map = process_image_with_sam_model(b)
+#         segmentation_maps.append(b_segmentation_map.copy())
+#         segmentation_map_overlays.append(b_with_segmentation_map_overlay)
+
+#         Image.fromarray(cv2.resize(b_segmentation_map, (lin_polar.shape[1] , lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_blur_segmentation_map_"+str(b_idx)+".png"))
+#         b_idx += 1
+
+#     show_images(segmentation_map_overlays, "Blur Segmentation Map Overlays", pause_to_display_images)
+
+# else:
+#     show_images(segmentation_maps, "Segmentation Maps", pause_to_display_images)
+
+# ###### CREATE EDGE MAP FROM SEGMENTATION MAPS ######
+
+# edge_map = create_composite_edge_map(segmentation_maps)
+# Image.fromarray(edge_map).save(os.path.join(folder_path, folder_name+"_edge_map.png"))
+
+# # perform bilateral filter on edge map
+# bf_edge_map = bilateral_filter_with_variables(edge_map, 30, 30, 30)
+# show_images([bf_edge_map], "BF Edge Map", pause_to_display_images)
+
+# ##### CREATE SEGMENTATION MAP FROM COMPOSITE #####
+# composite_with_segmentation_map_overlay, composite_segmentation_map = process_image_with_sam_model(composite)
+# Image.fromarray(cv2.resize(composite_segmentation_map, (lin_polar.shape[1] , lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_composite_segmentation_map.png"))
+
+
+###### CREATE SEGMENTATION MAP FROM CROSS POLARS + LIN ######
 if len(segmentation_maps) == 0:
-    b_idx = 1
+    print("CREATING LP SEGMENTION MAP...")
     segmentation_map_overlays = []
+    # downscale by 1/4
+    lin_polar_with_segmentation_map_overlay, lin_polar_segmentation_map = process_image_with_sam_model(cv2.resize(lin_polar, (lin_polar.shape[1] //4, lin_polar.shape[0] // 4)), interpolation=cv2.INTER_NEAREST)
+    segmentation_maps.append(lin_polar_segmentation_map)
+    segmentation_map_overlays.append(lin_polar_with_segmentation_map_overlay)
 
-    for b in blurred_images:
-        print("CREATING BLUR SEGMENTION MAP "+str(b_idx)+"/"+str(len(blurred_images))+"...")
+    Image.fromarray(cv2.resize(lin_polar_segmentation_map, (lin_polar.shape[1] , lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_lin_polar_segmentation_map.png")) # save as png to avoid compression artifacts
+
+    cp_idx = 1
+    for cp in cross_polars:
+        print("CREATING CP SEGMENTION MAP "+str(cp_idx)+"/"+str(len(cross_polars))+"...")
         # downscale by 1/4
-        b_with_segmentation_map_overlay, b_segmentation_map = process_image_with_sam_model(b)
-        segmentation_maps.append(b_segmentation_map.copy())
-        segmentation_map_overlays.append(b_with_segmentation_map_overlay)
+        cp_with_segmentation_map_overlay, cp_segmentation_map = process_image_with_sam_model(cv2.resize(cp, (cp.shape[1] //4, cp.shape[0] // 4), interpolation=cv2.INTER_NEAREST))
+        segmentation_maps.append(cp_segmentation_map.copy())
+        segmentation_map_overlays.append(cp_with_segmentation_map_overlay)
 
-        Image.fromarray(cv2.resize(b_segmentation_map, (lin_polar.shape[1] , lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_blur_segmentation_map_"+str(b_idx)+".png"))
-        b_idx += 1
+        Image.fromarray(cv2.resize(cp_segmentation_map, (cp.shape[1] , cp.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_cross_polar_segmentation_map_"+str(cp_idx)+".png"))
+        cp_idx += 1
 
-    show_images(segmentation_map_overlays, "Blur Segmentation Map Overlays", pause_to_display_images)
+    show_images(segmentation_map_overlays, "Segmentation Map Overlays", pause_to_display_images)
 
 else:
     show_images(segmentation_maps, "Segmentation Maps", pause_to_display_images)
 
-###### CREATE EDGE MAP FROM SEGMENTATION MAPS ######
-
+# create edge map:
 edge_map = create_composite_edge_map(segmentation_maps)
 Image.fromarray(edge_map).save(os.path.join(folder_path, folder_name+"_edge_map.png"))
-
-# perform bilateral filter on edge map
-bf_edge_map = bilateral_filter_with_variables(edge_map, 30, 30, 30)
-show_images([bf_edge_map], "BF Edge Map", pause_to_display_images)
-
-
-###### CREATE SEGMENTATION MAP FROM CROSS POLARS + LIN ######
-# if len(segmentation_maps) == 0:
-#     print("CREATING LP SEGMENTION MAP...")
-#     segmentation_map_overlays = []
-#     # downscale by 1/4
-#     lin_polar_with_segmentation_map_overlay, lin_polar_segmentation_map = process_image_with_sam_model(cv2.resize(lin_polar, (lin_polar.shape[1] //4, lin_polar.shape[0] // 4), interpolation=cv2.INTER_NEAREST))
-#     segmentation_maps.append(lin_polar_segmentation_map)
-#     segmentation_map_overlays.append(lin_polar_with_segmentation_map_overlay)
-
-#     Image.fromarray(cv2.resize(lin_polar_segmentation_map, (lin_polar.shape[1] , lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_lin_polar_segmentation_map.png")) # save as png to avoid compression artifacts
-
-#     cp_idx = 1
-#     for cp in cross_polars:
-#         print("CREATING CP SEGMENTION MAP "+str(cp_idx)+"/"+str(len(cross_polars))+"...")
-#         # downscale by 1/4
-#         cp_with_segmentation_map_overlay, cp_segmentation_map = process_image_with_sam_model(cv2.resize(cp, (cp.shape[1] //4, cp.shape[0] // 4), interpolation=cv2.INTER_NEAREST))
-#         segmentation_maps.append(cp_segmentation_map.copy())
-#         segmentation_map_overlays.append(cp_with_segmentation_map_overlay)
-
-#         Image.fromarray(cv2.resize(cp_segmentation_map, (cp.shape[1] , cp.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_cross_polar_segmentation_map_"+str(cp_idx)+".png"))
-#         cp_idx += 1
-
-#     show_images(segmentation_map_overlays, "Segmentation Map Overlays", pause_to_display_images)
-
-# else:
-#     show_images(segmentation_maps, "Segmentation Maps", pause_to_display_images)
-#     # create edge map:
-#     edge_map = create_composite_edge_map(segmentation_maps)
-#     Image.fromarray(edge_map).save(os.path.join(folder_path, folder_name+"_edge_map.png"))
-
-
-# # check if ms_bfs images array is already populated
-# if len(blurred_images) == 0:
-#     print("APPLYING MEDIAN SHIFT BILATERAL FILTER TO CROSS POLARS + LIN POLAR...")
-#     idx = 1
-#     for cp in cross_polars:
-#         ms_bf_img = apply_median_shift_bilateral_filter(cp)
-#         blurred_images.append(ms_bf_img)
-#         Image.fromarray(ms_bf_img).save(os.path.join(folder_path, folder_name+"_msbf_"+str(idx)+".png]"))
-#         idx += 1
-
-#     ms_bf_img = apply_median_shift_bilateral_filter(lin_polar)
-#     blurred_images.append(ms_bf_img)
-#     Image.fromarray(ms_bf_img).save(os.path.join(folder_path, folder_name+"_msbf_lin.png"))
-    
-# show_images(blurred_images, 'MS_BFS', pause_to_display_images)
-
-# # for every blurred image, apply segmentation map
-
-
 
 
 # print("DETECTING EDGES...")
