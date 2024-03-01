@@ -44,6 +44,7 @@ def show_images(images, title="Image Grid", pause_to_display_images=True, max_wi
         if pause_to_display_images:
             # Display the images
             cv2.imshow(title, vstack)
+            print("Display image '" + title + "'." + "Please press a key to advance..")
             cv2.waitKey(0)  # Wait until a key is pressed
 
             cv2.destroyAllWindows()  # Close the window

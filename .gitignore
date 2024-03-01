@@ -88,6 +88,9 @@ typings/
 # Electron-Forge
 out/
 
+# ignore 'samples' folder
+samples/
+
 #ignore images (png, jpg, jpeg, gif) anywhere:
 *.png
 *.jpg

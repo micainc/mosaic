@@ -41,6 +41,8 @@ if(typeof storage.get('loadouts') === undefined || static_loadouts) {
           17: "zircon",
           18: "opaques",
           19: "semi-opaques",
+          20: "chlorite",
+          21: "unknown"
       },
 
       "cystic_fibrosis": {

@@ -22,7 +22,7 @@ lin_polar = []
 cross_polars = []
 composite = []
 sobel = []
-ms_bf_xms = []
+blurred_images = []
 
 pause_to_display_images = True
 
@@ -63,7 +63,7 @@ def get_images(folder_path, folder_name):
 
     
     # Filter for cross-polar images and exclude ones that are already aligned
-    cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'sobel' not in f and 'msbfxm' not in f and 'edges' not in f]
+    cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'sobel' not in f and 'msbf' not in f and 'edges' not in f]
     
     # For storing the cross-polarized images
     temp_dict = {}
@@ -99,15 +99,15 @@ def get_images(folder_path, folder_name):
 
     cross_polars = list(temp_dict.values())
 
-    # get ms_bf_xm images, if they exist
-    ms_bf_xm_files = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'msbfxm' in f]
-    if(len(ms_bf_xm_files) > 0):
-        print("MS_BF_XM IMAGES FOUND. FETCHING...")
-    for file in ms_bf_xm_files:
+    # get ms_bfs images, if they exist
+    ms_bf_files = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'msbf' in f]
+    if(len(ms_bf_files) > 0):
+        print("MS_BF IMAGES FOUND. FETCHING...")
+    for file in ms_bf_files:
         path = os.path.join(folder_path, file)
         with Image.open(path) as img:
             arr = np.array(img)
-            ms_bf_xms.append(arr)
+            blurred_images.append(arr)
 
 #align images
 def align_images(img, reference, blend_width=100):
@@ -330,9 +330,9 @@ def median_blur(image, numPixels):
     # convert rgb to bgr
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
-    mediunBlurred = cv2.medianBlur(image, numPixels)
+    medianBlurred = cv2.medianBlur(image, numPixels)
 
-    return cv2.cvtColor(mediunBlurred, cv2.COLOR_BGR2RGB)
+    return cv2.cvtColor(medianBlurred, cv2.COLOR_BGR2RGB)
 
 
 def median_blur_with_range(img, start, end, interval):
@@ -341,17 +341,21 @@ def median_blur_with_range(img, start, end, interval):
     return img
 
 def apply_median_shift_bilateral_filter(image):
-    # Run mediun blur with iteratively starting from 9 pixels and going to 15, with an interval of 2.
-    image = median_blur_with_range(image, 9, 15, 2)
+    image = cv2.resize(image, (image.shape[1] //4, image.shape[0] // 4), interpolation=cv2.INTER_AREA)
 
-    resized_image = cv2.resize(image, (image.shape[1] //4, image.shape[0] // 4), interpolation=cv2.INTER_AREA)
+    # Run median blur with iteratively starting from 9 pixels and going to 15, with an interval of 2.
+    #image = median_blur_with_range(image, 5, 21, 2)
+    # show_images([image], "Median Shift", pause_to_display_images)
 
+    max_rounds_of_bilateral_filter = 5
     # Running bilateral filter multiple times on the same image.
-    for i in range(0, 6):
-        resized_image = bilateral_filter_with_variables(resized_image, -1, 25, 25)
-    
-    show_images([resized_image], "Median Shift Bilateral Filter", pause_to_display_images)
-    return resized_image
+    for i in range(0, max_rounds_of_bilateral_filter):
+        print("Bilateral Blur Round: " + str(i) + "/" + str(max_rounds_of_bilateral_filter))
+        image = bilateral_filter_with_variables(image, -1, 15, 15)
+        image = median_blur_with_range(image, 3, 5, 2)
+
+    show_images([image], "Median Shift Bilateral Filter", pause_to_display_images)
+    return image
 
 
 def apply_ms_bf_xm(image):
@@ -410,20 +414,6 @@ if len(composite) == 0:
 composite_sobel = create_sobel(composite)
 composite_value = get_value(composite)
 
-# average cross polar images together, then normalize
-composite_mean = normalize_image(np.mean(np.stack(cross_polars), axis=0))
-composite_var = normalize_image(np.var(np.stack(cross_polars), axis=0))
-composite_std = normalize_image(np.std(np.stack(cross_polars), axis=0))
-# resize composite2 by a factor of 0.25
-composite_mean = cv2.resize(composite_mean, (composite_mean.shape[1] // 4, composite_mean.shape[0] // 4), interpolation=cv2.INTER_NEAREST)
-composite_var = cv2.resize(composite_var, (composite_var.shape[1] // 4, composite_var.shape[0] // 4), interpolation=cv2.INTER_NEAREST)
-composite_std = cv2.resize(composite_std, (composite_std.shape[1] // 4, composite_std.shape[0] // 4), interpolation=cv2.INTER_NEAREST)
-# turn type of composite_mean into float
-
-composite_diff = normalize_image(composite_mean.astype(float)-composite_var.astype(float))
-show_images([composite_mean, composite_var, composite_diff, composite_std], "Composite MEAN / VAR", pause_to_display_images, 2)
-
-# sys.exit(1)
 ###### CREATE SOBELS FROM CROSS POLARS ######
 
 if len(sobel) == 0:
@@ -443,38 +433,24 @@ if len(sobel) == 0:
 
     Image.fromarray(max_composite_minus_bright_sobel).save(os.path.join(folder_path, folder_name+"_sobel.jpg"))
 
-# check if ms_bf_xm images array is already populated
-# if len(ms_bf_xms) == 0:
-#     idx = 1
-#     for cp in cross_polars:
-#         ms_bf_xm_img = apply_ms_bf_xm(cp)
-#         ms_bf_xms.append(ms_bf_xm_img)
-#         Image.fromarray(ms_bf_xm_img).save(os.path.join(folder_path, folder_name+"_msbfxm_"+str(idx)+".jpg"))
-#         idx += 1
+# check if ms_bfs images array is already populated
+if len(blurred_images) == 0:
+    print("APPLYING MEDIAN SHIFT BILATERAL FILTER TO CROSS POLARS + LIN POLAR...")
+    idx = 1
+    for cp in cross_polars:
+        ms_bf_img = apply_median_shift_bilateral_filter(cp)
+        blurred_images.append(ms_bf_img)
+        Image.fromarray(ms_bf_img).save(os.path.join(folder_path, folder_name+"_msbf_"+str(idx)+".jpg"))
+        idx += 1
 
-#     ms_bf_xm_img = apply_ms_bf_xm(lin_polar)
-#     ms_bf_xms.append(ms_bf_xm_img)
-#     Image.fromarray(ms_bf_xm_img).save(os.path.join(folder_path, folder_name+"_msbfxm_lin.jpg"))
-
-# # now show ms_bf_xm images: ms_bf_xm is a numpy array: we need to input as list
-# show_images(ms_bf_xms, 'MS_BF_XMS')
-
-# edges = detect_edges_and_combine_for_images(ms_bf_xms)
-# overlaid_image = overlay_edges_on_image(edges, np.copy(composite))
-
-# show_images([edges, overlaid_image], "edges and overlaid image")
-# show_images([mark_area_on_image_which_resemble_color_scheme(composite)], "countoured image")
-
-
-# apply median shift bilateral filter to cross polars
-print("APPLYING MEDIAN SHIFT BILATERAL FILTER TO CROSS POLARS + LIN POLAR...")
-ms_bfs = [apply_median_shift_bilateral_filter(cp) for cp in cross_polars]
-ms_bfs.append(apply_median_shift_bilateral_filter(lin_polar))
-ms_bfs.append(apply_median_shift_bilateral_filter(composite))
-show_images(ms_bfs, 'MS_BFS', pause_to_display_images)
+    ms_bf_img = apply_median_shift_bilateral_filter(lin_polar)
+    blurred_images.append(ms_bf_img)
+    Image.fromarray(ms_bf_img).save(os.path.join(folder_path, folder_name+"_msbf_lin.jpg"))
+    
+show_images(blurred_images, 'MS_BFS', pause_to_display_images)
 print("DETECTING EDGES...")
 
-edges = detect_edges_and_combine_for_images(ms_bfs)
+edges = detect_edges_and_combine_for_images(blurred_images)
 overlaid_image = overlay_edges_on_image(edges, np.copy(composite))
 
 show_images([edges, overlaid_image], "edges and overlaid image", pause_to_display_images)

@@ -533,12 +533,62 @@ function dropFiles(event) {
     if(event.dataTransfer && event.dataTransfer.files) {
         const filePromises = [];
         for(var i = 0; i < event.dataTransfer.files.length; i++){
-            filePromises.push(procFile(event.dataTransfer.files[i]));
+            if(event.dataTransfer.files[i].name.includes("edges")) {
+                // Create a new FileReader to read the file
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    var img = new Image();
+                    img.onload = function() {
+                        // Create an off-screen canvas to process the image
+                        var offscreenCanvas = document.createElement('canvas');
+                        offscreenCanvas.width = img.width;
+                        offscreenCanvas.height = img.height;
+                        var offscreenCtx = offscreenCanvas.getContext('2d');
+                        offscreenCtx.drawImage(img, 0, 0);
+
+                        // Get the ImageData from the off-screen canvas
+                        var imageData = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+                        var data = imageData.data;
+
+                        // Modify the ImageData
+                        for(var j = 0; j < data.length; j += 4) {
+                            var r = data[j], g = data[j + 1], b = data[j + 2];
+                            // If the pixel is white, make it transparent
+                            if(r === 255 && g === 255 && b === 255) {
+                                //since 'clearRect' turns pixel values to 0: do that here
+                                data[j] = 0;
+                                data[j + 1] = 0;
+                                data[j + 2] = 0;
+                                data[j + 3] = 0; // Alpha channel to 0 for transparency
+                            }
+                            // If the pixel is black, change its color to #808080
+                            if(r === 0 && g === 0 && b === 0) {
+                                data[j] = 128;     // Red channel to 128 for #808080
+                                data[j + 1] = 128; // Green channel to 128 for #808080
+                                data[j + 2] = 128; // Blue channel to 128 for #808080
+                            }
+                        }
+
+                        // Put the modified ImageData back onto the off-screen canvas
+                        offscreenCtx.putImageData(imageData, 0, 0);
+
+                        // Now draw the processed image onto the draw canvas
+                        draw_ctx.drawImage(offscreenCanvas, 0, 0);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(event.dataTransfer.files[i]);
+            } else {
+                filePromises.push(procFile(event.dataTransfer.files[i]));
+            }
         }
         
+        // Handle other files...
         Promise.all(filePromises).then(() => {
             setTimeout(function() {
+                // clear draw canvas
                 draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height);
+
                 currentImage = Object.keys(images)[0]
                 document.getElementById('parameters-filename').innerHTML = currentImage
                 if (currentImage && images[currentImage] && images[currentImage]['data']) {
