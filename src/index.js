@@ -533,9 +533,10 @@ function catchDrag(event) {
 function dropFiles(event) {
     event.preventDefault();
     if(event.dataTransfer && event.dataTransfer.files) {
+        console.log("DROPPED FILES: ", event.dataTransfer.files)
         const filePromises = [];
         for(var i = 0; i < event.dataTransfer.files.length; i++){
-            if(event.dataTransfer.files[i].name.includes("edges")) {
+            if(event.dataTransfer.files[i].name.includes("edge_map")) {
                 // Create a new FileReader to read the file
                 var reader = new FileReader();
                 reader.onload = function(e) {
@@ -585,7 +586,8 @@ function dropFiles(event) {
             }
         }
 
-        
+        console.log("REMAINING FILE PROMISES: ", filePromises)
+
         // Handle other files...
         Promise.all(filePromises).then(() => {
             setTimeout(function() {
@@ -604,6 +606,7 @@ function dropFiles(event) {
                 }
             }, 1000);
         });
+
     }
     timestamp = Date.now(); // need this for a unique identifier of mapier output (UNIX TIMESTAMP)
 }
