@@ -531,12 +531,16 @@ function catchDrag(event) {
 }
 
 function dropFiles(event) {
+
+    var erase_draw_layer = true;
     event.preventDefault();
     if(event.dataTransfer && event.dataTransfer.files) {
         console.log("DROPPED FILES: ", event.dataTransfer.files)
         const filePromises = [];
         for(var i = 0; i < event.dataTransfer.files.length; i++){
             if(event.dataTransfer.files[i].name.includes("edge_map")) {
+                draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height);
+                erase_draw_layer = false;
                 // Create a new FileReader to read the file
                 var reader = new FileReader();
                 reader.onload = function(e) {
@@ -556,7 +560,7 @@ function dropFiles(event) {
                         // Modify the ImageData
                         for(var j = 0; j < data.length; j += 4) {
                             var r = data[j], g = data[j + 1], b = data[j + 2];
-                            // If the pixel is white, make it transparent
+                            // If the pixel is white, make it AND ITS SURROUNDING NEIGHBORS transparent
                             if(r === 255 && g === 255 && b === 255) {
                                 //since 'clearRect' turns pixel values to 0: do that here
                                 data[j] = 0;
@@ -589,23 +593,26 @@ function dropFiles(event) {
         console.log("REMAINING FILE PROMISES: ", filePromises)
 
         // Handle other files...
-        Promise.all(filePromises).then(() => {
-            setTimeout(function() {
-                // clear draw canvas
-                draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height);
+        if(filePromises.length > 0) {
+            Promise.all(filePromises).then(() => {
+                setTimeout(function() {
+                    // clear draw canvas
+                    erase_draw_layer ? draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height) : null;
+    
+                    currentImage = Object.keys(images)[0]
+                    document.getElementById('parameters-filename').innerHTML = currentImage
+                    if (currentImage && images[currentImage] && images[currentImage]['data']) {
+                        const imageData = images[currentImage]['data'];
+    
+                        // Use putImageData to draw ImageData
+                        ctx_image.putImageData(imageData, 0, 0);
+                    } else {
+                        console.error("Invalid currentImage:", currentImage);
+                    }
+                }, 1000);
+            });
+        }
 
-                currentImage = Object.keys(images)[0]
-                document.getElementById('parameters-filename').innerHTML = currentImage
-                if (currentImage && images[currentImage] && images[currentImage]['data']) {
-                    const imageData = images[currentImage]['data'];
-
-                    // Use putImageData to draw ImageData
-                    ctx_image.putImageData(imageData, 0, 0);
-                } else {
-                    console.error("Invalid currentImage:", currentImage);
-                }
-            }, 1000);
-        });
 
     }
     timestamp = Date.now(); // need this for a unique identifier of mapier output (UNIX TIMESTAMP)
