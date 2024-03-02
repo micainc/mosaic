@@ -7,7 +7,7 @@ function rgbStringToHex(col) {
   return "#" + (1 << 24 | col[0] << 16 | col[1] << 8 | col[2]).toString(16).toUpperCase().slice(1);
 }
 
-function hexToRgb(hex) {
+function hextoRGB(hex) {
   var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return result ? {
     r: parseInt(result[1], 16),

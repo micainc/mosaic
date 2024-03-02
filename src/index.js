@@ -526,21 +526,19 @@ function toggleZoom() {
 function catchDrag(event) {
 	event.dataTransfer.dropEffect = "copy"
 	event.preventDefault();
-    currentImage = '';
-    images = {};
 }
 
 function dropFiles(event) {
 
-    var eraseDrawLayer = true;
+    var should_erase_draw_layer = true;
     event.preventDefault();
     if(event.dataTransfer && event.dataTransfer.files) {
         console.log("DROPPED FILES: ", event.dataTransfer.files)
         const filePromises = [];
         for(var i = 0; i < event.dataTransfer.files.length; i++){
             if(event.dataTransfer.files[i].name.includes("edge_map")) {
-                draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height);
-                eraseDrawLayer = false;
+                // draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height);
+                should_erase_draw_layer = false;
                 // Create a new FileReader to read the file
                 var reader = new FileReader();
                 reader.onload = function(e) {
@@ -596,36 +594,32 @@ function dropFiles(event) {
                             }
                         }
 
-                        // // Modify the ImageData
-                        // for(var j = 0; j < data.length; j += 4) {
-                        //     var r = data[j], g = data[j + 1], b = data[j + 2];
-                        //     // If the pixel is white, make it AND ITS SURROUNDING NEIGHBORS transparent
-                        //     if(r === 255 && g === 255 && b === 255) {
-                        //         //since 'clearRect' turns pixel values to 0: do that here
-                        //         data[j] = 0;
-                        //         data[j + 1] = 0;
-                        //         data[j + 2] = 0;
-                        //         data[j + 3] = 0; // Alpha channel to 0 for transparency
-                        //     }
-
-                        //     // If the pixel is black, change its color to #808080
-                        //     if(r === 0 && g === 0 && b === 0) {
-                        //         data[j] = 128;     // Red channel to 128 for #808080
-                        //         data[j + 1] = 128; // Green channel to 128 for #808080
-                        //         data[j + 2] = 128; // Blue channel to 128 for #808080
-                        //     }
-                        // }
-
                         // Put the modified ImageData back onto the off-screen canvas
                         offscreenCtx.putImageData(imageData, 0, 0);
 
                         // Now draw the processed image onto the draw canvas
                         draw_ctx.drawImage(offscreenCanvas, 0, 0);
                     };
-                    img.src = e.target.result;
+                    img.src = e.target.result; // ...call the img.onload function above
                 };
-                reader.readAsDataURL(event.dataTransfer.files[i]);
+                reader.readAsDataURL(event.dataTransfer.files[i]); // ...call the reader.onload function above
+            } else if(event.dataTransfer.files[i].name.includes("segmentation_map")) {
+                should_erase_draw_layer = false;
+                // Create a new FileReader to read the file
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    var img = new Image();
+                    img.onload = function() {
+                        // draw the segmentation map directly to the draw canvas
+                        draw_ctx.drawImage(img, 0, 0);
+                    };
+                    img.src = e.target.result; // ...call the img.onload function above
+                };
+                reader.readAsDataURL(event.dataTransfer.files[i]); // ...call the reader.onload function above
             } else {
+                // we know new image layers have been dragged in: clear the old ones
+                currentImage = '';
+                images = {};
                 filePromises.push(procFile(event.dataTransfer.files[i]));
             }
         }
@@ -633,25 +627,27 @@ function dropFiles(event) {
         console.log("REMAINING FILE PROMISES: ", filePromises)
 
         // Handle other files...
-        if(filePromises.length > 0) {
-            Promise.all(filePromises).then(() => {
+        Promise.all(filePromises).then(() => {
+            if(filePromises.length > 0) {
+
+                console.log("PROCESSING IMAGE FILES: ")
                 setTimeout(function() {
                     // clear draw canvas
-                    eraseDrawLayer ? draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height) : null;
-    
+                    should_erase_draw_layer ? draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height) : null;
+
                     currentImage = Object.keys(images)[0]
                     document.getElementById('parameters-filename').innerHTML = currentImage
                     if (currentImage && images[currentImage] && images[currentImage]['data']) {
                         const imageData = images[currentImage]['data'];
-    
+
                         // Use putImageData to draw ImageData
                         ctx_image.putImageData(imageData, 0, 0);
                     } else {
                         console.error("Invalid currentImage:", currentImage);
                     }
                 }, 1000);
-            });
-        }
+            }
+        });
 
 
     }
@@ -767,8 +763,9 @@ function findRegions() {
                 const regionColour = buffer32[index]; // format:ABGR. If transparent: 00000000
                 //console.log("REGION COLOUR: ", regionColour)
                 
-                // if transparent pixel, skip
-                if(regionColour === 0) {
+                
+                // if transparent pixel or colour is grey (#808080, 128 128 128), skip
+                if(regionColour === 0 || regionColour === 4286611584) {
                     visited.add(getKey(i, j)); // if canvas pixel is transparent, SKIP
                     continue;
 
@@ -852,12 +849,35 @@ function getCommonSubstring(strings) {
     return commonSub; // Return the common substring (which may be empty)
 }
 
-var getFilename = function (str) {
-    return str.substring(str.lastIndexOf('/')+1).replace(/\.(jpg|JPG|png|PNG|jpeg|JPEG|tiff|TIFF|TIF|tif|gif|GIF)/, '');
+function getFilename(path) {
+    // Extract the filename from a path, handling both Windows and Unix paths
+    const filename = path.split(/[/\\]/).pop(); // Splits on both forward and backslash
+    return filename.replace(/\.(jpg|JPG|png|PNG|jpeg|JPEG|tiff|TIFF|TIF|tif|gif|GIF)$/, ''); // Removes known image extensions
+}
+
+function getParentFolder(path) {
+    // Extract the parent folder name from a path, handling both Windows and Unix paths
+    const segments = path.split(/[/\\]/);
+    if (segments.length > 1) {
+        return segments[segments.length - 2]; // Second to last item is the parent folder name
+    }
+    return ''; // Return empty string if no parent folder is found
 }
 
 function saveRegions() {
-    var identifier = getCommonSubstring(Object.keys(images).map( (key) => getFilename(images[key]['src']).trim().replace(/^_+|_+$/g, ''))) // trim trailing/leading whitespace and underscores
+    // get immediate parent folder of images: if all images are in the same folder, use that as the identifier
+    var filenames = []
+    var parent_folder = []
+    Object.keys(images).map( (key) => {
+        filenames.push(getFilename(images[key]['src']).trim().toLowerCase()) 
+        parent_folder.push(getParentFolder(images[key]['src']).trim().toLowerCase()) 
+    });
+    console.log("IMAGE FILENAMES: ", filenames)
+    var identifier = getCommonSubstring(filenames).replace(/^_+|_+$/g, '')
+    if (identifier === '') {
+        identifier = getCommonSubstring(parent_folder).replace(/^_+|_+$/g, '')// trim trailing/leading whitespace and underscores
+    }
+    // identifier is a short, common name shared by this current image set. ex 'w15'
     console.log("IDENTIFIER: ", identifier)
 
     window.api.invoke('set_file_path', {'path': images[currentImage]['src'], 'type': 'save'})
@@ -865,19 +885,21 @@ function saveRegions() {
             var rgbs = {}
             // convert drawColors to RGB -> compare with pixels
             for(var c = 0; c < drawColors.length; c++) {
-                var rgb = hexToRgb(drawColors[c])
+                var rgb = hextoRGB(drawColors[c])
                 rgbs[c] = rgb
             }
             console.log("RGBs: ", rgbs)
             regions.forEach(({ left, right, top, bottom, colour, index}) => {
-                console.log(" ("+colour+"): "+ left+", "+top+", "+right+", "+bottom)
                 save_canvas.width = (right-left);
                 save_canvas.height = (bottom-top);
+                console.log(" REGION " + index+ ": | "+colour+" | "+ save_canvas.width +"x"+save_canvas.height)
 
                 var crop = draw_ctx.getImageData(left, top, (right-left), (bottom-top))
                 var cropData = crop.data;
 
                 // use the opacity (A) channel to store up to 255 different class values, where class = 255-A.
+                // get each pixel value; convert opacity value to (255 - index)
+
                 for(var i = 0; i < cropData.length; i+=4) {
                     for(var c = 0; c < drawColors.length; c++){
                         if((rgbs[c]['r'] === cropData[i]) && (rgbs[c]['g'] === cropData[i+1]) && (rgbs[c]['b'] === cropData[i+2])) {
@@ -886,14 +908,19 @@ function saveRegions() {
                         }
                     }
                 }
+                // first we save the draw layer...
                 save_ctx.putImageData(crop, 0, 0)
-                // get each pixel value; convert opacity value to (255 - index)
-                let url = save_canvas.toDataURL("image/png");
-                window.api.invoke('save_crop', {'url': url, 'absolute_path': images[currentImage]['src'], 'identifier':identifier, 'type': 'map', 'idx': index, 'timestamp': timestamp})
+                let data = save_canvas.toDataURL("image/png");
+                window.api.invoke('save_crop', {'data': data, 'absolute_path': images[currentImage]['src'], 'identifier':identifier, 'type': 'map', 'idx': index, 'timestamp': timestamp})
 
-
-                saveImages(left, top, right, bottom, index, identifier)
+                // then we save every other image layer...
+                saveSegmentLayers(left, top, right, bottom, index, identifier)
             });
+
+            // finally, we save the entire draw layer for a save state:
+            var draw_data = draw_canvas.toDataURL("image/png");
+            window.api.invoke('save_crop', {'data': draw_data, 'absolute_path': '', 'identifier':identifier, 'type': 'segmentation_map', 'idx': '', 'timestamp': timestamp})
+
             // after all files have been saved, reset the temp canvas to fit the image
             save_canvas.width = image_canvas.width;
             save_canvas.height = image_canvas.height;
@@ -903,8 +930,8 @@ function saveRegions() {
 }
 
 
-function saveImages(left, top, right, bottom, index, identifier) {
-    console.log("SAVING CROPPED IMAGES....")
+function saveSegmentLayers(left, top, right, bottom, index, identifier) {
+    console.log("SAVING " + identifier + " | SEGMENT LAYERS: ")
     const keys = Object.keys(images);
 
     for (let i = 0; i < keys.length; i++) {
@@ -915,18 +942,18 @@ function saveImages(left, top, right, bottom, index, identifier) {
             // Load image data onto main canvas
             ctx_image.putImageData(images[key]['data'], 0, 0);
 
-            // Crop the required area
+            // Crop to segment boundary
             const crop = ctx_image.getImageData(left, top, (right-left), (bottom-top));
             
             // Place the cropped data onto the temp canvas
             save_ctx.putImageData(crop, 0, 0);
             
             // Convert the temp canvas data to DataURL
-            const url = save_canvas.toDataURL("image/png");
+            const data = save_canvas.toDataURL("image/png");
             
             // Save it
             window.api.invoke('save_crop', {
-                'url': url,
+                'data': data,
                 'absolute_path': images[key]['src'],
                 'type': 'img',
                 'idx': index,

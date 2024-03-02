@@ -107,8 +107,10 @@ app.on('window-all-closed', () => {
   }
 })
 
-var getFilename = function (str) {
-  return str.substring(str.lastIndexOf('/')+1).replace(/\.(jpg|JPG|png|PNG|jpeg|JPEG|tiff|TIFF|TIF|tif|gif|GIF)/, '');
+function getFilename(path) {
+  // Extract the filename from a path, handling both Windows and Unix paths
+  const filename = path.split(/[/\\]/).pop(); // Splits on both forward and backslash
+  return filename.replace(/\.(jpg|JPG|png|PNG|jpeg|JPEG|tiff|TIFF|TIF|tif|gif|GIF)$/, ''); // Removes known image extensions
 }
 
 ipcMain.handle('get_loadouts', async (event, args = "") => {
@@ -134,11 +136,9 @@ ipcMain.handle('set_loadout', async (event, args) => {
 ipcMain.handle('save_crop', async (event, args) => {
   var nextIdx = 0;
   var identifier = args['identifier']
-  if(args['type'] !== 'map') {
+  if(args['type'] !== 'map' || args['type'] !== 'segmentation_map') {
     identifier = getFilename(args['absolute_path'])
   }
-
-  console.log("ARGS IDENTIFIER: ", args['identifier'])
 
   // if images in the save dir have the same timestamp as passed in args, overwrite them- otherwise, add them to dir at higher idx
   fs.readdir(saveDirectory, (err, files) => {
@@ -158,24 +158,33 @@ ipcMain.handle('save_crop', async (event, args) => {
         }
       }
     }
-    console.log("NEXT IDX: ", nextIdx)
 
-    args['idx'] += nextIdx; 
-  
-    var file = identifier+"_"+args['type']+'_'+args['idx']+'_'+args['timestamp']+'.png'
-    
-    console.log("WRITING FILE : ", file)
-    const base64Data = args['url'].replace(/^data:image\/png;base64,/, "");
+    var file = ''
+
+    if(args['idx'] !== '') {
+      args['idx'] += nextIdx; 
+      file = identifier+"_"+args['type']+'_'+args['idx']+'_'+args['timestamp']+'.png'
+
+    } else {
+      file = identifier+"_"+args['type']+"_"+args['timestamp']+'.png'
+    }
+    const base64Data = args['data'].replace(/^data:image\/png;base64,/, "");
     fs.writeFile(saveDirectory+"/"+file, base64Data, 'base64', function (err) {
+
       if (err) {
-        return "Image map could not be saved: "+err
-      } else
+        console.log("ERROR WRITING "+ file + ": "+ err)
+
+        return "Segmentation could not be saved: "+err
+      } else {
+        console.log(file + "saved. ")
         return file
+      }
     });
   });
 });
 
 ipcMain.handle('set_file_path', async (event, args) => {
+  console.log("FILE PATH ("+args['type']+"): " + args['path'])
   const path = args['path'].replace('file://', '')
 
   const save_dialog_options = {
