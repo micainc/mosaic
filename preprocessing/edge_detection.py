@@ -33,7 +33,7 @@ def detect_edges(images):
             image_gray = image
         
         # Detect edges using the Canny edge detector
-        edges = cv2.Canny(image_gray, 100, 200)  # Adjust thresholds as needed
+        edges = cv2.Canny(image_gray, 0, 255)  # Adjust thresholds as needed
         
         # Append the edges to the edge_images list
         edge_images.append(edges)

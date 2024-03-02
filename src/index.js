@@ -532,7 +532,7 @@ function catchDrag(event) {
 
 function dropFiles(event) {
 
-    var erase_draw_layer = true;
+    var eraseDrawLayer = true;
     event.preventDefault();
     if(event.dataTransfer && event.dataTransfer.files) {
         console.log("DROPPED FILES: ", event.dataTransfer.files)
@@ -540,7 +540,7 @@ function dropFiles(event) {
         for(var i = 0; i < event.dataTransfer.files.length; i++){
             if(event.dataTransfer.files[i].name.includes("edge_map")) {
                 draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height);
-                erase_draw_layer = false;
+                eraseDrawLayer = false;
                 // Create a new FileReader to read the file
                 var reader = new FileReader();
                 reader.onload = function(e) {
@@ -556,25 +556,65 @@ function dropFiles(event) {
                         // Get the ImageData from the off-screen canvas
                         var imageData = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
                         var data = imageData.data;
+                        var whitePixels = [];
 
-                        // Modify the ImageData
+                        // Identify white pixels and their positions
                         for(var j = 0; j < data.length; j += 4) {
-                            var r = data[j], g = data[j + 1], b = data[j + 2];
-                            // If the pixel is white, make it AND ITS SURROUNDING NEIGHBORS transparent
-                            if(r === 255 && g === 255 && b === 255) {
-                                //since 'clearRect' turns pixel values to 0: do that here
-                                data[j] = 0;
-                                data[j + 1] = 0;
-                                data[j + 2] = 0;
-                                data[j + 3] = 0; // Alpha channel to 0 for transparency
+                            if(data[j] === 255 && data[j + 1] === 255 && data[j + 2] === 255) {
+                                whitePixels.push(j);
                             }
-                            // If the pixel is black, change its color to #808080
-                            if(r === 0 && g === 0 && b === 0) {
+                        }
+
+                        // Function to check boundaries and set pixel transparency
+                        function setTransparent(index, width) {
+                            var x = (index / 4) % width;
+                            var y = Math.floor((index / 4) / width);
+
+                            for (let dx = -1; dx <= 1; dx++) {
+                                for (let dy = -1; dy <= 1; dy++) {
+                                    var nx = x + dx;
+                                    var ny = y + dy;
+                                    if (nx >= 0 && nx < offscreenCanvas.width && ny >= 0 && ny < offscreenCanvas.height) {
+                                        var nIdx = (ny * offscreenCanvas.width + nx) * 4;
+                                        data[nIdx + 3] = 0; // Alpha channel to 0 for transparency
+                                    }
+                                }
+                            }
+                        }
+
+                        // Apply transparency to white pixels and their neighbors
+                        whitePixels.forEach(function(index) {
+                            setTransparent(index, img.width);
+                        });
+
+                        // Process black pixels to #808080
+                        for(var j = 0; j < data.length; j += 4) {
+                            if(data[j] === 0 && data[j + 1] === 0 && data[j + 2] === 0) {
                                 data[j] = 128;     // Red channel to 128 for #808080
                                 data[j + 1] = 128; // Green channel to 128 for #808080
                                 data[j + 2] = 128; // Blue channel to 128 for #808080
                             }
                         }
+
+                        // // Modify the ImageData
+                        // for(var j = 0; j < data.length; j += 4) {
+                        //     var r = data[j], g = data[j + 1], b = data[j + 2];
+                        //     // If the pixel is white, make it AND ITS SURROUNDING NEIGHBORS transparent
+                        //     if(r === 255 && g === 255 && b === 255) {
+                        //         //since 'clearRect' turns pixel values to 0: do that here
+                        //         data[j] = 0;
+                        //         data[j + 1] = 0;
+                        //         data[j + 2] = 0;
+                        //         data[j + 3] = 0; // Alpha channel to 0 for transparency
+                        //     }
+
+                        //     // If the pixel is black, change its color to #808080
+                        //     if(r === 0 && g === 0 && b === 0) {
+                        //         data[j] = 128;     // Red channel to 128 for #808080
+                        //         data[j + 1] = 128; // Green channel to 128 for #808080
+                        //         data[j + 2] = 128; // Blue channel to 128 for #808080
+                        //     }
+                        // }
 
                         // Put the modified ImageData back onto the off-screen canvas
                         offscreenCtx.putImageData(imageData, 0, 0);
@@ -597,7 +637,7 @@ function dropFiles(event) {
             Promise.all(filePromises).then(() => {
                 setTimeout(function() {
                     // clear draw canvas
-                    erase_draw_layer ? draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height) : null;
+                    eraseDrawLayer ? draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height) : null;
     
                     currentImage = Object.keys(images)[0]
                     document.getElementById('parameters-filename').innerHTML = currentImage

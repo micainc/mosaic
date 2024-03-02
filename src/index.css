@@ -32,12 +32,12 @@ button:hover, select:hover {
     display: flex;
     position:fixed;
     top:0px;
-    z-index: 5;
+    z-index: 4 !important;
     background-color: #FFFFFF;
     opacity: 0.5;
     border:none;
     border-bottom: 1px solid #DDDDDD;
-    -webkit-app-region: drag; /* allows dragging the electron app window around */
+    -webkit-app-region: drag; /*allows dragging the electron app window around */
     width:100%;
 }
 
@@ -246,6 +246,7 @@ button:hover, select:hover {
     position: relative;
     font-family: Arial;
     width:inherit;
+    -webkit-app-region: no-drag;
 }   
 
 /*style the items (options), including the selected item:*/
