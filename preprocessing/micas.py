@@ -416,7 +416,7 @@ composite_value = get_value(composite)
 
 ###### CREATE SOBEL FROM CROSS POLARS ######
 
-if sobel == None:
+if sobel is None:
     print("GENERATING SOBEL...")
     # note these sobels havent been normalized yet
     sobels = [create_sobel(cp) for cp in cross_polars]
@@ -490,35 +490,35 @@ Image.fromarray(edge_map).save(os.path.join(folder_path, folder_name+"_edge_map.
 
 
 ###### CREATE SEGMENTATION MAP FROM CROSS POLARS + LIN ######
-if len(segmentation_maps) == 0:
-    print("CREATING LP SEGMENTION MAP...")
-    segmentation_map_overlays = []
-    # downscale by 1/4
-    lin_polar_with_segmentation_map_overlay, lin_polar_segmentation_map = process_image_with_sam_model(cv2.resize(lin_polar, (lin_polar.shape[1] //4, lin_polar.shape[0] // 4)), interpolation=cv2.INTER_NEAREST)
-    segmentation_maps.append(lin_polar_segmentation_map)
-    segmentation_map_overlays.append(lin_polar_with_segmentation_map_overlay)
+# if len(segmentation_maps) == 0:
+#     print("CREATING LP SEGMENTION MAP...")
+#     segmentation_map_overlays = []
+#     # downscale by 1/4
+#     lin_polar_with_segmentation_map_overlay, lin_polar_segmentation_map = process_image_with_sam_model(cv2.resize(lin_polar, (lin_polar.shape[1] //4, lin_polar.shape[0] // 4)), interpolation=cv2.INTER_NEAREST)
+#     segmentation_maps.append(lin_polar_segmentation_map)
+#     segmentation_map_overlays.append(lin_polar_with_segmentation_map_overlay)
 
-    Image.fromarray(cv2.resize(lin_polar_segmentation_map, (lin_polar.shape[1] , lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_lin_polar_segmentation_map.png")) # save as png to avoid compression artifacts
+#     Image.fromarray(cv2.resize(lin_polar_segmentation_map, (lin_polar.shape[1] , lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_lin_polar_segmentation_map.png")) # save as png to avoid compression artifacts
 
-    cp_idx = 1
-    for cp in cross_polars:
-        print("CREATING CP SEGMENTION MAP "+str(cp_idx)+"/"+str(len(cross_polars))+"...")
-        # downscale by 1/4
-        cp_with_segmentation_map_overlay, cp_segmentation_map = process_image_with_sam_model(cv2.resize(cp, (cp.shape[1] //4, cp.shape[0] // 4), interpolation=cv2.INTER_NEAREST))
-        segmentation_maps.append(cp_segmentation_map.copy())
-        segmentation_map_overlays.append(cp_with_segmentation_map_overlay)
+#     cp_idx = 1
+#     for cp in cross_polars:
+#         print("CREATING CP SEGMENTION MAP "+str(cp_idx)+"/"+str(len(cross_polars))+"...")
+#         # downscale by 1/4
+#         cp_with_segmentation_map_overlay, cp_segmentation_map = process_image_with_sam_model(cv2.resize(cp, (cp.shape[1] //4, cp.shape[0] // 4), interpolation=cv2.INTER_NEAREST))
+#         segmentation_maps.append(cp_segmentation_map.copy())
+#         segmentation_map_overlays.append(cp_with_segmentation_map_overlay)
 
-        Image.fromarray(cv2.resize(cp_segmentation_map, (cp.shape[1] , cp.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_cross_polar_segmentation_map_"+str(cp_idx)+".png"))
-        cp_idx += 1
+#         Image.fromarray(cv2.resize(cp_segmentation_map, (cp.shape[1] , cp.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_cross_polar_segmentation_map_"+str(cp_idx)+".png"))
+#         cp_idx += 1
 
-    show_images(segmentation_map_overlays, "Segmentation Map Overlays", pause_to_display_images)
+#     show_images(segmentation_map_overlays, "Segmentation Map Overlays", pause_to_display_images)
 
-else:
-    show_images(segmentation_maps, "Segmentation Maps", pause_to_display_images)
+# else:
+#     show_images(segmentation_maps, "Segmentation Maps", pause_to_display_images)
 
-# create edge map:
-edge_map = create_composite_edge_map(segmentation_maps)
-Image.fromarray(edge_map).save(os.path.join(folder_path, folder_name+"_edge_map.png"))
+# # create edge map:
+# edge_map = create_composite_edge_map(segmentation_maps)
+# Image.fromarray(edge_map).save(os.path.join(folder_path, folder_name+"_edge_map.png"))
 
 
 # print("DETECTING EDGES...")
