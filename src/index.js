@@ -84,7 +84,7 @@ function init() {
                 drawPath = fillGaps(drawPath); // fills gaps in the drawing of a loop due to lag
                 //console.log("DRAW PATH: ", drawPath)
 
-                processFillTillEdges(drawPath)
+                //processFillTillEdges(drawPath)
             }
 
             /*
@@ -663,7 +663,7 @@ function processFillTillEdges(points) {
         let x = points[i].x;
         let y = points[i].y;
     
-        let rgbOfActiveColor = hexToRgb(activeColour)
+        let rgbOfActiveColor = hexToRGB(activeColour)
 
         // Process the central pixel
         fillTillEdges(x, y, activeColour, rgbOfActiveColor);
@@ -951,7 +951,7 @@ function saveRegions() {
             var rgbs = {}
             // convert drawColors to RGB -> compare with pixels
             for(var c = 0; c < drawColors.length; c++) {
-                var rgb = hextoRGB(drawColors[c])
+                var rgb = hexToRGB(drawColors[c])
                 rgbs[c] = rgb
             }
             console.log("RGBs: ", rgbs)
