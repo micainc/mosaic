@@ -1,2 +1,5 @@
-https://www.electronjs.org/blog/forge-v6-release
-https://www.electronjs.org/docs/latest/tutorial/tutorial-packaging
+Kanban: https://github.com/users/kfilyk/projects/1
+
+A simple CV pipeline for segmenting, classifying, verifying, and then reporting on multi-channel minerology data.
+
+MICAS: Mineral Imaging Classification And Segmentation
