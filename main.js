@@ -1,5 +1,5 @@
 // main.js
-
+const os = require('os');
 const { app, BrowserWindow } = require('electron')
 const path = require('path');
 const {ipcMain} = require('electron')
@@ -42,7 +42,6 @@ if(typeof storage.get('loadouts') === undefined || static_loadouts) {
           18: "opaques",
           19: "semi-opaques",
           20: "chlorite",
-          21: "unknown"
       },
 
       "cystic_fibrosis": {
@@ -71,34 +70,45 @@ if(typeof storage.get('loadouts') === undefined || static_loadouts) {
 
 //var foundImages = []
 //var completedImages = []
+// if mac, use traffic light position (x: 10, y: 8) and hide title bar
+// if windows, use the default title bar
 
 function createWindow () {
-    win = new BrowserWindow({
-        width: 1400,
-        height: 1000,
-        titleBarStyle: 'hidden',
-        trafficLightPosition: { x: 10, y: 8 },
+  let trafficLightPosition = undefined;
 
-        webPreferences: {
-            preload: path.join(__dirname, './src/preload.js'),
-            enableRemoteModule: true
-        },
-    })
+  if (os.platform() === 'darwin') { // 'darwin' is the value for macOS
+      trafficLightPosition = { x: 10, y: 8 };
+  }
 
-    win.loadFile(path.join(__dirname, './src/index.html'))
-    win.webContents.openDevTools()
+  win = new BrowserWindow({
+      width: 1400,
+      height: 1000,
+      titleBarStyle: 'hidden',
+      // titleBarStyle: os.platform() === 'darwin' ? 'hidden' : 'default',
+      trafficLightPosition: trafficLightPosition,
 
+      webPreferences: {
+          preload: path.join(__dirname, './src/preload.js'),
+          enableRemoteModule: true
+      },
+  })
+
+  win.loadFile(path.join(__dirname, './src/index.html'))
+  win.webContents.openDevTools()
 }
+
 app.setName('Mapier');
 app.disableHardwareAcceleration() // prevents stupid canvas slowdowns
 
 app.whenReady().then(() => {
   createWindow()
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
-    }
-  })
+  if(os.platform() === 'darwin') {
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow()
+      }
+    })
+  }
 })
 
 app.on('window-all-closed', () => {
@@ -134,39 +144,24 @@ ipcMain.handle('set_loadout', async (event, args) => {
 
 
 ipcMain.handle('save_crop', async (event, args) => {
-  var nextIdx = 0;
   var identifier = args['identifier']
-  if(args['type'] !== 'map' || args['type'] !== 'segmentation_map') {
+  if(args['type'] !== 'map' && args['type'] !== 'segmentation_map') {
     identifier = getFilename(args['absolute_path'])
   }
 
-  // if images in the save dir have the same timestamp as passed in args, overwrite them- otherwise, add them to dir at higher idx
   fs.readdir(saveDirectory, (err, files) => {
     if (err) {
       console.error("Error reading directory:", err);
       return;
     }
-    var pngFiles = files.filter(file => file.endsWith('.png'));
-
-    for (const f of pngFiles) {
-      if (f.includes(args['identifier']) && !f.includes(args['timestamp'])) { 
-        console.log("FILE: ", f)
-        // get the highest idx value
-        var tokens = f.split('_')
-        if(parseInt(tokens[tokens.length-2]) >= nextIdx) {
-          nextIdx = parseInt(tokens[tokens.length-2])+1;
-        }
-      }
-    }
 
     var file = ''
 
     if(args['idx'] !== '') {
-      args['idx'] += nextIdx; 
-      file = identifier+"_"+args['type']+'_'+args['idx']+'_'+args['timestamp']+'.png'
+      file = identifier+"_"+args['type']+'_'+args['idx']+'.png'
 
     } else {
-      file = identifier+"_"+args['type']+"_"+args['timestamp']+'.png'
+      file = identifier+"_"+args['type']+'.png'
     }
     const base64Data = args['data'].replace(/^data:image\/png;base64,/, "");
     fs.writeFile(saveDirectory+"/"+file, base64Data, 'base64', function (err) {

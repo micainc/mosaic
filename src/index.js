@@ -12,8 +12,6 @@ var drawDiameter = 10; // diameter
 var drawPath = []
 var loadouts = {}
 
-var timestamp = 0;
-
 const image_canvas = document.getElementById('image-canvas')
 const draw_canvas = document.getElementById('draw-canvas')
 const save_canvas = document.getElementById('temp-canvas')
@@ -25,7 +23,7 @@ draw_canvas.height = window.innerHeight;
 save_canvas.width = window.innerWidth;
 save_canvas.height = window.innerHeight;
 
-var ctx_image = image_canvas.getContext('2d');
+var img_ctx = image_canvas.getContext('2d');
 var draw_ctx = draw_canvas.getContext('2d');
 var save_ctx = save_canvas.getContext('2d');
 
@@ -645,7 +643,7 @@ function dropFiles(event) {
                         const imageData = images[currentImage]['data'];
 
                         // Use putImageData to draw ImageData
-                        ctx_image.putImageData(imageData, 0, 0);
+                        img_ctx.putImageData(imageData, 0, 0);
                     } else {
                         console.error("Invalid currentImage:", currentImage);
                     }
@@ -655,7 +653,6 @@ function dropFiles(event) {
 
 
     }
-    timestamp = Date.now(); // need this for a unique identifier of mapier output (UNIX TIMESTAMP)
 }
 
 function processFillTillEdges(points) {
@@ -733,12 +730,12 @@ function cycleImage(dir) {
     }
 
     currentImage = keys[idx];
-    ctx_image.clearRect(0, 0, image_canvas.width, image_canvas.height);
+    img_ctx.clearRect(0, 0, image_canvas.width, image_canvas.height);
     
     // Check if currentImage exists in the images dictionary
     if (images[currentImage] && images[currentImage]['data']) {
         const imageData = images[currentImage]['data'];
-        ctx_image.putImageData(imageData, 0, 0);
+        img_ctx.putImageData(imageData, 0, 0);
         document.getElementById('parameters-filename').innerHTML = currentImage;
     } else {
         console.error("Image data for " + currentImage + " is not available.");
@@ -766,8 +763,8 @@ function procFile(file) {
                 save_canvas.height = img.height;
 
                 // Draw the image on the canvas to extract pixel data
-                ctx_image.drawImage(img, 0, 0, img.width, img.height);
-                var imageData = ctx_image.getImageData(0, 0, img.width, img.height);
+                img_ctx.drawImage(img, 0, 0, img.width, img.height);
+                var imageData = img_ctx.getImageData(0, 0, img.width, img.height);
 
                 console.log("FILE NAME: ", file.name);
                 images[file.name] = {'data': imageData, 'src': file.path};
@@ -977,15 +974,48 @@ function saveRegions() {
                 // first we save the draw layer...
                 save_ctx.putImageData(crop, 0, 0)
                 let data = save_canvas.toDataURL("image/png");
-                window.api.invoke('save_crop', {'data': data, 'absolute_path': images[currentImage]['src'], 'identifier':identifier, 'type': 'map', 'idx': index, 'timestamp': timestamp})
+                window.api.invoke('save_crop', {'data': data, 'absolute_path': images[currentImage]['src'], 'identifier':identifier, 'type': 'map', 'idx': index})
 
-                // then we save every other image layer...
+                //... then we save every other image layer...
                 saveSegmentLayers(left, top, right, bottom, index, identifier)
             });
 
-            // finally, we save the entire draw layer for a save state:
+            //... then we save the entire draw layer for a save state:
             var draw_data = draw_canvas.toDataURL("image/png");
-            window.api.invoke('save_crop', {'data': draw_data, 'absolute_path': '', 'identifier':identifier, 'type': 'segmentation_map', 'idx': '', 'timestamp': timestamp})
+            window.api.invoke('save_crop', {'data': draw_data, 'absolute_path': '', 'identifier':identifier, 'type': 'segmentation_map', 'idx': ''})
+
+            // ... finally we save a copy of the draw layer overlaid on each image layer:
+            for (let i = 0; i < Object.keys(images).length; i++) {
+                const key = Object.keys(images)[i];
+                if (images[key] && images[key]['data']) {
+                    // Load image data onto main canvas
+                    save_canvas.width = image_canvas.width;
+                    save_canvas.height = image_canvas.height;
+                    save_ctx.putImageData(images[key]['data'], 0, 0);
+
+                    save_ctx.globalAlpha = 0.5;
+
+                    // Draw the 'draw' layer onto the temp canvas
+                    save_ctx.drawImage(draw_canvas, 0, 0);
+                
+                    // Reset global alpha if necessary
+                    save_ctx.globalAlpha = 1.0;
+                    
+                    // Convert the temp canvas data to DataURL
+                    const data = save_canvas.toDataURL("image/png");
+                    
+                    // Save it
+                    window.api.invoke('save_crop', {
+                        'data': data,
+                        'absolute_path': images[key]['src'], // pass in the reference
+                        'type': 'overlay',
+                        'idx': '',
+                        'identifier': identifier
+                    });
+                } else {
+                    console.error("Image data for " + key + " is not available.");
+                }
+            }
 
             // after all files have been saved, reset the temp canvas to fit the image
             save_canvas.width = image_canvas.width;
@@ -1006,10 +1036,10 @@ function saveSegmentLayers(left, top, right, bottom, index, identifier) {
         // Check if image data for the key exists
         if (images[key] && images[key]['data']) {
             // Load image data onto main canvas
-            ctx_image.putImageData(images[key]['data'], 0, 0);
+            img_ctx.putImageData(images[key]['data'], 0, 0);
 
             // Crop to segment boundary
-            const crop = ctx_image.getImageData(left, top, (right-left), (bottom-top));
+            const crop = img_ctx.getImageData(left, top, (right-left), (bottom-top));
             
             // Place the cropped data onto the temp canvas
             save_ctx.putImageData(crop, 0, 0);
@@ -1023,7 +1053,6 @@ function saveSegmentLayers(left, top, right, bottom, index, identifier) {
                 'absolute_path': images[key]['src'],
                 'type': 'img',
                 'idx': index,
-                'timestamp': timestamp, 
                 'identifier': identifier
             });
         } else {
