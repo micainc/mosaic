@@ -40,6 +40,7 @@ var floodStack = []
 var images = {}
 var currentImage = '';
 var image_track_filled = new Set()
+regionMapForEdges = new Map();
 
 // Multi Image Classification And Segmentation : MICAS
 
@@ -74,16 +75,14 @@ function init() {
                     flood(mouseX, mouseY, activeColour)
                 } else {
                     fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
-                    processFillTillEdges(drawPath)
                 }
 
             } else {
                 drawPath.push({x: mouseX, y: mouseY}); // finish drawPath
                 drawPath = fillGaps(drawPath); // fills gaps in the drawing of a loop due to lag
-                //console.log("DRAW PATH: ", drawPath)
-
-                //processFillTillEdges(drawPath)
             }
+
+            colorRegionsForPoints(drawPath, regionMapForEdges, activeColour)
 
             /*
             var loops = findLoopsInPath(drawPath, drawDiameter)
@@ -601,6 +600,8 @@ function dropFiles(event) {
 
                         // Now draw the processed image onto the draw canvas
                         draw_ctx.drawImage(offscreenCanvas, 0, 0);
+
+                        regionMapForEdges = getRegionHash(offscreenCtx, offscreenCanvas.width, offscreenCanvas.height)
                     };
                     img.src = e.target.result; // ...call the img.onload function above
                 };
@@ -652,68 +653,6 @@ function dropFiles(event) {
         });
 
 
-    }
-}
-
-function processFillTillEdges(points) {
-    for (let i = 0; i < points.length; i++) {
-        let x = points[i].x;
-        let y = points[i].y;
-    
-        let rgbOfActiveColor = hexToRGB(activeColour)
-
-        // Process the central pixel
-        fillTillEdges(x, y, activeColour, rgbOfActiveColor);
-    
-        radiusToFill = 10
-    
-        // Iterate over a 20x20 square centered at (x, y)
-        for (let dx = -1 * radiusToFill; dx <= radiusToFill; dx++) {
-            for (let dy = -1 * radiusToFill; dy <= radiusToFill; dy++) {
-                // Skip the center pixel to avoid processing it twice
-                if (dx === 0 && dy === 0) continue;
-    
-                // Calculate the coordinates of the current pixel
-                let currentX = x + dx;
-                let currentY = y + dy;
-    
-                // Process and color the current pixel
-                fillTillEdges(currentX, currentY, activeColour, rgbOfActiveColor);
-            }
-        }
-    }
-}
-
-function fillTillEdges(x_coordinate, y_coordinate, color, rgbOfActiveColor) {
-    const width = draw_ctx.canvas.width;
-    const height = draw_ctx.canvas.height;
-    const queue = [[x_coordinate, y_coordinate]];
-
-    while (queue.length > 0) {
-        [x, y] = queue.shift();
-        const index = y * width + x;
-        
-
-        // Check if already processed or out of bounds
-        if (image_track_filled[index] || x < 0 || y < 0 || x >= width || y >= height) {
-            continue;
-        }
-
-        image_track_filled[index] = 1;
-
-        let drawData = draw_ctx.getImageData(x, y, 1, 1).data;
-
-        if ((drawData[0] === 128 && drawData[1] === 128 && drawData[2] === 128 && drawData[3] === 255) || 
-            (drawData[0] === rgbOfActiveColor.r && drawData[1] === rgbOfActiveColor.g && drawData[2] === rgbOfActiveColor.b)) {
-            draw_ctx.fillStyle = color;
-            draw_ctx.fillRect(x, y, 1, 1);
-
-            // Add neighboring pixels to the queue
-            queue.push([x + 1, y]);
-            queue.push([x - 1, y]);
-            queue.push([x, y + 1]);
-            queue.push([x, y - 1]);
-        }
     }
 }
 
