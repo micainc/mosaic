@@ -66,16 +66,11 @@ function init() {
         if(leftClicked) {
             switch (selectedTool) {
                 case Tools.fill:
-                    if (setOfPointsToFillToCheck == null) {
-                        setOfPointsToFillToCheck = create2DArray(draw_canvas.height, draw_canvas.width, 0)
-                    }
-
                     var points = goOutFromDrawPointsToFill(drawPath, draw_ctx)
                     draw_ctx.fillStyle = activeColour
                     points.forEach(point => {
                         draw_ctx.fillRect(point.x, point.y, 1, 1); // Fill a 1x1 rectangle (pixel) at each point
                     });
-                    setOfPointsToFillToCheck = create2DArray(draw_canvas.height, draw_canvas.width, 0)
                     break;
                 case Tools.pencil:
                     if( drawPath.length < 2 ) { // if user just clicked, check if user wants to flood a shape
@@ -732,7 +727,6 @@ function draw() {
                 $('#parameters').hide()
                 draw_ctx.globalCompositeOperation = 'source-over'
                 draw_ctx.fillStyle = activeColour; 
-                console.log("fillPixelatedCircle 2")
                 fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
 
             } else if(rightClicked) {
