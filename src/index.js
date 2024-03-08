@@ -536,190 +536,153 @@ function catchDrag(event) {
 	event.preventDefault();
 }
 
+var should_erase_draw_layer = true
+var dimensions_set = false;
+
 function dropFiles(event) {
-
-    var should_erase_draw_layer = true;
+    should_erase_draw_layer = true
+    dimensions_set = false;
     event.preventDefault();
-    if(event.dataTransfer && event.dataTransfer.files) {
-        console.log("DROPPED FILES: ", event.dataTransfer.files)
-        const filePromises = [];
-        for(var i = 0; i < event.dataTransfer.files.length; i++){
-            if(event.dataTransfer.files[i].name.includes("edge_map")) {
-                // draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height);
-                should_erase_draw_layer = false;
-                // Create a new FileReader to read the file
-                var reader = new FileReader();
-                reader.onload = function(e) {
-                    var img = new Image();
-                    img.onload = function() {
-                        // Create an off-screen canvas to process the image
-                        var offscreenCanvas = document.createElement('canvas');
-                        offscreenCanvas.width = img.width;
-                        offscreenCanvas.height = img.height;
-                        var offscreenCtx = offscreenCanvas.getContext('2d');
-                        offscreenCtx.drawImage(img, 0, 0);
-
-                        // Get the ImageData from the off-screen canvas
-                        var imageData = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
-                        var data = imageData.data;
-                        var whitePixels = [];
-
-                        // Identify white pixels and their positions
-                        for(var j = 0; j < data.length; j += 4) {
-                            if(data[j] === 255 && data[j + 1] === 255 && data[j + 2] === 255) {
-                                whitePixels.push(j);
-                            }
-                        }
-
-                        // Function to check boundaries and set pixel transparency
-                        function setTransparent(index, width) {
-                            var x = (index / 4) % width;
-                            var y = Math.floor((index / 4) / width);
-
-                            for (let dx = -1; dx <= 1; dx++) {
-                                for (let dy = -1; dy <= 1; dy++) {
-                                    var nx = x + dx;
-                                    var ny = y + dy;
-                                    if (nx >= 0 && nx < offscreenCanvas.width && ny >= 0 && ny < offscreenCanvas.height) {
-                                        var nIdx = (ny * offscreenCanvas.width + nx) * 4;
-                                        data[nIdx + 3] = 0; // Alpha channel to 0 for transparency
-                                    }
-                                }
-                            }
-                        }
-
-                        // Apply transparency to white pixels and their neighbors
-                        whitePixels.forEach(function(index) {
-                            setTransparent(index, img.width);
-                        });
-
-                        // Process black pixels to #808080
-                        for(var j = 0; j < data.length; j += 4) {
-                            if(data[j] === 0 && data[j + 1] === 0 && data[j + 2] === 0) {
-                                data[j] = 128;     // Red channel to 128 for #808080
-                                data[j + 1] = 128; // Green channel to 128 for #808080
-                                data[j + 2] = 128; // Blue channel to 128 for #808080
-                            }
-                        }
-
-                        // Put the modified ImageData back onto the off-screen canvas
-                        offscreenCtx.putImageData(imageData, 0, 0);
-
-                        // Now draw the processed image onto the draw canvas
-                        draw_ctx.drawImage(offscreenCanvas, 0, 0);
-                    };
-                    img.src = e.target.result; // ...call the img.onload function above
-                };
-                reader.readAsDataURL(event.dataTransfer.files[i]); // ...call the reader.onload function above
-            } else if(event.dataTransfer.files[i].name.includes("segmentation_map")) {
-                should_erase_draw_layer = false;
-                // Create a new FileReader to read the file
-                var reader = new FileReader();
-                reader.onload = function(e) {
-                    var img = new Image();
-                    img.onload = function() {
-                        // draw the segmentation map directly to the draw canvas
-                        draw_ctx.drawImage(img, 0, 0);
-                    };
-                    img.src = e.target.result; // ...call the img.onload function above
-                };
-                reader.readAsDataURL(event.dataTransfer.files[i]); // ...call the reader.onload function above
+    if (event.dataTransfer && event.dataTransfer.files) {
+        const files = Array.from(event.dataTransfer.files);
+        const imagePromises = files.map(file => {
+            if (file.name.includes("edge_map") || file.name.includes("segmentation_map")) {
+                should_erase_draw_layer = false
+                return processEdgeOrSegmentationMap(file);
             } else {
-                // we know new image layers have been dragged in: clear the old ones
-                currentImage = '';
-                images = {};
-                filePromises.push(procFile(event.dataTransfer.files[i]));
-            }
-        }
-
-        console.log("REMAINING FILE PROMISES: ", filePromises)
-
-        // Handle other files...
-        Promise.all(filePromises).then(() => {
-            if(filePromises.length > 0) {
-
-                console.log("PROCESSING IMAGE FILES: ")
-                setTimeout(function() {
-                    // clear draw canvas
-                    should_erase_draw_layer ? console.log("CLEARING DRAW LAYER... ") : null;
-                    should_erase_draw_layer ? draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height) : null;
-
-                    currentImage = Object.keys(images)[0]
-                    document.getElementById('parameters-filename').innerHTML = currentImage
-                    if (currentImage && images[currentImage] && images[currentImage]['data']) {
-                        const imageData = images[currentImage]['data'];
-
-                        // Use putImageData to draw ImageData
-                        img_ctx.putImageData(imageData, 0, 0);
-                    } else {
-                        console.error("Invalid currentImage:", currentImage);
-                    }
-                }, 1000);
+                return processImageFile(file);
             }
         });
 
-
+        Promise.all(imagePromises).then(() => {
+            updateCurrentImage();
+        });
     }
 }
 
-function cycleImage(dir) {
-    var keys = Object.keys(images);
-    var idx = keys.indexOf(currentImage);
 
-    idx += dir;
-    
-    if (idx > keys.length - 1) {
-        idx = 0; // Restart at idx = 0 when it has rotated through all images
-    } else if(idx < 0 ) {
-        idx = keys.length - 1; 
-    }
-
-    currentImage = keys[idx];
-    img_ctx.clearRect(0, 0, image_canvas.width, image_canvas.height);
-    
-    // Check if currentImage exists in the images dictionary
-    if (images[currentImage] && images[currentImage]['data']) {
-        const imageData = images[currentImage]['data'];
-        img_ctx.putImageData(imageData, 0, 0);
-        document.getElementById('parameters-filename').innerHTML = currentImage;
-    } else {
-        console.error("Image data for " + currentImage + " is not available.");
-    }
-}
-
-function procFile(file) {
+function processEdgeOrSegmentationMap(file) {
     return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                if (file.name.includes("edge_map")) {
+                    processEdgeMap(img);
+                } else {
+                    draw_ctx.drawImage(img, 0, 0);
+                }
+                resolve();
+            };
+            img.onerror = reject;
+            img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
 
-        //console.log("processing file " + file.name);
-        //console.log(file)
- 
-        if(file.type === "image/tiff" || file.type === "image/tif") {
-            // do something with tiff
-        } else {
-            var img = new Image();
-            img.src = file.path;
-            img.title = file.name;
-            img.onload = function () {
+function processEdgeMap(img) {
+    const offscreenCanvas = document.createElement('canvas');
+    if(!dimensions_set) {
+        image_canvas.width = img.width;
+        image_canvas.height = img.height;
+        draw_canvas.width = img.width;
+        draw_canvas.height = img.height;
+        save_canvas.width = img.width;
+        save_canvas.height = img.height;
+        offscreenCanvas.width = img.width;
+        offscreenCanvas.height = img.height;
+        dimensions_set = true;
+    }
+    const offscreenCtx = offscreenCanvas.getContext('2d');
+    offscreenCtx.drawImage(img, 0, 0);
+
+    const imageData = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+    const data = imageData.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+        if (data[i] === 255 && data[i + 1] === 255 && data[i + 2] === 255) {
+            setTransparentNeighbors(i, data, offscreenCanvas.width);
+        } else if (data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 0) {
+            data[i] = data[i + 1] = data[i + 2] = 128;
+        }
+    }
+
+    offscreenCtx.putImageData(imageData, 0, 0);
+    draw_ctx.drawImage(offscreenCanvas, 0, 0);
+}
+
+
+function setTransparentNeighbors(index, data, width) {
+    const x = (index / 4) % width;
+    const y = Math.floor((index / 4) / width);
+
+    for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx >= 0 && nx < width && ny >= 0 && ny < data.length / (4 * width)) {
+                const nIdx = (ny * width + nx) * 4;
+                data[nIdx + 3] = 0;
+            }
+        }
+    }
+}
+
+function processImageFile(file) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = function() {
+            if(!dimensions_set) {
                 image_canvas.width = img.width;
                 image_canvas.height = img.height;
                 draw_canvas.width = img.width;
                 draw_canvas.height = img.height;
                 save_canvas.width = img.width;
                 save_canvas.height = img.height;
+                dimensions_set = true;
+            }
 
-                // Draw the image on the canvas to extract pixel data
-                img_ctx.drawImage(img, 0, 0, img.width, img.height);
-                var imageData = img_ctx.getImageData(0, 0, img.width, img.height);
+            img_ctx.drawImage(img, 0, 0, img.width, img.height);
+            const imageData = img_ctx.getImageData(0, 0, img.width, img.height);
 
-                console.log("FILE NAME: ", file.name);
-                images[file.name] = {'data': imageData, 'src': file.path};
+            images[file.name] = {
+                data: imageData,
+                src: img.src
             };
-        }
-        resolve();
+
+            resolve();
+        };
+        img.onerror = reject;
+        img.src = URL.createObjectURL(file);
     });
 }
 
- //------------------------------------------------------ DRAW FUNCTIONALITY ------------------------------------------------------//
+function updateCurrentImage() {
+    const imageKeys = Object.keys(images);
+    if (imageKeys.length > 0) {
+        currentImage = imageKeys[0];
+        document.getElementById('parameters-filename').textContent = currentImage;
+        img_ctx.putImageData(images[currentImage].data, 0, 0);
+    } else {
+        currentImage = '';
+        document.getElementById('parameters-filename').textContent = '';
+        img_ctx.clearRect(0, 0, image_canvas.width, image_canvas.height);
+        should_erase_draw_layer ? draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height) : null;
+    }
+}
+
+function cycleImage(dir) {
+    const keys = Object.keys(images);
+    const idx = keys.indexOf(currentImage);
+    const newIdx = (idx + dir + keys.length) % keys.length;
+    currentImage = keys[newIdx];
+
+    img_ctx.clearRect(0, 0, image_canvas.width, image_canvas.height);
+    img_ctx.putImageData(images[currentImage].data, 0, 0);
+    document.getElementById('parameters-filename').textContent = currentImage;
+}
 
 
 function draw() {
