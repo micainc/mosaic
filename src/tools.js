@@ -11,13 +11,11 @@ var firstPixelForFill = null
 function selectPencil(button) {
     selectedTool = Tools.pencil;
     updateButtonStyles(button);
-    console.log("Selected tool: Pencil");
 }
 
 function selectFill(button) {
     selectedTool = Tools.fill;
     updateButtonStyles(button);
-    console.log("Selected tool: Fill");
 }
 
 function create2DArray(x, y, initialValue = null) {
@@ -87,25 +85,16 @@ function updateButtonStyles(selectedButton) {
 }
 
 function goOutFromDrawPointsToFill(drawPoints, draw_ctx) {
-
-    
-    var once = false;
     drawPoints.forEach(point => {
         
         // Ideally i would check if boundry is in the set.
         // var rightboundry = findBoundaryPixel(draw_ctx, point.x, point.y)
         if (setOfPointsToFillToCheck[point.x][point.y] == 0) {
-            let startTime = performance.now();
             findSector2(draw_ctx, point.x, point.y)
-            let endTime = performance.now();
-            console.log(`Execution time: ${endTime - startTime} milliseconds`);
         }
     }); 
 
-    let startTime = performance.now();
     r =  findCoordinatesWithValueOne(setOfPointsToFillToCheck)
-    let endTime = performance.now();
-    console.log(`coverstion time: ${endTime - startTime} milliseconds`);
 
 
     return r
@@ -285,7 +274,6 @@ function findBoundaryPixel(draw_ctx, startX, startY) {
         boundaryPixel = { x: imageData.width - 1, y: startY };
     }
 
-    console.log("boundrry for x, y",  startX, " ", startY, " ", boundaryPixel)
     return boundaryPixel;
 }
 
