@@ -23,6 +23,9 @@
             </div>
             <div id="parameters-right">
                 <div id="coords"></div>
+                <button id="pencil-button" class="parameter-button tool selected-tool" onclick="selectPencil(this)"><img id="pencil-img" width="20px" src="./images/pencil.png"></button>
+                <button id="fill-button" class="parameter-button tool" onclick="selectFill(this)"><img id="fill-img" width="20px" src="./images/paint-bucket.png"></button>
+
                 <button class="parameter-button" onclick="toggleZoom()"><img id="zoom-img" width="20px" src="./images/zoom_1.png"></button> 
 
                 <input class="slider" id="cursor-size-slider" type="range" min="10" max="200" value="10">
@@ -48,6 +51,7 @@
     <script src="./index.js"></script>
     <script src="./rgbs.js"></script>
     <script src="./fillTillEdges.js"></script>
+    <script src="./tools.js"></script>
 
 
 </html>

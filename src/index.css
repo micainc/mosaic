@@ -220,6 +220,10 @@ button:hover, select:hover {
     line-height: 20px;
 }
 
+.selected-tool {
+    background-color: #4CAF50;
+}
+
 .path {
     max-width:150px;
     overflow-x: scroll;

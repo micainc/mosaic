@@ -40,7 +40,6 @@ var floodStack = []
 var images = {}
 var currentImage = '';
 var image_track_filled = new Set()
-regionMapForEdges = new Map();
 
 // Multi Image Classification And Segmentation : MICAS
 
@@ -55,6 +54,8 @@ function init() {
             leftClicked = true;
             // push starting point of draw path
             drawPath.push({x: mouseX, y: mouseY});
+            var imageData = draw_ctx.getImageData(mouseX, mouseY, 1, 1);
+            firstPixelForFill = imageData.data;
         } else if (e.button === 2 && !leftClicked) {
             rightClicked = true;
         }
@@ -63,37 +64,43 @@ function init() {
     draw_canvas.addEventListener('mouseup', function(e) {
         // doesn't matter what the draw path looks like, a drawn pixel will be without the boundaries returned by this function
         if(leftClicked) {
-            if( drawPath.length < 2 ) { // if user just clicked, check if user wants to flood a shape
+            switch (selectedTool) {
+                case Tools.fill:
+                    if (setOfPointsToFillToCheck == null) {
+                        setOfPointsToFillToCheck = create2DArray(draw_canvas.height, draw_canvas.width, 0)
+                    }
 
-                // clear the draw area first
-                draw_ctx.globalCompositeOperation = 'destination-out' // this clear the point first
-                fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
+                    var points = goOutFromDrawPointsToFill(drawPath, draw_ctx)
+                    draw_ctx.fillStyle = activeColour
+                    points.forEach(point => {
+                        draw_ctx.fillRect(point.x, point.y, 1, 1); // Fill a 1x1 rectangle (pixel) at each point
+                    });
+                    setOfPointsToFillToCheck = create2DArray(draw_canvas.height, draw_canvas.width, 0)
+                    break;
+                case Tools.pencil:
+                    if( drawPath.length < 2 ) { // if user just clicked, check if user wants to flood a shape
 
-                // then: either flood the area, or draw that erased point back
-                draw_ctx.globalCompositeOperation = 'source-over'
-                if(flood(mouseX, mouseY)) {
-                    flood(mouseX, mouseY, activeColour)
-                } else {
-                    fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
-                }
-
-            } else {
-                drawPath.push({x: mouseX, y: mouseY}); // finish drawPath
-                drawPath = fillGaps(drawPath); // fills gaps in the drawing of a loop due to lag
+                        // clear the draw area first
+                        draw_ctx.globalCompositeOperation = 'destination-out' // this clear the point first
+                        fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
+        
+                        // then: either flood the area, or draw that erased point back
+                        draw_ctx.globalCompositeOperation = 'source-over'
+                        if(flood(mouseX, mouseY)) {
+                            flood(mouseX, mouseY, activeColour)
+                        } else {
+                            fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
+                        }
+        
+                    } else {
+                        drawPath.push({x: mouseX, y: mouseY}); // finish drawPath
+                        drawPath = fillGaps(drawPath); // fills gaps in the drawing of a loop due to lag
+                    }
+                    break;
+                default:
+                    console.log('No tool was selected.');
             }
 
-            colorRegionsForPoints(drawPath, regionMapForEdges, activeColour)
-
-            /*
-            var loops = findLoopsInPath(drawPath, drawDiameter)
-            console.log("LOOPS: ", loops)   
-            drawLoopCenters(loops)
-            */
-
-            /*
-            var res = findClosedLoops(drawPath);
-            fillLoops(res[0])
-            */
             drawPath = []
         }
         leftClicked = false;
@@ -600,8 +607,6 @@ function dropFiles(event) {
 
                         // Now draw the processed image onto the draw canvas
                         draw_ctx.drawImage(offscreenCanvas, 0, 0);
-
-                        regionMapForEdges = getRegionHash(offscreenCtx, offscreenCanvas.width, offscreenCanvas.height)
                     };
                     img.src = e.target.result; // ...call the img.onload function above
                 };
@@ -721,18 +726,27 @@ function draw() {
     //ctx.globalCompositeOperation = "copy";
 
     //draw_ctx.globalCompositeOperation = 'source-over';
-    if(leftClicked) {
-        $('#parameters').hide()
-        draw_ctx.globalCompositeOperation = 'source-over'
-        draw_ctx.fillStyle = activeColour; 
-        fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
+    switch (selectedTool) {
+        case Tools.pencil:
+            if(leftClicked) {
+                $('#parameters').hide()
+                draw_ctx.globalCompositeOperation = 'source-over'
+                draw_ctx.fillStyle = activeColour; 
+                console.log("fillPixelatedCircle 2")
+                fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
 
-    } else if(rightClicked) {
-        $('#parameters').hide()
-        draw_ctx.globalCompositeOperation = 'destination-out' // this clears the canvas
-        fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
-    } else {
-        $('#parameters').show()
+            } else if(rightClicked) {
+                $('#parameters').hide()
+                draw_ctx.globalCompositeOperation = 'destination-out' // this clears the canvas
+                fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
+            } else {
+                $('#parameters').show()
+            }
+            break;
+        case Tools.fill:
+            break
+        default:
+            break;
     }
     window.requestAnimationFrame(draw);
 }
