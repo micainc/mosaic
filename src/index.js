@@ -641,6 +641,7 @@ function dropFiles(event) {
                 console.log("PROCESSING IMAGE FILES: ")
                 setTimeout(function() {
                     // clear draw canvas
+                    should_erase_draw_layer ? console.log("CLEARING DRAW LAYER... ") : null;
                     should_erase_draw_layer ? draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height) : null;
 
                     currentImage = Object.keys(images)[0]

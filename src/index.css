@@ -2,7 +2,7 @@
     -webkit-print-color-adjust: exact !important;   /* Chrome, Safari 6 – 15.3, Edge */
     color-adjust: exact !important;                 /* Firefox 48 – 96 */
     print-color-adjust: exact !important;           /* Firefox 97+, Safari 15.4+ */
-    font-size:14px; 
+    font-size:13px; 
     font-family: "Arial";
 }
 
@@ -259,13 +259,13 @@ button:hover, select:hover {
     border: 1px solid transparent;
     border-color: transparent transparent rgba(0, 0, 0, 0.1) transparent;
     border-radius: 10px;
-    height:20px;
-    margin:5px;
+    margin:3px;
     cursor: pointer;
     user-select: none;
     padding-left:5px;
     padding-right:5px;
-    padding-top:2px;
+    padding-top:3px;
+    padding-bottom:3px;
     width: min-content;
     white-space: nowrap;
     float: right;
