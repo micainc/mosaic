@@ -67,10 +67,7 @@ function init() {
             switch (selectedTool) {
                 case Tools.fill:
                     var points = goOutFromDrawPointsToFill(drawPath, draw_ctx)
-                    draw_ctx.fillStyle = activeColour
-                    points.forEach(point => {
-                        draw_ctx.fillRect(point.x, point.y, 1, 1); // Fill a 1x1 rectangle (pixel) at each point
-                    });
+                    fillPointsWithActiveColor(points)
                     break;
                 case Tools.pencil:
                     if( drawPath.length < 2 ) { // if user just clicked, check if user wants to flood a shape
@@ -103,21 +100,32 @@ function init() {
     })
 
     draw_canvas.addEventListener("mouseleave", function(e) {
-        if(leftClicked) {
-            drawPath.push({x: mouseX, y: mouseY}); // finish drawPath
-            drawPath = fillGaps(drawPath); // algorithmically fills gaps in the draw path to create a solid continuous line 
-            /*
-            console.log("DRAW PATH: ", drawPath)
-            var loops = findLoopsInPath(drawPath, drawDiameter)         
-            console.log("LOOPS: ", loops)   
-            */
-
-            /*
-            var res = findClosedLoops(drawPath);
-            fillLoops(res[0])
-            */
-            drawPath = []
+        switch (selectedTool) {
+            case Tools.pencil:
+                if(leftClicked) {
+                    drawPath.push({x: mouseX, y: mouseY}); // finish drawPath
+                    drawPath = fillGaps(drawPath); // algorithmically fills gaps in the draw path to create a solid continuous line 
+                    /*
+                    console.log("DRAW PATH: ", drawPath)
+                    var loops = findLoopsInPath(drawPath, drawDiameter)         
+                    console.log("LOOPS: ", loops)   
+                    */
+        
+                    /*
+                    var res = findClosedLoops(drawPath);
+                    fillLoops(res[0])
+                    */
+                    
+                }
+                break;
+            case Tools.fill:
+                var points = goOutFromDrawPointsToFill(drawPath, draw_ctx)
+                fillPointsWithActiveColor(points)
+                break;
+            default:
+                break;
         }
+        drawPath = []
         leftClicked = false;
         rightClicked = false;
     })
@@ -1017,4 +1025,11 @@ function changeColour(colour) {
     activeColour = colour;
     cursor.style.borderColor= activeColour;
     document.getElementById("cursor-size-slider").style.setProperty('--color', activeColour);
+}
+
+function fillPointsWithActiveColor(points) {
+    draw_ctx.fillStyle = activeColour
+    points.forEach(point => {
+        draw_ctx.fillRect(point.x, point.y, 1, 1);
+    });
 }
