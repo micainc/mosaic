@@ -94,11 +94,7 @@ function goOutFromDrawPointsToFill(drawPoints, draw_ctx) {
         }
     }); 
 
-    r =  findCoordinatesWithValueOne(setOfPointsToFillToCheck)
-
-
-    return r
-    // return setOfPointsToFill;
+    return findCoordinatesWithValueOne(setOfPointsToFillToCheck)
 }
 
 function getStartPixelColor() {
@@ -176,7 +172,13 @@ function findSector2(draw_ctx, startX, startY) {
     const data = imageData.data;
     const width = imageData.width;
     const height = imageData.height;
-    const startColor = firstPixelForFill; // Assuming this is [r, g, b, a]
+    const startColor = draw_ctx.getImageData(startX, startY, 1, 1).data;
+    console.log(startColor)
+
+    if (startColor[0] == 0 && startColor[1] == 0 && startColor[2] == 0 && startColor[3] == 0) {
+        return;
+    }
+
     const visited = new Uint8Array(width * height);
     const stack = [{ x: startX, y: startY }];
     
