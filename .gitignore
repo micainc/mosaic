@@ -90,6 +90,7 @@ out/
 
 # ignore 'samples' folder
 samples/
+outputs/
 
 #ignore ALL images (png, jpg, jpeg, gif) EXCEPT in the images folder:
 !images/*.png
