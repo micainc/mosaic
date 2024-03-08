@@ -63,7 +63,7 @@ def get_images(folder_path, folder_name):
     sobel = get_image_with_substring_if_exists(all_files, folder_path, 'sobel') 
 
     # Filter for non-aligned cross-polar images: ignore all processed images
-    cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'sobel' not in f and 'msbf' not in f and 'segmentation_map' not in f and 'segregated' not in f and 'edge_map' not in f]
+    cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'sobel' not in f and 'msbf' not in f and 'segmentation_map' not in f and 'segregated' not in f and 'edge_map' not in f and 'variance' not in f]
     
     # For storing the cross-polarized images
     temp_dict = {}
@@ -433,6 +433,13 @@ if sobel is None:
     sobel = max_composite_minus_bright_sobel
     Image.fromarray(max_composite_minus_bright_sobel).save(os.path.join(folder_path, folder_name+"_sobel.png"))
 
+variances = [cp-composite for cp in cross_polars]
+variance = normalize_image(np.var(variances))
+show_images([variance], "Variance", pause_to_display_images)
+Image.fromarray(variance).save(os.path.join(folder_path, folder_name+"_variance.png"))
+
+#quit python
+sys.exit(1)
 
 # # check if ms_bfs images array is already populated
 # if len(blurred_images) == 0:

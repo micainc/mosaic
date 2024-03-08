@@ -636,7 +636,9 @@ function setTransparentNeighbors(index, data, width) {
 function processImageFile(file) {
     return new Promise((resolve, reject) => {
         const img = new Image();
+        console.log(file)
         img.onload = function() {
+            console.log("CREATING IMAGE: ", file)
             if(!dimensions_set) {
                 image_canvas.width = img.width;
                 image_canvas.height = img.height;
@@ -652,7 +654,7 @@ function processImageFile(file) {
 
             images[file.name] = {
                 data: imageData,
-                src: img.src
+                src: file.path
             };
 
             resolve();
@@ -848,6 +850,8 @@ function getParentFolder(path) {
 
 function saveRegions() {
     // get immediate parent folder of images: if all images are in the same folder, use that as the identifier
+    console.log("SAVING REGIONS...")
+    console.log("IMAGES: ", images)
     var filenames = []
     var parent_folder = []
     Object.keys(images).map( (key) => {
@@ -855,13 +859,15 @@ function saveRegions() {
         parent_folder.push(getParentFolder(images[key]['src']).trim().toLowerCase()) 
     });
     console.log("IMAGE FILENAMES: ", filenames)
+    console.log("PARENT FOLDER: ", images)
+
     var identifier = getCommonSubstring(filenames).replace(/^_+|_+$/g, '')
     if (identifier === '') {
         identifier = getCommonSubstring(parent_folder).replace(/^_+|_+$/g, '')// trim trailing/leading whitespace and underscores
     }
     // identifier is a short, common name shared by this current image set. ex 'w15'
     console.log("IDENTIFIER: ", identifier)
-
+    
     window.api.invoke('set_file_path', {'path': images[currentImage]['src'], 'type': 'save'})
         .then(() => {
             var rgbs = {}
@@ -983,7 +989,6 @@ function saveSegmentLayers(left, top, right, bottom, index, identifier) {
     console.log("COMPLETED SAVING CROPPED IMAGES.")
 
 }
-
 
 function changeColour(colour) {
     activeColour = colour;

@@ -91,7 +91,11 @@ out/
 # ignore 'samples' folder
 samples/
 
-#ignore images (png, jpg, jpeg, gif) anywhere:
+#ignore ALL images (png, jpg, jpeg, gif) EXCEPT in the images folder:
+!images/*.png
+!images/*.jpg
+!images/*.jpeg
+!images/*.gif
 *.png
 *.jpg
 *.jpeg
