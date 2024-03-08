@@ -30,7 +30,7 @@ button:hover, select:hover {
 
 #parameters {
     display: flex;
-    position:fixed;
+    position:relative;
     top:0px;
     z-index: 4 !important;
     background-color: #FFFFFF;

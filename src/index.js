@@ -150,11 +150,6 @@ function init() {
     function updateCursor(event) {
         const rect = image_canvas.getBoundingClientRect();
         
-
-        scrollX = -rect.left;
-        scrollY = -rect.top;
-        
-        
         // Calculate the adjusted mouseX and mouseY with respect to the canvas's position and scale.
         mouseX = Math.round((event.clientX - rect.left) * image_canvas.width / image_canvas.clientWidth);
         mouseY = Math.round((event.clientY - rect.top) * image_canvas.height / image_canvas.clientHeight);
@@ -696,17 +691,13 @@ function draw() {
     switch (selectedTool) {
         case Tools.pencil:
             if(leftClicked) {
-                $('#parameters').hide()
                 draw_ctx.globalCompositeOperation = 'source-over'
                 draw_ctx.fillStyle = activeColour; 
                 fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
 
             } else if(rightClicked) {
-                $('#parameters').hide()
                 draw_ctx.globalCompositeOperation = 'destination-out' // this clears the canvas
                 fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
-            } else {
-                $('#parameters').show()
             }
             break;
         case Tools.fill:
