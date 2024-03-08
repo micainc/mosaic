@@ -247,7 +247,6 @@ button:hover, select:hover {
 
 /*the container must be positioned relative:*/
 .custom-list {
-    position: relative;
     font-family: Arial;
     width:inherit;
     -webkit-app-region: no-drag;
@@ -282,8 +281,7 @@ button:hover, select:hover {
     /*left: 100%;*/
     right: 0;
     z-index: 99;
-    width:min-content;
-
+    width: 50%;
 }
 
 /*hide the items when the select box is closed:*/
