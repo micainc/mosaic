@@ -844,17 +844,17 @@ function saveRegions() {
     console.log("SAVING REGIONS...")
     console.log("IMAGES: ", images)
     var filenames = []
-    var parent_folder = []
+    var parent_folders = []
     Object.keys(images).map( (key) => {
         filenames.push(getFilename(images[key]['src']).trim().toLowerCase()) 
-        parent_folder.push(getParentFolder(images[key]['src']).trim().toLowerCase()) 
+        parent_folders.push(getParentFolder(images[key]['src']).trim().toLowerCase()) 
     });
     console.log("IMAGE FILENAMES: ", filenames)
-    console.log("PARENT FOLDER: ", images)
+    console.log("PARENT FOLDERS: ", parent_folders)
 
     var identifier = getCommonSubstring(filenames).replace(/^_+|_+$/g, '')
     if (identifier === '') {
-        identifier = getCommonSubstring(parent_folder).replace(/^_+|_+$/g, '')// trim trailing/leading whitespace and underscores
+        identifier = getCommonSubstring(parent_folders).replace(/^_+|_+$/g, '')// trim trailing/leading whitespace and underscores
     }
     // identifier is a short, common name shared by this current image set. ex 'w15'
     console.log("IDENTIFIER: ", identifier)
