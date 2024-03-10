@@ -40,6 +40,8 @@ var floodStack = []
 var images = {}
 var currentImage = '';
 var image_track_filled = new Set()
+var undoHistory = [];
+const MAX_HISTORY_SIZE = 10;
 
 // Multi Image Classification And Segmentation : MICAS
 
@@ -56,6 +58,8 @@ function init() {
             drawPath.push({x: mouseX, y: mouseY});
             var imageData = draw_ctx.getImageData(mouseX, mouseY, 1, 1);
             firstPixelForFill = imageData.data;
+
+            saveState();
         } else if (e.button === 2 && !leftClicked) {
             rightClicked = true;
         }
@@ -137,6 +141,10 @@ function init() {
         if (event.code === 'Space') {
             event.preventDefault()
             draw_canvas.style.opacity = '0';
+        }
+
+        if (event.ctrlKey && event.key === 'z') {
+            undo();
         }
     });
     // Event listener for keyup
@@ -992,4 +1000,21 @@ function fillPointsWithActiveColor(points) {
     points.forEach(point => {
         draw_ctx.fillRect(point.x, point.y, 1, 1);
     });
+}
+
+function saveState() {
+    if (undoHistory.length >= MAX_HISTORY_SIZE) {
+        undoHistory.shift();
+    }
+    undoHistory.push(draw_ctx.getImageData(0, 0, draw_canvas.width, draw_canvas.height));
+}
+
+function undo() {
+    if (undoHistory.length > 0) {
+        // Pop the last state from the history and restore it
+        const lastState = undoHistory.pop();
+        draw_ctx.putImageData(lastState, 0, 0);
+    } else {
+        console.log("No more undo steps available.");
+    }
 }
