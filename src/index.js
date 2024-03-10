@@ -146,6 +146,14 @@ function init() {
         if (event.ctrlKey && event.key === 'z') {
             undo();
         }
+
+        if (event.key === 'ArrowRight' || event.key === 'd') {
+            cycleImage(1);
+        }
+
+        if (event.key === 'ArrowLeft' || event.key === 'a') {
+            cycleImage(-1);
+        }
     });
     // Event listener for keyup
     document.addEventListener('keyup', function(event) {
