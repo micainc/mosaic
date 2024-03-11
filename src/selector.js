@@ -120,11 +120,31 @@ function setLabelList(labels) {
 
 // when a label is clicked, change to that label
 function handleItemClick(e) {
+  console.log("clicked on ")
   if(this.classList.contains("selected")) {
     e.stopPropagation();
     closeAllSelect(this);
     this.parentNode.lastElementChild.classList.toggle("select-hide");
+    
+    console.log("partent id" , this.parentNode.parentNode.id)
 
+    if (this.parentNode.id === "labels" && !this.classList.contains("search-box")) {
+      var labelList = this.parentNode;
+      var selectedLabel = labelList.removeChild(this);
+      selectedLabel.classList.remove("selected");
+      labelList.children[0].appendChild(selectedLabel);
+
+      // Create and add a search box
+      var searchBox = document.createElement("DIV");
+      searchBox.setAttribute("class", "selectable selected search-box");
+      searchBox.setAttribute("contenteditable", "true");
+      searchBox.setAttribute("placeholder", "Search...");
+      searchBox.addEventListener("input", filterLabels);
+      searchBox.addEventListener("blur", handleSearchBlur);
+      labelList.prepend(searchBox);
+
+      searchBox.focus();
+    }
   } else { // if unselected element (in items list)
     if(this.parentNode.parentNode.id === "loadouts") {
       // if a new loadout is being selected, delete all label entries from the  previous loadout and reinitialize
@@ -151,6 +171,8 @@ function handleItemClick(e) {
     // move newly selected item to top
     this.classList.toggle("selected")
     this.parentNode.parentNode.prepend(this);
+
+    clearSearchBoxAndClearSeclectablesDisplay(); 
   }
 }
 
@@ -174,6 +196,66 @@ function closeAllSelect(elmnt) {
     }
   }
   saveLoadout()
+}
+
+function filterLabels() {
+  var input = this.innerText.toLowerCase();
+  var labels = $("#labels .items")[0].getElementsByClassName("selectable");
+
+  for (var i = 0; i < labels.length; i++) {
+      var label = labels[i];
+      if (!label.classList.contains("search-box")) {
+          var txtValue = label.textContent || label.innerText;
+
+          if (txtValue.toLowerCase().indexOf(input) > -1) {
+              label.style.display = "";
+          } else {
+              label.style.display = "none";
+          }
+      }
+  }
+}
+
+function handleSearchBlur(event) {
+  // Wait for the document to update and check if the new focused element is a label
+  setTimeout(() => {
+      const newFocus = document.activeElement;
+      const isLabelItem = newFocus.classList.contains("selectable");
+      const labelList = document.getElementById("labels");
+
+      if (!isLabelItem && labelList) {
+          // Find the last label item and select it
+          const lastLabelItem = labelList.querySelector('.items').lastElementChild;
+          if (lastLabelItem && !lastLabelItem.classList.contains("add")) {
+              // Reset the selection
+              var currentlySelected = labelList.querySelector('.selected');
+              if (currentlySelected) {
+                  currentlySelected.classList.remove('selected');
+              }
+              lastLabelItem.classList.add('selected');
+
+              lastLabelItem.remove()
+              labelList.prepend(lastLabelItem)
+              clearSearchBox()
+
+              var allLabels = $("#labels .items")[0].getElementsByClassName("selectable");
+              for (var i = 0; i < allLabels.length; i++) {
+                  allLabels[i].style.display = "";
+              }
+          }
+      }
+  }, 0);
+}
+
+function clearSearchBoxAndClearSeclectablesDisplay() {
+  var searchBox = document.querySelector("#labels .search-box");
+  if (searchBox) {
+      searchBox.parentNode.removeChild(searchBox);
+  }
+  var allLabels = $("#labels .items")[0].getElementsByClassName("selectable");
+    for (var i = 0; i < allLabels.length; i++) {
+        allLabels[i].style.display = "";
+  }
 }
 
 /* is there a way I can save RGB colours so that they always map to the same value from 0-255: no. SO, instead, save a new val in th */
