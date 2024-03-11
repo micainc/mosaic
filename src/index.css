@@ -270,6 +270,10 @@ button:hover, select:hover {
     float: right;
 }
 
+.search-box {
+    min-width: 70px;
+}
+
 .selectable:hover {
     -webkit-filter: brightness(80%);
 }
