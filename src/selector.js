@@ -141,6 +141,11 @@ function handleItemClick(e) {
       searchBox.setAttribute("placeholder", "Search...");
       searchBox.addEventListener("input", filterLabels);
       searchBox.addEventListener("blur", handleSearchBlur);
+
+      // We do not want this close all open label when re-clicked on search.
+      searchBox.addEventListener("click", function(e) {
+        e.stopPropagation();
+      });
       labelList.prepend(searchBox);
 
       searchBox.focus();
@@ -224,6 +229,8 @@ function handleSearchBlur(event) {
       const labelList = document.getElementById("labels");
 
       if (!isLabelItem && labelList) {
+        clearSearchBoxAndClearSeclectablesDisplay()
+        
           // Find the last label item and select it
           const lastLabelItem = labelList.querySelector('.items').lastElementChild;
           if (lastLabelItem && !lastLabelItem.classList.contains("add")) {
@@ -236,12 +243,6 @@ function handleSearchBlur(event) {
 
               lastLabelItem.remove()
               labelList.prepend(lastLabelItem)
-              clearSearchBox()
-
-              var allLabels = $("#labels .items")[0].getElementsByClassName("selectable");
-              for (var i = 0; i < allLabels.length; i++) {
-                  allLabels[i].style.display = "";
-              }
           }
       }
   }, 0);
