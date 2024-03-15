@@ -18,6 +18,8 @@ from edge_detection import create_composite_edge_map, overlay_edges_on_image
 from contouring import mark_area_on_image_which_resemble_color_scheme
 
 from utils import show_images, resize_images, normalize_image, get_images_with_substring, get_image_with_substring_if_exists
+from itertools import combinations
+
 
 # install the following packages if not already installed:
 #pip install git+https://github.com/facebookresearch/segment-anything.git
@@ -63,7 +65,7 @@ def get_images(folder_path, folder_name):
     sobel = get_image_with_substring_if_exists(all_files, folder_path, 'sobel') 
 
     # Filter for non-aligned cross-polar images: ignore all processed images
-    cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'sobel' not in f and 'msbf' not in f and 'segmentation_map' not in f and 'segregated' not in f and 'edge_map' not in f and 'variance' not in f]
+    cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'sobel' not in f and 'msbf' not in f and 'segmentation_map' not in f and 'segregated' not in f and 'edge_map' not in f and 'variance' not in f and 'striation' not in f and 'laplacian' not in f and 'difference' not in f]
     
     # For storing the cross-polarized images
     temp_dict = {}
@@ -400,19 +402,16 @@ for arg in sys.argv:
 
 get_images(folder_path, folder_name)
 
-###### CREATE LIN POLAR COMPOSITE SOBEL ######
-lin_sobel = create_sobel(lin_polar) 
-lin_value = get_value(lin_polar)
 
-
-###### CREATE BRIGHT COMPOSITE + SOBEL ######
+###### CREATE BRIGHT COMPOSITE ######
 if len(composite) == 0:
     print("GENERATING COMPOSITE...")
     composite = np.max(np.stack(cross_polars), axis=0)
     Image.fromarray(composite).save(os.path.join(folder_path, folder_name+"_composite.png"))
 
+###### CREATE B.COMP SOBEL + BILATERALLY FILTERED LAPLACIAN  ######
+
 composite_sobel = create_sobel(composite)
-composite_value = get_value(composite)
 
 ###### CREATE SOBEL FROM CROSS POLARS ######
 
@@ -420,81 +419,83 @@ if sobel is None:
     print("GENERATING SOBEL...")
     # note these sobels havent been normalized yet
     sobels = [create_sobel(cp) for cp in cross_polars]
-    values = [get_value(cp) for cp in cross_polars]
     stacked_sobels = np.stack(sobels)
-    stacked_values = np.stack(values)
-    #sum_composite_sobel = normalize(np.sum(stacked_sobels, axis=0)) 
-    max_composite_minus_bright_sobel = normalize_image(np.max(stacked_sobels, axis=0)-composite_sobel) # WINNER
-    #bright_minus_values = normalize(np.max(composite_value-stacked_values, axis=0))
+    sobel = normalize_image(np.max(stacked_sobels, axis=0)-composite_sobel) # WINNER
+    Image.fromarray(sobel).save(os.path.join(folder_path, folder_name+"_sobel.png"))
 
-    #xpls_minus_bright_minus_lin_sobel = normalize(np.max(stacked_sobels, axis=0)-lin_sobel) 
-    #cv2.imshow('MAX - BRIGHT', max_composite_minus_bright_sobel)
-    #cv2.imshow('BRIGHT - VALUES', cv2.cvtColor(bright_minus_values, cv2.COLOR_RGB2BGR))
-    sobel = max_composite_minus_bright_sobel
-    Image.fromarray(max_composite_minus_bright_sobel).save(os.path.join(folder_path, folder_name+"_sobel.png"))
+###### CREATE LAPLACIAN FROM BILATERALLY FILTERED CROSS POLARS + COMPOSITE LAPLACIAN ######
 
-variances = [cp-composite for cp in cross_polars]
-variance = normalize_image(np.var(variances))
-show_images([variance], "Variance", pause_to_display_images)
-Image.fromarray(variance).save(os.path.join(folder_path, folder_name+"_variance.png"))
-
-#quit python
-sys.exit(1)
-
-# # check if ms_bfs images array is already populated
-# if len(blurred_images) == 0:
-#     print("APPLYING MEDIAN SHIFT BILATERAL FILTER TO CROSS POLARS + LIN POLAR...")
-#     idx = 1
-#     for cp in cross_polars:
-#         ms_bf_img = apply_median_shift_bilateral_filter(cp)
-#         blurred_images.append(ms_bf_img)
-#         Image.fromarray(cv2.resize(ms_bf_img, (cp.shape[1], cp.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_cross_polar_msbf_"+str(idx)+".png"))
-#         idx += 1
-
-#     ms_bf_img = apply_median_shift_bilateral_filter(lin_polar)
-#     blurred_images.append(ms_bf_img)
-#     Image.fromarray(cv2.resize(ms_bf_img, (lin_polar.shape[1], lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_lin_polar_msbf.png"))
+# composite_laplacian = cv2.Laplacian(cv2.bilateralFilter(composite, 8, 64, 64), cv2.CV_64F)
+# print("MIN, MAX COMP LAPLACIAN: " + str(composite_laplacian.min()) + " | " + str(composite_laplacian.max()))
+# show_images([composite_laplacian], "Composite Laplacian", pause_to_display_images)
     
-# show_images(blurred_images, 'MS_BFS', pause_to_display_images)
+# laplacian = None
+# if laplacian is None:
+#     print("GENERATING LAPLACIANS...")
+#     # note these sobels havent been normalized yet
+#     laplacians = [cv2.Laplacian(cv2.bilateralFilter(cp, 8, 64, 64), cv2.CV_64F) for cp in cross_polars]
+#     stacked_laplacians = np.stack(laplacians)
+#     laplacian = normalize_image(np.max(stacked_laplacians, axis=0)-composite_laplacian) 
+#     Image.fromarray(laplacian).save(os.path.join(folder_path, folder_name+"_laplacian.png"))
 
 
-# ###### CREATE SEGMENTATION MAP FROM BLURRED IMAGES ######
-# if len(segmentation_maps) == 0:
-#     b_idx = 1
-#     segmentation_map_overlays = []
+###### CREATING VARIANCE FROM CROSS POLARS ######
+cross_polars_32 = [cp.astype(np.float32) for cp in cross_polars]
+lin_polar_32 = lin_polar.astype(np.float32)
+composite_32 = composite.astype(np.float32)
 
-#     for b in blurred_images:
-#         print("CREATING BLUR SEGMENTION MAP "+str(b_idx)+"/"+str(len(blurred_images))+"...")
-#         # downscale by 1/4
-#         b_with_segmentation_map_overlay, b_segmentation_map = process_image_with_sam_model(b)
-#         segmentation_maps.append(b_segmentation_map.copy())
-#         segmentation_map_overlays.append(b_with_segmentation_map_overlay)
-
-#         Image.fromarray(cv2.resize(b_segmentation_map, (lin_polar.shape[1] , lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_blur_segmentation_map_"+str(b_idx)+".png"))
-#         b_idx += 1
-
-#     show_images(segmentation_map_overlays, "Blur Segmentation Map Overlays", pause_to_display_images)
-
-# else:
-#     show_images(segmentation_maps, "Segmentation Maps", pause_to_display_images)
-
-# ###### CREATE EDGE MAP FROM SEGMENTATION MAPS ######
-
-# edge_map = create_composite_edge_map(segmentation_maps)
-# show_images([edge_map], "Edge Map", pause_to_display_images)
-# Image.fromarray(edge_map).save(os.path.join(folder_path, folder_name+"_edge_map.png"))
+variance = np.var(np.stack(cross_polars_32), axis=0)
+variance = normalize_image((variance))
+# show_images([variance], "Variance Map", pause_to_display_images)
+Image.fromarray(variance.astype(np.uint8)).save(os.path.join(folder_path, folder_name+"_variance.png"))
 
 
+# def circular_variance(angles):
+#     angles_rad = np.radians(angles)
+#     sin_avg = np.sin(angles_rad).mean()
+#     cos_avg = np.cos(angles_rad).mean()
+#     return 1 - np.sqrt(sin_avg**2 + cos_avg**2)
 
 
-# ###### CREATE SEGMENTATION MAP FROM COMPOSITE #####
-# composite_with_segmentation_map_overlay, composite_segmentation_map = process_image_with_sam_model(composite)
-# Image.fromarray(cv2.resize(composite_segmentation_map, (lin_polar.shape[1] , lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_composite_segmentation_map.png"))
+###### CREATING VARIANCE FROM HSV CROSS POLARS ######
 
+# Convert cross-polar images and composite to HSV color space
+# cross_polars_hsv = [cv2.cvtColor(cp, cv2.COLOR_RGB2HSV) for cp in cross_polars]
+# composite_hsv = cv2.cvtColor(composite, cv2.COLOR_RGB2HSV)
 
+# # Calculate variance for each HSV channel
+# variances_h = circular_variance(np.stack([cp[:, :, 0] for cp in cross_polars_hsv]) * 2)  # Multiply by 2 to convert to degrees
+# variances_s = np.var(np.stack([cp[:, :, 1] for cp in cross_polars_hsv]), axis=0)
+# variances_v = np.var(np.stack([cp[:, :, 2] for cp in cross_polars_hsv]), axis=0)
 
+# # Normalize variance images
+# variance_h = normalize_image(variances_h - composite_hsv[:, :, 0] / 180)  # Divide by 180 to normalize to [0, 1] range
+# variance_s = normalize_image(variances_s - composite_hsv[:, :, 1] / 255)  # Divide by 255 to normalize to [0, 1] range
+# variance_v = normalize_image(variances_v - composite_hsv[:, :, 2] / 255)  # Divide by 255 to normalize to [0, 1] range
 
+# # Combine normalized variance images into a single HSV image
+# variance_hsv = np.dstack((variance_h, variance_s, variance_v))
 
+# # Convert the combined HSV variance image back to RGB color space
+# variance_rgb = cv2.cvtColor(variance_hsv, cv2.COLOR_HSV2RGB)
+
+# # Save and display the RGB variance image
+# Image.fromarray(variance_rgb).save(os.path.join(folder_path, folder_name + "_variance_hsv.png"))
+# show_images([variance_rgb], ["HSV Variance"], pause_to_display_images)
+
+###### CREATING DIFFERENCE MAP FROM CROSS POLARS ######
+
+# Calculate MAX differences between all pairs of cross-polar images for each RGB channel
+diff_r = np.max([np.abs(cp1[:, :, 0] - cp2[:, :, 0]) for cp1, cp2 in combinations(cross_polars_32, 2)], axis=0)
+diff_g = np.max([np.abs(cp1[:, :, 1] - cp2[:, :, 1]) for cp1, cp2 in combinations(cross_polars_32, 2)], axis=0)
+diff_b = np.max([np.abs(cp1[:, :, 2] - cp2[:, :, 2]) for cp1, cp2 in combinations(cross_polars_32, 2)], axis=0)
+
+# Combine normalized difference images into a single RGB image
+difference = np.dstack((diff_r, diff_g, diff_b))
+Image.fromarray(difference.astype(np.uint8)).save(os.path.join(folder_path, folder_name + "_difference.png"))
+
+final = normalize_image(variance.astype(np.float32) + difference.astype(np.float32))
+Image.fromarray(final).save(os.path.join(folder_path, folder_name + "_difference_variance.png"))
 
 ###### CREATE SEGMENTATION MAP FROM CROSS POLARS + LIN ######
 if len(segmentation_maps) == 0:
