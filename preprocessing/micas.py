@@ -65,7 +65,7 @@ def get_images(folder_path, folder_name):
     sobel = get_image_with_substring_if_exists(all_files, folder_path, 'sobel') 
 
     # Filter for non-aligned cross-polar images: ignore all processed images
-    cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'sobel' not in f and 'msbf' not in f and 'segmentation_map' not in f and 'segregated' not in f and 'edge_map' not in f and 'variance' not in f and 'striation' not in f and 'laplacian' not in f and 'difference' not in f]
+    cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'sobel' not in f and 'msbf' not in f and 'segmentation_map' not in f and 'segregated' not in f and 'edge_map' not in f and 'variance' not in f and 'striation' not in f and 'laplacian' not in f and 'difference' not in f and 'texture' not in f]
     
     # For storing the cross-polarized images
     temp_dict = {}
@@ -82,7 +82,7 @@ def get_images(folder_path, folder_name):
                 
                 aligned_img_name = os.path.join(folder_path, "aligned_" + cp)
 
-                Image.fromarray(aligned_image).save(aligned_img_name)
+                Image.fromarray(aligned_image).save(aligned_img_name, quality=100)
                 
                 # Delete the original image
                 os.remove(img_path)
@@ -152,24 +152,47 @@ def create_composite(arrays):
     composite = np.max(stacked, axis=0)
     return composite  # convert back to uint8 type
 
+
 def create_sobel(image):
     # Convert the image to HSV
     hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
     # Extract the H, S, or V channel
-    channel = hsv[:,:,2]
-    scales = [0.2, 0.4, 0.6, 0.8, 1]  # You can modify these values based on your needs.
+    val = hsv[:,:,2]
 
-    sobel = np.zeros_like(channel, dtype=float)
+    scales = [0.125, 0.25, 0.5, 1] 
+
+    sobel = np.zeros_like(val, dtype=float)
 
     for scale in scales:
-        resized = cv2.resize(channel, (0,0), fx=scale, fy=scale)
+        resized = cv2.resize(val, (0,0), fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
+        resized = cv2.GaussianBlur(resized, (9, 9), 0) # Gaussian blur to remove artifact noise
         sobelx = cv2.Sobel(resized, cv2.CV_64F, 1, 0, ksize=3)
         sobely = cv2.Sobel(resized, cv2.CV_64F, 0, 1, ksize=3)
         magnitude = np.sqrt(sobelx**2 + sobely**2)
-        magnitude = cv2.resize(magnitude, (channel.shape[1], channel.shape[0]))  # Resize back to original size
-        sobel += magnitude
-
+        magnitude = cv2.resize(magnitude, (val.shape[1], val.shape[0]))  # Resize back to original size
+        sobel += magnitude * scale
     return sobel
+
+def create_rgb_sobel(image):
+    scales = [0.125, 0.25, 0.5, 1]
+
+    sobel_rgb = np.zeros_like(image, dtype=float)
+
+    for scale in scales:
+        resized = cv2.resize(image, (0, 0), fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
+        resized = cv2.GaussianBlur(resized, (9, 9), 0) # Gaussian blur to remove artifact noise
+
+        sobel_channels = []
+        for channel in range(3):
+            sobelx = cv2.Sobel(resized[:, :, channel], cv2.CV_64F, 1, 0, ksize=3)
+            sobely = cv2.Sobel(resized[:, :, channel], cv2.CV_64F, 0, 1, ksize=3)
+            magnitude = np.sqrt(sobelx**2 + sobely**2)
+            magnitude = cv2.resize(magnitude, (image.shape[1], image.shape[0]))  # Resize back to original size
+            sobel_channels.append(magnitude)
+
+        sobel_rgb += np.stack(sobel_channels, axis=-1) * scale # there is a lot of overlap in RGB : use scale to keep edges 
+
+    return sobel_rgb
 
 def get_value(image):
     # Convert the image to HSV
@@ -407,95 +430,93 @@ get_images(folder_path, folder_name)
 if len(composite) == 0:
     print("GENERATING COMPOSITE...")
     composite = np.max(np.stack(cross_polars), axis=0)
-    Image.fromarray(composite).save(os.path.join(folder_path, folder_name+"_composite.png"))
-
-###### CREATE B.COMP SOBEL + BILATERALLY FILTERED LAPLACIAN  ######
-
-composite_sobel = create_sobel(composite)
-
-###### CREATE SOBEL FROM CROSS POLARS ######
-
-if sobel is None:
-    print("GENERATING SOBEL...")
-    # note these sobels havent been normalized yet
-    sobels = [create_sobel(cp) for cp in cross_polars]
-    stacked_sobels = np.stack(sobels)
-    sobel = normalize_image(np.max(stacked_sobels, axis=0)-composite_sobel) # WINNER
-    Image.fromarray(sobel).save(os.path.join(folder_path, folder_name+"_sobel.png"))
-
-###### CREATE LAPLACIAN FROM BILATERALLY FILTERED CROSS POLARS + COMPOSITE LAPLACIAN ######
-
-# composite_laplacian = cv2.Laplacian(cv2.bilateralFilter(composite, 8, 64, 64), cv2.CV_64F)
-# print("MIN, MAX COMP LAPLACIAN: " + str(composite_laplacian.min()) + " | " + str(composite_laplacian.max()))
-# show_images([composite_laplacian], "Composite Laplacian", pause_to_display_images)
-    
-# laplacian = None
-# if laplacian is None:
-#     print("GENERATING LAPLACIANS...")
-#     # note these sobels havent been normalized yet
-#     laplacians = [cv2.Laplacian(cv2.bilateralFilter(cp, 8, 64, 64), cv2.CV_64F) for cp in cross_polars]
-#     stacked_laplacians = np.stack(laplacians)
-#     laplacian = normalize_image(np.max(stacked_laplacians, axis=0)-composite_laplacian) 
-#     Image.fromarray(laplacian).save(os.path.join(folder_path, folder_name+"_laplacian.png"))
+    Image.fromarray(composite).save(os.path.join(folder_path, folder_name+"_composite.jpg"), quality=100)
 
 
-###### CREATING VARIANCE FROM CROSS POLARS ######
+###### CREATE VARIANCE FROM CROSS POLARS ######
 cross_polars_32 = [cp.astype(np.float32) for cp in cross_polars]
 lin_polar_32 = lin_polar.astype(np.float32)
 composite_32 = composite.astype(np.float32)
 
-variance = np.var(np.stack(cross_polars_32), axis=0)
-variance = normalize_image((variance))
+variance = np.std(np.stack(cross_polars_32), axis=0)
+print("MIN, MAX VARIANCE: " + str(variance.min()) + " | " + str(variance.max()))
+# variance = normalize_image(variance)
 # show_images([variance], "Variance Map", pause_to_display_images)
-Image.fromarray(variance.astype(np.uint8)).save(os.path.join(folder_path, folder_name+"_variance.png"))
+Image.fromarray(normalize_image(variance)).save(os.path.join(folder_path, folder_name+"_variance.jpg"), quality=100)
+
+###### CREATE DIFFERENCE IMG FROM CROSS POLARS ######
+# Get difference from the bright composite to the darkest pixel
+difference = np.max([composite_32 - cp for cp in cross_polars_32], axis=0)
+Image.fromarray(normalize_image(difference)).save(os.path.join(folder_path, folder_name + "_difference.jpg"), quality=100)
+print("DTYPE DIFFERENCE: ", difference.dtype)
+
+###### CREATE DIFF-VAR MASK ######
 
 
-# def circular_variance(angles):
-#     angles_rad = np.radians(angles)
-#     sin_avg = np.sin(angles_rad).mean()
-#     cos_avg = np.cos(angles_rad).mean()
-#     return 1 - np.sqrt(sin_avg**2 + cos_avg**2)
+diff_subtract_var = normalize_image(normalize_image(difference).astype(np.float32)-normalize_image(variance).astype(np.float32)).astype(np.float32)
+print("DIFF MIN/MAX: " + str(diff_subtract_var.min()) + " | " + str(diff_subtract_var.max()))
+print("VAR MIN/MAX: " + str(variance.min()) + " | " + str(variance.max()))
 
+# convert to grey and eliminate noise
+# diff_subtract_var = normalize_image(diff_subtract_var)
 
-###### CREATING VARIANCE FROM HSV CROSS POLARS ######
+Image.fromarray(normalize_image(diff_subtract_var)).save(os.path.join(folder_path, folder_name + "_difference_subtract_var.jpg"), quality=100)
 
-# Convert cross-polar images and composite to HSV color space
-# cross_polars_hsv = [cv2.cvtColor(cp, cv2.COLOR_RGB2HSV) for cp in cross_polars]
-# composite_hsv = cv2.cvtColor(composite, cv2.COLOR_RGB2HSV)
+###### CREATE DIFFERENCE SOBEL FROM CROSS POLARS ######
+# if rgb_sobel is None:
+bgr_sobel = []
+if True:
+    diffs = [composite_32 - cp for cp in cross_polars_32]
+    diff_rgb_sobels = [create_rgb_sobel(diff) for diff in diffs]
 
-# # Calculate variance for each HSV channel
-# variances_h = circular_variance(np.stack([cp[:, :, 0] for cp in cross_polars_hsv]) * 2)  # Multiply by 2 to convert to degrees
-# variances_s = np.var(np.stack([cp[:, :, 1] for cp in cross_polars_hsv]), axis=0)
-# variances_v = np.var(np.stack([cp[:, :, 2] for cp in cross_polars_hsv]), axis=0)
+    bgr_sobel = np.max(diff_rgb_sobels, axis=0)
+    print("RGB SOBEL SHAPE: ", bgr_sobel.shape)
+    Image.fromarray(normalize_image(bgr_sobel)).save(os.path.join(folder_path, folder_name+"_rgb_sobel.jpg"), quality=100)
 
-# # Normalize variance images
-# variance_h = normalize_image(variances_h - composite_hsv[:, :, 0] / 180)  # Divide by 180 to normalize to [0, 1] range
-# variance_s = normalize_image(variances_s - composite_hsv[:, :, 1] / 255)  # Divide by 255 to normalize to [0, 1] range
-# variance_v = normalize_image(variances_v - composite_hsv[:, :, 2] / 255)  # Divide by 255 to normalize to [0, 1] range
+diff_subtract_var_sobel = create_rgb_sobel(diff_subtract_var)
+Image.fromarray(normalize_image(diff_subtract_var_sobel)).save(os.path.join(folder_path, folder_name + "_difference_subtract_var_sobel.jpg"), quality=100)
 
-# # Combine normalized variance images into a single HSV image
-# variance_hsv = np.dstack((variance_h, variance_s, variance_v))
+# now add the  diff_subtract_var_sobel and the rgb sobel together: 
+# split both into HSV, take the np.max val channels, add and normalize the saturation, 
+# and modulus the hue to get a final colour differential that is bonkers and represents 
+# the sum total color gradient that occurs over both of these filters
+colour_combined_sobel = bgr_sobel + diff_subtract_var_sobel
+# Image.fromarray(normalize_image(colour_combined_sobel)).save(os.path.join(folder_path, folder_name + "_colour_combined_sobel.jpg"), quality=100)
 
-# # Convert the combined HSV variance image back to RGB color space
-# variance_rgb = cv2.cvtColor(variance_hsv, cv2.COLOR_HSV2RGB)
+bgr_sobel_hsv = cv2.cvtColor(normalize_image(bgr_sobel), cv2.COLOR_BGR2HSV_FULL).astype(np.float32)
+diff_subtract_var_sobel_hsv = cv2.cvtColor(normalize_image(diff_subtract_var_sobel), cv2.COLOR_BGR2HSV_FULL).astype(np.float32)
+colour_combined_sobel_hsv = cv2.cvtColor(normalize_image(colour_combined_sobel), cv2.COLOR_BGR2HSV_FULL).astype(np.float32)
 
-# # Save and display the RGB variance image
-# Image.fromarray(variance_rgb).save(os.path.join(folder_path, folder_name + "_variance_hsv.png"))
-# show_images([variance_rgb], ["HSV Variance"], pause_to_display_images)
+ccs_h, ccs_s, ccs_v = cv2.split(colour_combined_sobel_hsv)
+print("CCS_H MIN/MAX: " + str(ccs_h.min()) + " | " + str(ccs_h.max()))
+# Split the HSV images into separate channels
+bgr_h, bgr_s, bgr_v = cv2.split(bgr_sobel_hsv)
+diff_h, diff_s, diff_v = cv2.split(diff_subtract_var_sobel_hsv)
 
-###### CREATING DIFFERENCE MAP FROM CROSS POLARS ######
+max_v = np.maximum(bgr_v, diff_v)
+max_s = np.minimum(bgr_s, diff_s)
+max_s = np.minimum(max_s, ccs_s)
+merged_s = cv2.normalize(max_s, None, 0, 1, cv2.NORM_MINMAX, cv2.CV_32F)
+# Merge the hue channels and take the modulo 360: HOWEVER, the hues are weighted by the saturation (the amount the colour is expressed)
 
-# Calculate MAX differences between all pairs of cross-polar images for each RGB channel
-diff_r = np.max([np.abs(cp1[:, :, 0] - cp2[:, :, 0]) for cp1, cp2 in combinations(cross_polars_32, 2)], axis=0)
-diff_g = np.max([np.abs(cp1[:, :, 1] - cp2[:, :, 1]) for cp1, cp2 in combinations(cross_polars_32, 2)], axis=0)
-diff_b = np.max([np.abs(cp1[:, :, 2] - cp2[:, :, 2]) for cp1, cp2 in combinations(cross_polars_32, 2)], axis=0)
+# Merge the modified channels back into a single HSV image
+merged_hsv = cv2.merge([ccs_h*360/255, merged_s, max_v])
 
-# Combine normalized difference images into a single RGB image
-difference = np.dstack((diff_r, diff_g, diff_b))
-Image.fromarray(difference.astype(np.uint8)).save(os.path.join(folder_path, folder_name + "_difference.png"))
+# Convert the merged HSV image back to BGR color space
+final_sobel = cv2.cvtColor(merged_hsv, cv2.COLOR_HSV2BGR_FULL)
 
-final = normalize_image(variance.astype(np.float32) + difference.astype(np.float32))
-Image.fromarray(final).save(os.path.join(folder_path, folder_name + "_difference_variance.png"))
+Image.fromarray(normalize_image(final_sobel)).save(os.path.join(folder_path, folder_name + "_sobel.jpg"), quality=100)
+# take value from diff_subtract_var, h and s from final_sobel
+#texture_map = cv2.cvtColor(cv2.merge([merged_h, merged_s, cv2.normalize(diff_subtract_var_grey[:,:, 0], None, 0, 1, cv2.NORM_MINMAX, cv2.CV_32F)]), cv2.COLOR_HSV2BGR_FULL)
+#final_rgb = normalize_image(diff_subtract_var_grey.astype(np.float32) * normalize_image(bgr_sobel).astype(np.float32) + normalize_image(diff_subtract_var_sobel).astype(np.float32))
+#texture_map = 255-(normalize_image(normalize_image(diff_subtract_var).astype(np.float32) * (255-normalize_image(final_sobel)).astype(np.float32))) #WINNER
+#texture_map = normalize_image(normalize_image(diff_subtract_var).astype(np.float32) - normalize_image(final_sobel).astype(np.float32)) 
+texture_map = 255-normalize_image((255-normalize_image(diff_subtract_var)).astype(np.float32) * (255-normalize_image(final_sobel)).astype(np.float32)) #WINNER
+
+# do not add, multiply: because sobels creates white edges, it has a tendency to fill the black edges between grain boundaries if simply ADDED to the picture:
+# multiply it by the picture to keep the black edges between grain boundaries
+Image.fromarray(texture_map).save(os.path.join(folder_path, folder_name + "_texture.jpg"), quality=100)
+
 
 ###### CREATE SEGMENTATION MAP FROM CROSS POLARS + LIN ######
 if len(segmentation_maps) == 0:
