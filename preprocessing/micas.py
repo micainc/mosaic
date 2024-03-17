@@ -442,12 +442,12 @@ variance = np.std(np.stack(cross_polars_32), axis=0)
 print("MIN, MAX VARIANCE: " + str(variance.min()) + " | " + str(variance.max()))
 # variance = normalize_image(variance)
 # show_images([variance], "Variance Map", pause_to_display_images)
-Image.fromarray(normalize_image(variance)).save(os.path.join(folder_path, folder_name+"_variance.jpg"), quality=100)
+#Image.fromarray(normalize_image(variance)).save(os.path.join(folder_path, folder_name+"_variance.jpg"), quality=100)
 
 ###### CREATE DIFFERENCE IMG FROM CROSS POLARS ######
 # Get difference from the bright composite to the darkest pixel
 difference = np.max([composite_32 - cp for cp in cross_polars_32], axis=0)
-Image.fromarray(normalize_image(difference)).save(os.path.join(folder_path, folder_name + "_difference.jpg"), quality=100)
+#Image.fromarray(normalize_image(difference)).save(os.path.join(folder_path, folder_name + "_difference.jpg"), quality=100)
 print("DTYPE DIFFERENCE: ", difference.dtype)
 
 ###### CREATE DIFF-VAR MASK ######
@@ -460,7 +460,7 @@ print("VAR MIN/MAX: " + str(variance.min()) + " | " + str(variance.max()))
 # convert to grey and eliminate noise
 # diff_subtract_var = normalize_image(diff_subtract_var)
 
-Image.fromarray(normalize_image(diff_subtract_var)).save(os.path.join(folder_path, folder_name + "_difference_subtract_var.jpg"), quality=100)
+#Image.fromarray(normalize_image(diff_subtract_var)).save(os.path.join(folder_path, folder_name + "_difference_subtract_var.jpg"), quality=100)
 
 ###### CREATE DIFFERENCE SOBEL FROM CROSS POLARS ######
 # if rgb_sobel is None:
@@ -471,10 +471,10 @@ if True:
 
     bgr_sobel = np.max(diff_rgb_sobels, axis=0)
     print("RGB SOBEL SHAPE: ", bgr_sobel.shape)
-    Image.fromarray(normalize_image(bgr_sobel)).save(os.path.join(folder_path, folder_name+"_rgb_sobel.jpg"), quality=100)
+    #Image.fromarray(normalize_image(bgr_sobel)).save(os.path.join(folder_path, folder_name+"_rgb_sobel.jpg"), quality=100)
 
 diff_subtract_var_sobel = create_rgb_sobel(diff_subtract_var)
-Image.fromarray(normalize_image(diff_subtract_var_sobel)).save(os.path.join(folder_path, folder_name + "_difference_subtract_var_sobel.jpg"), quality=100)
+#Image.fromarray(normalize_image(diff_subtract_var_sobel)).save(os.path.join(folder_path, folder_name + "_difference_subtract_var_sobel.jpg"), quality=100)
 
 # now add the  diff_subtract_var_sobel and the rgb sobel together: 
 # split both into HSV, take the np.max val channels, add and normalize the saturation, 
@@ -505,7 +505,7 @@ merged_hsv = cv2.merge([ccs_h*360/255, merged_s, max_v])
 # Convert the merged HSV image back to BGR color space
 final_sobel = cv2.cvtColor(merged_hsv, cv2.COLOR_HSV2BGR_FULL)
 
-Image.fromarray(normalize_image(final_sobel)).save(os.path.join(folder_path, folder_name + "_sobel.jpg"), quality=100)
+#Image.fromarray(normalize_image(final_sobel)).save(os.path.join(folder_path, folder_name + "_sobel.jpg"), quality=100)
 # take value from diff_subtract_var, h and s from final_sobel
 #texture_map = cv2.cvtColor(cv2.merge([merged_h, merged_s, cv2.normalize(diff_subtract_var_grey[:,:, 0], None, 0, 1, cv2.NORM_MINMAX, cv2.CV_32F)]), cv2.COLOR_HSV2BGR_FULL)
 #final_rgb = normalize_image(diff_subtract_var_grey.astype(np.float32) * normalize_image(bgr_sobel).astype(np.float32) + normalize_image(diff_subtract_var_sobel).astype(np.float32))
