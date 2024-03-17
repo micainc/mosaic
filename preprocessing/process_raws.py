@@ -307,7 +307,7 @@ def find_channel_centroids(image_channel, channel_name, max_k=16):
     print(f"Centroids for optimal k={optimal_k}: {final_centroids}")
     
     # Optionally, you can return centroids for a specific k rather than the one determined by the elbow method
-    return centroids_dict[16]
+    return final_centroids
 
 def bilateral_filter_with_variables(img, diameter, sigma_color, sigma_space):
     blur = cv2.bilateralFilter(normalize(img), diameter, sigma_color, sigma_space)
@@ -321,7 +321,7 @@ def bilateral_filter_with_variables(img, diameter, sigma_color, sigma_space):
     # Merge the filtered channels back into an HSV image
     filtered_hsv = cv2.merge([hsv_blur[:, :, 0], sat_filtered, val_filtered])
     blur = cv2.cvtColor(filtered_hsv, cv2.COLOR_HSV2RGB)
-    return blur;
+    return blur
 
 def median_blur(image, numPixels):
      # if not uint8, normalize to 0-255 range and convert to uint8
