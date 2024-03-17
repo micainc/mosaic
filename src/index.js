@@ -12,8 +12,6 @@ var drawDiameter = 10; // diameter
 var drawPath = []
 var loadouts = {}
 
-var timestamp = 0;
-
 const image_canvas = document.getElementById('image-canvas')
 const draw_canvas = document.getElementById('draw-canvas')
 const save_canvas = document.getElementById('temp-canvas')
@@ -25,7 +23,7 @@ draw_canvas.height = window.innerHeight;
 save_canvas.width = window.innerWidth;
 save_canvas.height = window.innerHeight;
 
-var ctx_image = image_canvas.getContext('2d');
+var img_ctx = image_canvas.getContext('2d');
 var draw_ctx = draw_canvas.getContext('2d');
 var save_ctx = save_canvas.getContext('2d');
 
@@ -41,6 +39,11 @@ var floodStack = []
 
 var images = {}
 var currentImage = '';
+var image_track_filled = new Set()
+var undoHistory = [];
+const MAX_HISTORY_SIZE = 10;
+
+// Multi Image Classification And Segmentation : MICAS
 
 function init() {
     draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height);
@@ -53,6 +56,10 @@ function init() {
             leftClicked = true;
             // push starting point of draw path
             drawPath.push({x: mouseX, y: mouseY});
+            var imageData = draw_ctx.getImageData(mouseX, mouseY, 1, 1);
+            firstPixelForFill = imageData.data;
+
+            saveState();
         } else if (e.button === 2 && !leftClicked) {
             rightClicked = true;
         }
@@ -61,36 +68,35 @@ function init() {
     draw_canvas.addEventListener('mouseup', function(e) {
         // doesn't matter what the draw path looks like, a drawn pixel will be without the boundaries returned by this function
         if(leftClicked) {
-            if( drawPath.length < 2 ) { // if user just clicked, check if user wants to flood a shape
+            switch (selectedTool) {
+                case Tools.fill:
+                    var points = goOutFromDrawPointsToFill(drawPath, draw_ctx)
+                    fillPointsWithActiveColor(points)
+                    break;
+                case Tools.pencil:
+                    if( drawPath.length < 2 ) { // if user just clicked, check if user wants to flood a shape
 
-                // clear the draw area first
-                draw_ctx.globalCompositeOperation = 'destination-out' // this clear the point first
-                fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
-
-                // then: either flood the area, or draw that erased point back
-                draw_ctx.globalCompositeOperation = 'source-over'
-                if(flood(mouseX, mouseY)) {
-                    flood(mouseX, mouseY, activeColour)
-                } else {
-                    fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
-                }
-
-            } else {
-                drawPath.push({x: mouseX, y: mouseY}); // finish drawPath
-                drawPath = fillGaps(drawPath); // fills gaps in the drawing of a loop due to lag
-                //console.log("DRAW PATH: ", drawPath)
+                        // clear the draw area first
+                        draw_ctx.globalCompositeOperation = 'destination-out' // this clear the point first
+                        fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
+        
+                        // then: either flood the area, or draw that erased point back
+                        draw_ctx.globalCompositeOperation = 'source-over'
+                        if(flood(mouseX, mouseY)) {
+                            flood(mouseX, mouseY, activeColour)
+                        } else {
+                            fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
+                        }
+        
+                    } else {
+                        drawPath.push({x: mouseX, y: mouseY}); // finish drawPath
+                        drawPath = fillGaps(drawPath); // fills gaps in the drawing of a loop due to lag
+                    }
+                    break;
+                default:
+                    console.log('No tool was selected.');
             }
 
-            /*
-            var loops = findLoopsInPath(drawPath, drawDiameter)
-            console.log("LOOPS: ", loops)   
-            drawLoopCenters(loops)
-            */
-
-            /*
-            var res = findClosedLoops(drawPath);
-            fillLoops(res[0])
-            */
             drawPath = []
         }
         leftClicked = false;
@@ -98,21 +104,32 @@ function init() {
     })
 
     draw_canvas.addEventListener("mouseleave", function(e) {
-        if(leftClicked) {
-            drawPath.push({x: mouseX, y: mouseY}); // finish drawPath
-            drawPath = fillGaps(drawPath); // algorithmically fills gaps in the draw path to create a solid continuous line 
-            /*
-            console.log("DRAW PATH: ", drawPath)
-            var loops = findLoopsInPath(drawPath, drawDiameter)         
-            console.log("LOOPS: ", loops)   
-            */
-
-            /*
-            var res = findClosedLoops(drawPath);
-            fillLoops(res[0])
-            */
-            drawPath = []
+        switch (selectedTool) {
+            case Tools.pencil:
+                if(leftClicked) {
+                    drawPath.push({x: mouseX, y: mouseY}); // finish drawPath
+                    drawPath = fillGaps(drawPath); // algorithmically fills gaps in the draw path to create a solid continuous line 
+                    /*
+                    console.log("DRAW PATH: ", drawPath)
+                    var loops = findLoopsInPath(drawPath, drawDiameter)         
+                    console.log("LOOPS: ", loops)   
+                    */
+        
+                    /*
+                    var res = findClosedLoops(drawPath);
+                    fillLoops(res[0])
+                    */
+                    
+                }
+                break;
+            case Tools.fill:
+                var points = goOutFromDrawPointsToFill(drawPath, draw_ctx)
+                fillPointsWithActiveColor(points)
+                break;
+            default:
+                break;
         }
+        drawPath = []
         leftClicked = false;
         rightClicked = false;
     })
@@ -125,6 +142,18 @@ function init() {
             event.preventDefault()
             draw_canvas.style.opacity = '0';
         }
+
+        if (event.ctrlKey && event.key === 'z') {
+            undo();
+        }
+
+        if (event.key === 'ArrowRight' || event.key === 'd') {
+            cycleImage(1);
+        }
+
+        if (event.key === 'ArrowLeft' || event.key === 'a') {
+            cycleImage(-1);
+        }
     });
     // Event listener for keyup
     document.addEventListener('keyup', function(event) {
@@ -136,11 +165,6 @@ function init() {
 
     function updateCursor(event) {
         const rect = image_canvas.getBoundingClientRect();
-        
-
-        scrollX = -rect.left;
-        scrollY = -rect.top;
-        
         
         // Calculate the adjusted mouseX and mouseY with respect to the canvas's position and scale.
         mouseX = Math.round((event.clientX - rect.left) * image_canvas.width / image_canvas.clientWidth);
@@ -524,95 +548,157 @@ function toggleZoom() {
 function catchDrag(event) {
 	event.dataTransfer.dropEffect = "copy"
 	event.preventDefault();
-    currentImage = '';
-    images = {};
 }
+
+var should_erase_draw_layer = true
+var dimensions_set = false;
 
 function dropFiles(event) {
+    should_erase_draw_layer = true
+    dimensions_set = false;
     event.preventDefault();
-    if(event.dataTransfer && event.dataTransfer.files) {
-        const filePromises = [];
-        for(var i = 0; i < event.dataTransfer.files.length; i++){
-            filePromises.push(procFile(event.dataTransfer.files[i]));
-        }
-        
-        Promise.all(filePromises).then(() => {
-            setTimeout(function() {
-                draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height);
-                currentImage = Object.keys(images)[0]
-                document.getElementById('parameters-filename').innerHTML = currentImage
-                if (currentImage && images[currentImage] && images[currentImage]['data']) {
-                    const imageData = images[currentImage]['data'];
+    if (event.dataTransfer && event.dataTransfer.files) {
+        const files = Array.from(event.dataTransfer.files);
+        const imagePromises = files.map(file => {
+            if (file.name.includes("edge_map") || file.name.includes("segmentation_map")) {
+                should_erase_draw_layer = false
+                return processEdgeOrSegmentationMap(file);
+            } else {
+                return processImageFile(file);
+            }
+        });
 
-                    // Use putImageData to draw ImageData
-                    ctx_image.putImageData(imageData, 0, 0);
-                } else {
-                    console.error("Invalid currentImage:", currentImage);
-                }
-            }, 1000);
+        Promise.all(imagePromises).then(() => {
+            updateCurrentImage();
         });
     }
-    timestamp = Date.now(); // need this for a unique identifier of mapier output (UNIX TIMESTAMP)
 }
 
-function cycleImage(dir) {
-    var keys = Object.keys(images);
-    var idx = keys.indexOf(currentImage);
 
-    idx += dir;
-    
-    if (idx > keys.length - 1) {
-        idx = 0; // Restart at idx = 0 when it has rotated through all images
-    } else if(idx < 0 ) {
-        idx = keys.length - 1; 
-    }
-
-    currentImage = keys[idx];
-    ctx_image.clearRect(0, 0, image_canvas.width, image_canvas.height);
-    
-    // Check if currentImage exists in the images dictionary
-    if (images[currentImage] && images[currentImage]['data']) {
-        const imageData = images[currentImage]['data'];
-        ctx_image.putImageData(imageData, 0, 0);
-        document.getElementById('parameters-filename').innerHTML = currentImage;
-    } else {
-        console.error("Image data for " + currentImage + " is not available.");
-    }
-}
-
-function procFile(file) {
+function processEdgeOrSegmentationMap(file) {
     return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                if (file.name.includes("edge_map")) {
+                    processEdgeMap(img);
+                } else {
+                    draw_ctx.drawImage(img, 0, 0);
+                }
+                resolve();
+            };
+            img.onerror = reject;
+            img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
 
-        //console.log("processing file " + file.name);
-        //console.log(file)
- 
-        if(file.type === "image/tiff" || file.type === "image/tif") {
-            // do something with tiff
-        } else {
-            var img = new Image();
-            img.src = file.path;
-            img.title = file.name;
-            img.onload = function () {
+function processEdgeMap(img) {
+    const offscreenCanvas = document.createElement('canvas');
+    if(!dimensions_set) {
+        image_canvas.width = img.width;
+        image_canvas.height = img.height;
+        draw_canvas.width = img.width;
+        draw_canvas.height = img.height;
+        save_canvas.width = img.width;
+        save_canvas.height = img.height;
+        offscreenCanvas.width = img.width;
+        offscreenCanvas.height = img.height;
+        dimensions_set = true;
+    }
+    const offscreenCtx = offscreenCanvas.getContext('2d');
+    offscreenCtx.drawImage(img, 0, 0);
+
+    const imageData = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+    const data = imageData.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+        if (data[i] === 255 && data[i + 1] === 255 && data[i + 2] === 255) {
+            setTransparentNeighbors(i, data, offscreenCanvas.width);
+        } else if (data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 0) {
+            data[i] = data[i + 1] = data[i + 2] = 128;
+        }
+    }
+
+    offscreenCtx.putImageData(imageData, 0, 0);
+    draw_ctx.drawImage(offscreenCanvas, 0, 0);
+}
+
+
+function setTransparentNeighbors(index, data, width) {
+    const x = (index / 4) % width;
+    const y = Math.floor((index / 4) / width);
+
+    for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx >= 0 && nx < width && ny >= 0 && ny < data.length / (4 * width)) {
+                const nIdx = (ny * width + nx) * 4;
+                data[nIdx + 3] = 0;
+            }
+        }
+    }
+}
+
+function processImageFile(file) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        console.log(file)
+        img.onload = function() {
+            console.log("CREATING IMAGE: ", file)
+            if(!dimensions_set) {
                 image_canvas.width = img.width;
                 image_canvas.height = img.height;
                 draw_canvas.width = img.width;
                 draw_canvas.height = img.height;
                 save_canvas.width = img.width;
                 save_canvas.height = img.height;
+                dimensions_set = true;
+            }
 
-                // Draw the image on the canvas to extract pixel data
-                ctx_image.drawImage(img, 0, 0, img.width, img.height);
-                var imageData = ctx_image.getImageData(0, 0, img.width, img.height);
+            img_ctx.drawImage(img, 0, 0, img.width, img.height);
+            const imageData = img_ctx.getImageData(0, 0, img.width, img.height);
 
-                console.log("FILE NAME: ", file.name);
-                images[file.name] = {'data': imageData, 'src': file.path};
+            images[file.name] = {
+                data: imageData,
+                src: file.path
             };
-        }
-        resolve();
+
+            resolve();
+        };
+        img.onerror = reject;
+        img.src = URL.createObjectURL(file);
     });
 }
 
- //------------------------------------------------------ DRAW FUNCTIONALITY ------------------------------------------------------//
+function updateCurrentImage() {
+    const imageKeys = Object.keys(images);
+    if (imageKeys.length > 0) {
+        currentImage = imageKeys[0];
+        document.getElementById('parameters-filename').textContent = currentImage;
+        img_ctx.putImageData(images[currentImage].data, 0, 0);
+    } else {
+        currentImage = '';
+        document.getElementById('parameters-filename').textContent = '';
+        img_ctx.clearRect(0, 0, image_canvas.width, image_canvas.height);
+        should_erase_draw_layer ? draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height) : null;
+    }
+}
+
+function cycleImage(dir) {
+    const keys = Object.keys(images);
+    const idx = keys.indexOf(currentImage);
+    const newIdx = (idx + dir + keys.length) % keys.length;
+    currentImage = keys[newIdx];
+
+    img_ctx.clearRect(0, 0, image_canvas.width, image_canvas.height);
+    img_ctx.putImageData(images[currentImage].data, 0, 0);
+    document.getElementById('parameters-filename').textContent = currentImage;
+}
 
 
 function draw() {
@@ -620,18 +706,22 @@ function draw() {
     //ctx.globalCompositeOperation = "copy";
 
     //draw_ctx.globalCompositeOperation = 'source-over';
-    if(leftClicked) {
-        $('#parameters').hide()
-        draw_ctx.globalCompositeOperation = 'source-over'
-        draw_ctx.fillStyle = activeColour; 
-        fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
+    switch (selectedTool) {
+        case Tools.pencil:
+            if(leftClicked) {
+                draw_ctx.globalCompositeOperation = 'source-over'
+                draw_ctx.fillStyle = activeColour; 
+                fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
 
-    } else if(rightClicked) {
-        $('#parameters').hide()
-        draw_ctx.globalCompositeOperation = 'destination-out' // this clears the canvas
-        fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
-    } else {
-        $('#parameters').show()
+            } else if(rightClicked) {
+                draw_ctx.globalCompositeOperation = 'destination-out' // this clears the canvas
+                fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
+            }
+            break;
+        case Tools.fill:
+            break
+        default:
+            break;
     }
     window.requestAnimationFrame(draw);
 }
@@ -664,8 +754,9 @@ function findRegions() {
                 const regionColour = buffer32[index]; // format:ABGR. If transparent: 00000000
                 //console.log("REGION COLOUR: ", regionColour)
                 
-                // if transparent pixel, skip
-                if(regionColour === 0) {
+                
+                // if transparent pixel or colour is grey (#808080, 128 128 128), skip
+                if(regionColour === 0 || regionColour === 4286611584) {
                     visited.add(getKey(i, j)); // if canvas pixel is transparent, SKIP
                     continue;
 
@@ -749,32 +840,61 @@ function getCommonSubstring(strings) {
     return commonSub; // Return the common substring (which may be empty)
 }
 
-var getFilename = function (str) {
-    return str.substring(str.lastIndexOf('/')+1).replace(/\.(jpg|JPG|png|PNG|jpeg|JPEG|tiff|TIFF|TIF|tif|gif|GIF)/, '');
+function getFilename(path) {
+    // Extract the filename from a path, handling both Windows and Unix paths
+    const filename = path.split(/[/\\]/).pop(); // Splits on both forward and backslash
+    return filename.replace(/\.(jpg|JPG|png|PNG|jpeg|JPEG|tiff|TIFF|TIF|tif|gif|GIF)$/, ''); // Removes known image extensions
+}
+
+function getParentFolder(path) {
+    // Extract the parent folder name from a path, handling both Windows and Unix paths
+    const segments = path.split(/[/\\]/);
+    if (segments.length > 1) {
+        return segments[segments.length - 2]; // Second to last item is the parent folder name
+    }
+    return ''; // Return empty string if no parent folder is found
 }
 
 function saveRegions() {
-    var identifier = getCommonSubstring(Object.keys(images).map( (key) => getFilename(images[key]['src']).trim().replace(/^_+|_+$/g, ''))) // trim trailing/leading whitespace and underscores
-    console.log("IDENTIFIER: ", identifier)
+    // get immediate parent folder of images: if all images are in the same folder, use that as the identifier
+    console.log("SAVING REGIONS...")
+    console.log("IMAGES: ", images)
+    var filenames = []
+    var parent_folders = []
+    Object.keys(images).map( (key) => {
+        filenames.push(getFilename(images[key]['src']).trim().toLowerCase()) 
+        parent_folders.push(getParentFolder(images[key]['src']).trim().toLowerCase()) 
+    });
+    console.log("IMAGE FILENAMES: ", filenames)
+    console.log("PARENT FOLDERS: ", parent_folders)
 
+    var identifier = getCommonSubstring(filenames).replace(/^_+|_+$/g, '')
+    if (identifier === '') {
+        identifier = getCommonSubstring(parent_folders).replace(/^_+|_+$/g, '')// trim trailing/leading whitespace and underscores
+    }
+    // identifier is a short, common name shared by this current image set. ex 'w15'
+    console.log("IDENTIFIER: ", identifier)
+    
     window.api.invoke('set_file_path', {'path': images[currentImage]['src'], 'type': 'save'})
         .then(() => {
             var rgbs = {}
             // convert drawColors to RGB -> compare with pixels
             for(var c = 0; c < drawColors.length; c++) {
-                var rgb = hexToRgb(drawColors[c])
+                var rgb = hexToRGB(drawColors[c])
                 rgbs[c] = rgb
             }
             console.log("RGBs: ", rgbs)
             regions.forEach(({ left, right, top, bottom, colour, index}) => {
-                console.log(" ("+colour+"): "+ left+", "+top+", "+right+", "+bottom)
                 save_canvas.width = (right-left);
                 save_canvas.height = (bottom-top);
+                console.log(" REGION " + index+ ": | "+colour+" | "+ save_canvas.width +"x"+save_canvas.height)
 
                 var crop = draw_ctx.getImageData(left, top, (right-left), (bottom-top))
                 var cropData = crop.data;
 
                 // use the opacity (A) channel to store up to 255 different class values, where class = 255-A.
+                // get each pixel value; convert opacity value to (255 - index)
+
                 for(var i = 0; i < cropData.length; i+=4) {
                     for(var c = 0; c < drawColors.length; c++){
                         if((rgbs[c]['r'] === cropData[i]) && (rgbs[c]['g'] === cropData[i+1]) && (rgbs[c]['b'] === cropData[i+2])) {
@@ -783,14 +903,52 @@ function saveRegions() {
                         }
                     }
                 }
+                // first we save the draw layer...
                 save_ctx.putImageData(crop, 0, 0)
-                // get each pixel value; convert opacity value to (255 - index)
-                let url = save_canvas.toDataURL("image/png");
-                window.api.invoke('save_crop', {'url': url, 'absolute_path': images[currentImage]['src'], 'identifier':identifier, 'type': 'map', 'idx': index, 'timestamp': timestamp})
+                let data = save_canvas.toDataURL("image/png");
+                window.api.invoke('save_crop', {'data': data, 'absolute_path': images[currentImage]['src'], 'identifier':identifier, 'type': 'map', 'idx': index})
 
-
-                saveImages(left, top, right, bottom, index, identifier)
+                //... then we save every other image layer...
+                saveSegmentLayers(left, top, right, bottom, index, identifier)
             });
+
+            //... then we save the entire draw layer for a save state:
+            var draw_data = draw_canvas.toDataURL("image/png");
+            window.api.invoke('save_crop', {'data': draw_data, 'absolute_path': '', 'identifier':identifier, 'type': 'segmentation_map', 'idx': ''})
+
+            // ... finally we save a copy of the draw layer overlaid on each image layer:
+            for (let i = 0; i < Object.keys(images).length; i++) {
+                const key = Object.keys(images)[i];
+                if (images[key] && images[key]['data']) {
+                    // Load image data onto main canvas
+                    save_canvas.width = image_canvas.width;
+                    save_canvas.height = image_canvas.height;
+                    save_ctx.putImageData(images[key]['data'], 0, 0);
+
+                    save_ctx.globalAlpha = 0.5;
+
+                    // Draw the 'draw' layer onto the temp canvas
+                    save_ctx.drawImage(draw_canvas, 0, 0);
+                
+                    // Reset global alpha if necessary
+                    save_ctx.globalAlpha = 1.0;
+                    
+                    // Convert the temp canvas data to DataURL
+                    const data = save_canvas.toDataURL("image/png");
+                    
+                    // Save it
+                    window.api.invoke('save_crop', {
+                        'data': data,
+                        'absolute_path': images[key]['src'], // pass in the reference
+                        'type': 'overlay',
+                        'idx': '',
+                        'identifier': identifier
+                    });
+                } else {
+                    console.error("Image data for " + key + " is not available.");
+                }
+            }
+
             // after all files have been saved, reset the temp canvas to fit the image
             save_canvas.width = image_canvas.width;
             save_canvas.height = image_canvas.height;
@@ -800,8 +958,8 @@ function saveRegions() {
 }
 
 
-function saveImages(left, top, right, bottom, index, identifier) {
-    console.log("SAVING CROPPED IMAGES....")
+function saveSegmentLayers(left, top, right, bottom, index, identifier) {
+    console.log("SAVING " + identifier + " | SEGMENT LAYERS: ")
     const keys = Object.keys(images);
 
     for (let i = 0; i < keys.length; i++) {
@@ -810,24 +968,23 @@ function saveImages(left, top, right, bottom, index, identifier) {
         // Check if image data for the key exists
         if (images[key] && images[key]['data']) {
             // Load image data onto main canvas
-            ctx_image.putImageData(images[key]['data'], 0, 0);
+            img_ctx.putImageData(images[key]['data'], 0, 0);
 
-            // Crop the required area
-            const crop = ctx_image.getImageData(left, top, (right-left), (bottom-top));
+            // Crop to segment boundary
+            const crop = img_ctx.getImageData(left, top, (right-left), (bottom-top));
             
             // Place the cropped data onto the temp canvas
             save_ctx.putImageData(crop, 0, 0);
             
             // Convert the temp canvas data to DataURL
-            const url = save_canvas.toDataURL("image/png");
+            const data = save_canvas.toDataURL("image/png");
             
             // Save it
             window.api.invoke('save_crop', {
-                'url': url,
+                'data': data,
                 'absolute_path': images[key]['src'],
                 'type': 'img',
                 'idx': index,
-                'timestamp': timestamp, 
                 'identifier': identifier
             });
         } else {
@@ -840,9 +997,32 @@ function saveImages(left, top, right, bottom, index, identifier) {
 
 }
 
-
 function changeColour(colour) {
     activeColour = colour;
     cursor.style.borderColor= activeColour;
     document.getElementById("cursor-size-slider").style.setProperty('--color', activeColour);
+}
+
+function fillPointsWithActiveColor(points) {
+    draw_ctx.fillStyle = activeColour
+    points.forEach(point => {
+        draw_ctx.fillRect(point.x, point.y, 1, 1);
+    });
+}
+
+function saveState() {
+    if (undoHistory.length >= MAX_HISTORY_SIZE) {
+        undoHistory.shift();
+    }
+    undoHistory.push(draw_ctx.getImageData(0, 0, draw_canvas.width, draw_canvas.height));
+}
+
+function undo() {
+    if (undoHistory.length > 0) {
+        // Pop the last state from the history and restore it
+        const lastState = undoHistory.pop();
+        draw_ctx.putImageData(lastState, 0, 0);
+    } else {
+        console.log("No more undo steps available.");
+    }
 }

@@ -1,5 +1,5 @@
 // main.js
-
+const os = require('os');
 const { app, BrowserWindow } = require('electron')
 const path = require('path');
 const {ipcMain} = require('electron')
@@ -21,26 +21,90 @@ if(typeof storage.get('loadouts') === undefined || static_loadouts) {
   storage.set({'loadouts':
     { 
       "minerals": {
-          0: "quartz", 
-          1: "k-feldspar", 
-          2: "plagioclase feldspar", 
-          3: "muscovite",
-          4: "biotite", 
-          5: "amphibole", 
-          6: "orthopyroxene", 
-          7: "clinopyroxine",
-          8: "olivine",
-          9: "calcite",
-          10: "dolomite",
-          11: "gypsum",
-          12: "anhydrite",
-          13: "epidote",
-          14: "garnet",
-          15: "fluorite",
-          16: "apatite",
-          17: "zircon",
-          18: "opaques",
-          19: "semi-opaques",
+        0: "quartz",
+        1: "K-feldspar",
+        2: "plagioclase feldspar",
+        3: "muscovite",
+        4: "biotite",
+        5: "amphibole",
+        6: "orthopyroxene",
+        7: "clinopyroxene",
+        8: "olivine",
+        9: "calcite",
+        10: "dolomite",
+        11: "gypsum",
+        12: "anhydrite",
+        13: "epidote",
+        14: "garnet",
+        15: "fluorite",
+        16: "apatite",
+        17: "zircon",
+        18: "magnetite",
+        19: "cassiterite",
+        20: "chlorite",
+        21: "clay minerals",
+        22: "opal",
+        23: "hematite",
+        24: "limonite",
+        25: "goethite",
+        26: "pyrite",
+        27: "chalcopyrite",
+        28: "bornite",
+        29: "galena",
+        30: "sphalerite",
+        31: "halite",
+        32: "sylvite",
+        33: "titanite",
+        34: "rutile",
+        35: "ilmenite",
+        36: "corundum",
+        37: "kyanite",
+        38: "sillimanite",
+        39: "andalusite",
+        40: "staurolite",
+        41: "talc",
+        42: "serpentine",
+        43: "prehnite",
+        44: "zeolites",
+        45: "topaz",
+        46: "beryl",
+        47: "tourmaline",
+        48: "cordierite",
+        49: "wollastonite",
+        50: "vesuvianite",
+        51: "scapolite",
+        52: "siderite",
+        53: "rhodochrosite",
+        54: "smithsonite",
+        55: "cerussite",
+        56: "malachite",
+        57: "azurite",
+        58: "barite",
+        59: "celestite",
+        60: "graphite",
+        61: "diamond",
+        62: "native sulfur",
+        63: "native gold",
+        64: "native silver",
+        65: "native copper",
+        67: "chalcedony",
+        68: "pentlandite",
+        69: "chalcocite",
+        70: "arsenopyrite",
+        71: "cinnabar",
+        72: "pyrrhotite",
+        73: "molybdenite",
+        74: "chloritoid",
+        75: "stibnite",
+        76: "realgar",
+        77: "orpiment",
+        78: "wolframite",
+        79: "scheelite",
+        80: "columbite",
+        81: "tantalite",
+        82: "monazite",
+        83: "nepheline",
+        84: "cummingtonite",
       },
 
       "cystic_fibrosis": {
@@ -69,34 +133,45 @@ if(typeof storage.get('loadouts') === undefined || static_loadouts) {
 
 //var foundImages = []
 //var completedImages = []
+// if mac, use traffic light position (x: 10, y: 8) and hide title bar
+// if windows, use the default title bar
 
 function createWindow () {
-    win = new BrowserWindow({
-        width: 1400,
-        height: 1000,
-        titleBarStyle: 'hidden',
-        trafficLightPosition: { x: 10, y: 8 },
+  let trafficLightPosition = undefined;
 
-        webPreferences: {
-            preload: path.join(__dirname, './src/preload.js'),
-            enableRemoteModule: true
-        },
-    })
+  if (os.platform() === 'darwin') { // 'darwin' is the value for macOS
+      trafficLightPosition = { x: 10, y: 8 };
+  }
 
-    win.loadFile(path.join(__dirname, './src/index.html'))
-    win.webContents.openDevTools()
+  win = new BrowserWindow({
+      width: 1400,
+      height: 1000,
+      titleBarStyle: 'hidden',
+      // titleBarStyle: os.platform() === 'darwin' ? 'hidden' : 'default',
+      trafficLightPosition: trafficLightPosition,
 
+      webPreferences: {
+          preload: path.join(__dirname, './src/preload.js'),
+          enableRemoteModule: true
+      },
+  })
+
+  win.loadFile(path.join(__dirname, './src/index.html'))
+  win.webContents.openDevTools()
 }
+
 app.setName('Mapier');
 app.disableHardwareAcceleration() // prevents stupid canvas slowdowns
 
 app.whenReady().then(() => {
   createWindow()
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
-    }
-  })
+  if(os.platform() === 'darwin') {
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow()
+      }
+    })
+  }
 })
 
 app.on('window-all-closed', () => {
@@ -105,8 +180,10 @@ app.on('window-all-closed', () => {
   }
 })
 
-var getFilename = function (str) {
-  return str.substring(str.lastIndexOf('/')+1).replace(/\.(jpg|JPG|png|PNG|jpeg|JPEG|tiff|TIFF|TIF|tif|gif|GIF)/, '');
+function getFilename(path) {
+  // Extract the filename from a path, handling both Windows and Unix paths
+  const filename = path.split(/[/\\]/).pop(); // Splits on both forward and backslash
+  return filename.replace(/\.(jpg|JPG|png|PNG|jpeg|JPEG|tiff|TIFF|TIF|tif|gif|GIF)$/, ''); // Removes known image extensions
 }
 
 ipcMain.handle('get_loadouts', async (event, args = "") => {
@@ -130,50 +207,42 @@ ipcMain.handle('set_loadout', async (event, args) => {
 
 
 ipcMain.handle('save_crop', async (event, args) => {
-  var nextIdx = 0;
   var identifier = args['identifier']
-  if(args['type'] !== 'map') {
+  if(args['type'] !== 'map' && args['type'] !== 'segmentation_map') {
     identifier = getFilename(args['absolute_path'])
   }
 
-  console.log("ARGS IDENTIFIER: ", args['identifier'])
-
-  // if images in the save dir have the same timestamp as passed in args, overwrite them- otherwise, add them to dir at higher idx
   fs.readdir(saveDirectory, (err, files) => {
     if (err) {
       console.error("Error reading directory:", err);
       return;
     }
-    var pngFiles = files.filter(file => file.endsWith('.png'));
 
-    for (const f of pngFiles) {
-      if (f.includes(args['identifier']) && !f.includes(args['timestamp'])) { 
-        console.log("FILE: ", f)
-        // get the highest idx value
-        var tokens = f.split('_')
-        if(parseInt(tokens[tokens.length-2]) >= nextIdx) {
-          nextIdx = parseInt(tokens[tokens.length-2])+1;
-        }
-      }
+    var file = ''
+
+    if(args['idx'] !== '') {
+      file = identifier+"_"+args['type']+'_'+args['idx']+'.png'
+
+    } else {
+      file = identifier+"_"+args['type']+'.png'
     }
-    console.log("NEXT IDX: ", nextIdx)
-
-    args['idx'] += nextIdx; 
-  
-    var file = identifier+"_"+args['type']+'_'+args['idx']+'_'+args['timestamp']+'.png'
-    
-    console.log("WRITING FILE : ", file)
-    const base64Data = args['url'].replace(/^data:image\/png;base64,/, "");
+    const base64Data = args['data'].replace(/^data:image\/png;base64,/, "");
     fs.writeFile(saveDirectory+"/"+file, base64Data, 'base64', function (err) {
+
       if (err) {
-        return "Image map could not be saved: "+err
-      } else
+        console.log("ERROR WRITING "+ file + ": "+ err)
+
+        return "Segmentation could not be saved: "+err
+      } else {
+        console.log(file + " saved. ")
         return file
+      }
     });
   });
 });
 
 ipcMain.handle('set_file_path', async (event, args) => {
+  console.log("FILE PATH ("+args['type']+"): " + args['path'])
   const path = args['path'].replace('file://', '')
 
   const save_dialog_options = {

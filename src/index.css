@@ -2,7 +2,7 @@
     -webkit-print-color-adjust: exact !important;   /* Chrome, Safari 6 – 15.3, Edge */
     color-adjust: exact !important;                 /* Firefox 48 – 96 */
     print-color-adjust: exact !important;           /* Firefox 97+, Safari 15.4+ */
-    font-size:14px; 
+    font-size:13px; 
     font-family: "Arial";
 }
 
@@ -30,14 +30,14 @@ button:hover, select:hover {
 
 #parameters {
     display: flex;
-    position:fixed;
+    position:relative;
     top:0px;
-    z-index: 5;
+    z-index: 4 !important;
     background-color: #FFFFFF;
     opacity: 0.5;
     border:none;
     border-bottom: 1px solid #DDDDDD;
-    -webkit-app-region: drag; /* allows dragging the electron app window around */
+    -webkit-app-region: drag; /*allows dragging the electron app window around */
     width:100%;
 }
 
@@ -220,6 +220,10 @@ button:hover, select:hover {
     line-height: 20px;
 }
 
+.selected-tool {
+    background-color: #4CAF50;
+}
+
 .path {
     max-width:150px;
     overflow-x: scroll;
@@ -243,9 +247,9 @@ button:hover, select:hover {
 
 /*the container must be positioned relative:*/
 .custom-list {
-    position: relative;
     font-family: Arial;
     width:inherit;
+    -webkit-app-region: no-drag;
 }   
 
 /*style the items (options), including the selected item:*/
@@ -254,16 +258,20 @@ button:hover, select:hover {
     border: 1px solid transparent;
     border-color: transparent transparent rgba(0, 0, 0, 0.1) transparent;
     border-radius: 10px;
-    height:20px;
-    margin:5px;
+    margin:3px;
     cursor: pointer;
     user-select: none;
     padding-left:5px;
     padding-right:5px;
-    padding-top:2px;
+    padding-top:3px;
+    padding-bottom:3px;
     width: min-content;
     white-space: nowrap;
     float: right;
+}
+
+.search-box {
+    min-width: 70px;
 }
 
 .selectable:hover {
@@ -277,8 +285,7 @@ button:hover, select:hover {
     /*left: 100%;*/
     right: 0;
     z-index: 99;
-    width:min-content;
-
+    width: 50%;
 }
 
 /*hide the items when the select box is closed:*/

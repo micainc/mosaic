@@ -88,7 +88,15 @@ typings/
 # Electron-Forge
 out/
 
-#ignore images (png, jpg, jpeg, gif) anywhere:
+# ignore 'samples' folder
+samples/
+outputs/
+
+#ignore ALL images (png, jpg, jpeg, gif) EXCEPT in the images folder:
+!images/*.png
+!images/*.jpg
+!images/*.jpeg
+!images/*.gif
 *.png
 *.jpg
 *.jpeg
