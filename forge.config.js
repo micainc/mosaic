@@ -1,8 +1,8 @@
 module.exports = {
   packagerConfig: {
-    name: 'Mapier',
-    productName: 'Mapier',
-    executableName: 'Mapier',
+    name: 'Mosaic',
+    productName: 'Mosaic',
+    executableName: 'Mosaic',
     icon: './src/images/icon' // no file extension required
   },
   rebuildConfig: {},

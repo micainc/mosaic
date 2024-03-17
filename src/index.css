@@ -158,7 +158,7 @@ button:hover, select:hover {
     cursor: pointer;
 }
 
-.mapier-canvas {
+.mosaic-canvas {
     position:absolute;
 
     left: 0;
@@ -174,7 +174,7 @@ button:hover, select:hover {
     cursor:none;
 }
 
-.mapier-canvas:hover .cursor {
+.mosaic-canvas:hover .cursor {
     display: block; /* show the cursor element when the mouse is over the canvas */
 }
 

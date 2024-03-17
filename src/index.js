@@ -535,10 +535,10 @@ function toggleZoom() {
     zoom = !zoom;
     if(zoom) {
         $("#zoom-img").attr("src","./images/zoom_2.png");
-        $(".mapier-canvas").css({"width":"max-content"});
+        $(".mosaic-canvas").css({"width":"max-content"});
     } else {
         $("#zoom-img").attr("src","./images/zoom_1.png");
-        $(".mapier-canvas").css({"width":"100%"});
+        $(".mosaic-canvas").css({"width":"100%"});
         window.scrollTo(0, 0)
     }
 }

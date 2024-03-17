@@ -160,7 +160,7 @@ function createWindow () {
   win.webContents.openDevTools()
 }
 
-app.setName('Mapier');
+app.setName('Mosaic');
 app.disableHardwareAcceleration() // prevents stupid canvas slowdowns
 
 app.whenReady().then(() => {

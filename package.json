@@ -1,6 +1,6 @@
 {
-  "name": "mapier",
-  "productName": "mapier",
+  "name": "mosaic",
+  "productName": "mosaic",
   "version": "1.0.0",
   "description": "Generate pixel maps for machine learning projects",
   "main": "main.js",
