@@ -56,6 +56,7 @@ function init() {
     //save_ctx.globalCompositeOperation = 'source-over'
 
     draw_canvas.addEventListener('mousedown', function(e) {
+        $('#cursor-text').css("display", "none")
         if (e.button === 0) {
             leftClicked = true;
             // push starting point of draw path
@@ -240,7 +241,9 @@ function init() {
         // console.log("ACTIVE: ", active.colour)
 
         // if we have traversed onto a NEW COLOUR on the segmentation map:
-        if(hoveredColour !== pixelHex) {
+        if(leftClicked) {
+            $('#cursor-text').css("display", "none")
+        } else if(hoveredColour !== pixelHex) {
             if(pixelHex === "#000000" || pixelHex === "#808080") {
                 $('#cursor-text').css("display", "none")
             } else if(active.colour !== pixelHex) {
