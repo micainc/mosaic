@@ -30,7 +30,7 @@ button:hover, select:hover {
 
 #toolbar {
     display: flex;
-    position:relative;
+    position: fixed;
     top:0px;
     z-index: 3 !important;
     background-color: #FFFFFF;
@@ -161,7 +161,7 @@ button:hover, select:hover {
 
 .mosaic-canvas {
     position:absolute; 
-
+    margin-top: 30px;
     left: 0;
     right: 0; 
 
