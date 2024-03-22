@@ -671,12 +671,8 @@ function processEdgeOrSegmentationMap(file) {
             img.onload = function() {
                 if(!dimensions_set) {
                     console.log("SETTING DIMENSIONS...")
-                    image_canvas.width = img.width;
-                    image_canvas.height = img.height;
                     draw_canvas.width = img.width;
                     draw_canvas.height = img.height;
-                    save_canvas.width = img.width;
-                    save_canvas.height = img.height;
                     dimensions_set = true;
                 }
 
