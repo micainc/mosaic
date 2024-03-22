@@ -444,12 +444,12 @@ variance = np.std(np.stack(cross_polars_32), axis=0)
 print("MIN, MAX VARIANCE: " + str(variance.min()) + " | " + str(variance.max()))
 # variance = normalize_image(variance)
 # show_images([variance], "Variance Map", pause_to_display_images)
-Image.fromarray(normalize_image(variance)).save(os.path.join(folder_path, folder_name+"_variance.jpg"), quality=100)
+#Image.fromarray(normalize_image(variance)).save(os.path.join(folder_path, folder_name+"_variance.jpg"), quality=100)
 
 ###### CREATE DIFFERENCE IMG FROM CROSS POLARS ######
 # Get difference from the bright composite to the darkest pixel
 difference = np.max([composite_32 - cp for cp in cross_polars_32], axis=0)
-Image.fromarray(normalize_image(difference)).save(os.path.join(folder_path, folder_name + "_difference.jpg"), quality=100)
+#Image.fromarray(normalize_image(difference)).save(os.path.join(folder_path, folder_name + "_difference.jpg"), quality=100)
 
 ###### CREATE DIFF-VAR MASK ######
 
@@ -457,7 +457,7 @@ diff_subtract_var = normalize_image(normalize_image(difference).astype(np.float3
 
 diff_subtract_var_val = cv2.cvtColor(diff_subtract_var, cv2.COLOR_BGR2HSV_FULL)[:,:,2]
 
-Image.fromarray(normalize_image(diff_subtract_var)).save(os.path.join(folder_path, folder_name + "_difference_subtract_var.jpg"), quality=100)
+#Image.fromarray(normalize_image(diff_subtract_var)).save(os.path.join(folder_path, folder_name + "_difference_subtract_var.jpg"), quality=100)
 
 ###### CREATE DIFFERENCE SOBEL FROM CROSS POLARS ######
 # if rgb_sobel is None:
@@ -468,17 +468,17 @@ if True:
 
     bgr_sobel = np.max(diff_rgb_sobels, axis=0)
     print("RGB SOBEL SHAPE: ", bgr_sobel.shape)
-    Image.fromarray(normalize_image(bgr_sobel)).save(os.path.join(folder_path, folder_name+"_rgb_sobel.jpg"), quality=100)
+    #Image.fromarray(normalize_image(bgr_sobel)).save(os.path.join(folder_path, folder_name+"_rgb_sobel.jpg"), quality=100)
 
 diff_subtract_var_sobel = create_rgb_sobel(diff_subtract_var)
-Image.fromarray(normalize_image(diff_subtract_var_sobel)).save(os.path.join(folder_path, folder_name + "_difference_subtract_var_sobel.jpg"), quality=100)
+#Image.fromarray(normalize_image(diff_subtract_var_sobel)).save(os.path.join(folder_path, folder_name + "_difference_subtract_var_sobel.jpg"), quality=100)
 
 # now add the  diff_subtract_var_sobel and the rgb sobel together: 
 # split both into HSV, take the np.max val channels, add and normalize the saturation, 
 # and modulus the hue to get a final colour differential that is bonkers and represents 
 # the sum total color gradient that occurs over both of these filters
 colour_combined_sobel = bgr_sobel + diff_subtract_var_sobel
-Image.fromarray(normalize_image(colour_combined_sobel)).save(os.path.join(folder_path, folder_name + "_colour_combined_sobel.jpg"), quality=100)
+#Image.fromarray(normalize_image(colour_combined_sobel)).save(os.path.join(folder_path, folder_name + "_colour_combined_sobel.jpg"), quality=100)
 
 bgr_sobel_hsv = cv2.cvtColor(normalize_image(bgr_sobel), cv2.COLOR_BGR2HSV_FULL).astype(np.float32)
 diff_subtract_var_sobel_hsv = cv2.cvtColor(normalize_image(diff_subtract_var_sobel), cv2.COLOR_BGR2HSV_FULL).astype(np.float32)
@@ -502,7 +502,7 @@ merged_hsv = cv2.merge([ccs_h*360/255, merged_s, max_v])
 # Convert the merged HSV image back to BGR color space
 final_sobel = cv2.cvtColor(merged_hsv, cv2.COLOR_HSV2BGR_FULL)
 
-Image.fromarray(normalize_image(final_sobel)).save(os.path.join(folder_path, folder_name + "_sobel.jpg"), quality=100)
+#Image.fromarray(normalize_image(final_sobel)).save(os.path.join(folder_path, folder_name + "_sobel.jpg"), quality=100)
 # take value from diff_subtract_var, h and s from final_sobel
 #texture_map = normalize_image(cv2.cvtColor(cv2.merge([ccs_h*360/255, merged_s, cv2.normalize(diff_subtract_var_val, None, 0, 1, cv2.NORM_MINMAX, cv2.CV_32F)]), cv2.COLOR_HSV2BGR_FULL))
 diff_subtract_var = diff_subtract_var**2
@@ -512,10 +512,7 @@ texture_map = 255-normalize_image((255-normalize_image(diff_subtract_var)).astyp
 # multiply it by the picture to keep the black edges between grain boundaries
 Image.fromarray(texture_map).save(os.path.join(folder_path, folder_name + "_texture.jpg"), quality=100)
 
-
-sys.exit(0)
-
-###### CREATE SEGMENTATION MAP FROM CROSS POLARS + LIN ######
+###### CREATE SEGMENTATION MAP FROM CROSS POLARS + LIN USING SAM ######
 if len(segmentation_maps) == 0:
     print("CREATING LP SEGMENTION MAP...")
     segmentation_map_overlays = []
@@ -537,10 +534,7 @@ if len(segmentation_maps) == 0:
         Image.fromarray(cv2.resize(cp_segmentation_map, (cp.shape[1] , cp.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_cross_polar_segmentation_map_"+str(cp_idx)+".png"))
         cp_idx += 1
 
-    show_images(segmentation_map_overlays, "Segmentation Map Overlays", pause_to_display_images)
-
-else:
-    show_images(segmentation_maps, "Segmentation Maps", pause_to_display_images)
+    # show_images(segmentation_map_overlays, "Segmentation Map Overlays", pause_to_display_images)
 
 # create edge map:
 edge_map = create_composite_edge_map(segmentation_maps)

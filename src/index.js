@@ -6,15 +6,15 @@ var mouseX = 0;
 var mouseY = 0;
 var scrollX = 0;
 var scrollY = 0;
-leftClicked = false;
-rightClicked = false;
+var leftClicked = false;
+var rightClicked = false;
 var drawDiameter = 10; // diameter
 var drawPath = []
 var loadouts = {}
 
 const image_canvas = document.getElementById('image-canvas')
 const draw_canvas = document.getElementById('draw-canvas')
-const save_canvas = document.getElementById('temp-canvas')
+const save_canvas = document.getElementById('save-canvas')
 
 image_canvas.width = window.innerWidth;
 image_canvas.height = window.innerHeight;
@@ -30,11 +30,12 @@ var save_ctx = save_canvas.getContext('2d');
 //draw_ctx.imageSmoothingEnabled= false
 //save_ctx.imageSmoothingEnabled= false
 
-var cursor = document.querySelector('.cursor');
+var cursor = document.getElementById('cursor');
 cursor.style.width = drawDiameter+"px";
 cursor.style.height = drawDiameter+"px";
 
-var activeColour = "#FF0000" // opaque red
+var active = {'colour': "#000000", 'label': ""}
+var hoveredColour = "#000000"
 var floodStack = []
 
 var images = {}
@@ -83,7 +84,7 @@ function init() {
                         // then: either flood the area, or draw that erased point back
                         draw_ctx.globalCompositeOperation = 'source-over'
                         if(flood(mouseX, mouseY)) {
-                            flood(mouseX, mouseY, activeColour)
+                            flood(mouseX, mouseY, active.colour)
                         } else {
                             fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
                         }
@@ -104,6 +105,7 @@ function init() {
     })
 
     draw_canvas.addEventListener("mouseleave", function(e) {
+        document.getElementById('cursor').style.display = "none";
         switch (selectedTool) {
             case Tools.pencil:
                 if(leftClicked) {
@@ -134,6 +136,18 @@ function init() {
         rightClicked = false;
     })
 
+    draw_canvas.addEventListener("mouseenter", function(e) {
+        document.getElementById('cursor').style.display = "block";
+    })
+
+    document.getElementById('cursor-size-slider').addEventListener('mouseenter', function(e) {
+        document.getElementById('cursor').style.display = "block";
+    })
+
+    document.getElementById('cursor-size-slider').addEventListener('mouseleave', function(e) {
+        document.getElementById('cursor').style.display = "none";
+    })
+
     draw_canvas.addEventListener("dragenter", catchDrag);
     draw_canvas.addEventListener("dragover", catchDrag);
     draw_canvas.addEventListener("drop", dropFiles);
@@ -147,12 +161,25 @@ function init() {
             undo();
         }
 
-        if (event.key === 'ArrowRight' || event.key === 'd') {
-            cycleImage(1);
-        }
+        var searchBox = document.getElementsByClassName('search-box')[0]
+        console.log(searchBox.style.display)
+        if (searchBox.style.display === 'none') {
 
-        if (event.key === 'ArrowLeft' || event.key === 'a') {
-            cycleImage(-1);
+            if (event.key === 'ArrowRight' || event.key === 'd') {
+                cycleImage(1);
+
+            }
+
+            if (event.key === 'ArrowLeft' || event.key === 'a') {
+                cycleImage(-1);
+            }
+        } else {
+            if(event.key === 'Escape') {
+                //blur searchbox
+                searchBox.blur()
+
+
+            }
         }
     });
     // Event listener for keyup
@@ -162,7 +189,6 @@ function init() {
             draw_canvas.style.opacity = '0.5';
         }
     });
-
     function updateCursor(event) {
         const rect = image_canvas.getBoundingClientRect();
         
@@ -171,7 +197,8 @@ function init() {
         mouseY = Math.round((event.clientY - rect.top) * image_canvas.height / image_canvas.clientHeight);
         
         // Update the cursor's position.
-        cursor.style.transform = `translate(${event.clientX + window.scrollX - drawDiameter/2}px, ${event.clientY + window.scrollY - drawDiameter/2}px)`;
+    //  cursor.style.transform = `translate(${event.clientX + window.scrollX - drawDiameter/2}px, ${event.clientY + window.scrollY - drawDiameter/2}px)`;
+        cursor.style.transform = `translate(${event.clientX - drawDiameter/2}px, ${event.clientY - drawDiameter/2}px)`;
     
         // Function to compare the current point with the last point
         function isDistinct(p1, p0) {
@@ -179,7 +206,7 @@ function init() {
             let dy = p1.y - p0.y
             return Math.sqrt(dx * dx + dy * dy) > drawDiameter;
         }
-
+    
         // If the mouse is being pressed, check if the last point is different from the current point before pushing
         if(leftClicked && isDistinct({x: mouseX, y: mouseY}, drawPath[drawPath.length - 1])) {
             drawPath.push({x: mouseX, y: mouseY});
@@ -187,6 +214,36 @@ function init() {
     
         // Update coordinates text.
         $('#coords').text(mouseX + ", " + mouseY);
+
+        // get colour of drawCanvas at mouse position
+        var imageData = draw_ctx.getImageData(mouseX, mouseY, 1, 1);
+        var pixel = imageData.data;
+        // get colour as hex string
+
+        var pixelHex = rgbToHex(pixel[0], pixel[1], pixel[2]);
+        // console.log("HEX: ", hex)
+        // console.log("ACTIVE: ", active.colour)
+
+        // if we have traversed onto a NEW COLOUR on the segmentation map:
+        if(hoveredColour !== pixelHex) {
+            if(pixelHex === "#000000" || pixelHex === "#808080") {
+                $('#active-label-text').css("display", "none")
+            } else if(active.colour !== pixelHex) {
+                // var invertedPixelHex = rgbToHex(255-pixel[0], 255-pixel[1], 255-pixel[2])
+                drawColors.find((h, idx) => {
+                    if(h === pixelHex) {
+                        $('#active-label-text').css("display", "block")
+                        // $('#active-label-text').css("color", pixelHex)
+
+                        $('#active-label-text').text(activeLabels[idx]);
+                    }
+                })
+    
+            } else if(active.colour === pixelHex){
+                $('#active-label-text').css("display", "none")
+            }
+            hoveredColour = pixelHex
+        }
     }
     
     window.addEventListener('mousemove', (event) => {
@@ -203,7 +260,7 @@ function init() {
     window.api.invoke('get_loadouts')
     .then(function(loadouts) {
         console.log("LOADOUTS: ", loadouts)
-        setLoadoutList(loadouts)
+        initLoadoutList(loadouts)
         /*
         for (var [loadout] of Object.entries(loadouts) ) {
             $("#loadouts > select").append('<option value='+loadout+'>'+loadouts[loadout]['name']+'</option>');
@@ -212,8 +269,8 @@ function init() {
         for (const [label, label_data] of Object.entries(Object.values(loadouts)[0]['labels'])) {
             $("#labels > select").append('<option value='+label+'>'+label_data['name']+'</option>');
         }
-        initializeItemList(changeColour, document.getElementById('loadouts'));
-        initializeItemList(changeColour, document.getElementById('labels'));
+        initializeItemList(changeActive, document.getElementById('loadouts'));
+        initializeItemList(changeActive, document.getElementById('labels'));
         */
 
     }).catch(function(err) {
@@ -236,12 +293,12 @@ function drawLoopCenters(loops) {
         y /= loop.length;
         draw_ctx.fillStyle = "#00FF00"
         fillRegion(draw_ctx, x, y)
-        draw_ctx.fillStyle = activeColour
+        draw_ctx.fillStyle = active.colour
     }
 }
 
 function fillGaps(path) {
-    draw_ctx.fillStyle = activeColour;
+    draw_ctx.fillStyle = active.colour;
     draw_ctx.imageSmoothingEnabled = false; // Disable anti-aliasing to draw sharp circles
 
     // Calculate line width based on draw size and scaling factor, ensure it's not anti-aliased
@@ -393,7 +450,7 @@ function findClosedLoops(path) {
             var col = rgbToHex(data[0], data[1], data[2]);
 
             // if canvas not painted
-            if (col != activeColour) {
+            if (col != active.colour) {
                 const start = Date.now();
 
                 if (flood(testX, testY)) { 
@@ -410,7 +467,7 @@ function findClosedLoops(path) {
         'left': boundingBox.left - drawDiameter,
         'right': boundingBox.right + drawDiameter,
         'bottom': boundingBox.bottom + drawDiameter,
-        'colour': activeColour
+        'colour': active.colour
     }];
 }
 
@@ -448,7 +505,7 @@ function flood(x1, y1, col=null) {
     let width = draw_canvas.width;
     let height = draw_canvas.height;
 
-    let activeColourValue = activeColour.startsWith("#") ? activeColour.slice(1) : activeColour;
+    let activeColourValue = active.colour.startsWith("#") ? active.colour.slice(1) : active.colour;
     activeColourValue = parseInt(activeColourValue, 16);
     let red = (activeColourValue >> 16) & 0xFF;
     let green = (activeColourValue >> 8) & 0xFF;
@@ -501,7 +558,7 @@ function flood(x1, y1, col=null) {
 function fillLoops(loops) {
     for(l in loops) { // fill areas
         const start = Date.now();
-        flood(loops[l]['x'], loops[l]['y'], activeColour)
+        flood(loops[l]['x'], loops[l]['y'], active.colour)
 
         const end = Date.now();
         console.log(`LOOP FLOOD EXECUTION TIME: ${end - start} ms`);
@@ -679,11 +736,11 @@ function updateCurrentImage() {
     const imageKeys = Object.keys(images);
     if (imageKeys.length > 0) {
         currentImage = imageKeys[0];
-        document.getElementById('parameters-filename').textContent = currentImage;
+        document.getElementById('toolbar-filename').textContent = currentImage;
         img_ctx.putImageData(images[currentImage].data, 0, 0);
     } else {
         currentImage = '';
-        document.getElementById('parameters-filename').textContent = '';
+        document.getElementById('toolbar-filename').textContent = '';
         img_ctx.clearRect(0, 0, image_canvas.width, image_canvas.height);
         should_erase_draw_layer ? draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height) : null;
     }
@@ -697,7 +754,7 @@ function cycleImage(dir) {
 
     img_ctx.clearRect(0, 0, image_canvas.width, image_canvas.height);
     img_ctx.putImageData(images[currentImage].data, 0, 0);
-    document.getElementById('parameters-filename').textContent = currentImage;
+    document.getElementById('toolbar-filename').textContent = currentImage;
 }
 
 
@@ -710,7 +767,7 @@ function draw() {
         case Tools.pencil:
             if(leftClicked) {
                 draw_ctx.globalCompositeOperation = 'source-over'
-                draw_ctx.fillStyle = activeColour; 
+                draw_ctx.fillStyle = active.colour; 
                 fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
 
             } else if(rightClicked) {
@@ -997,14 +1054,15 @@ function saveSegmentLayers(left, top, right, bottom, index, identifier) {
 
 }
 
-function changeColour(colour) {
-    activeColour = colour;
-    cursor.style.borderColor= activeColour;
-    document.getElementById("cursor-size-slider").style.setProperty('--color', activeColour);
+function changeActive(selection) {
+    active = selection
+    console.log("NEW ACTIVE: ", selection)
+    cursor.style.borderColor= active.colour;
+    document.getElementById("cursor-size-slider").style.setProperty('--color', active.colour);
 }
 
 function fillPointsWithActiveColor(points) {
-    draw_ctx.fillStyle = activeColour
+    draw_ctx.fillStyle = active.colour
     points.forEach(point => {
         draw_ctx.fillRect(point.x, point.y, 1, 1);
     });

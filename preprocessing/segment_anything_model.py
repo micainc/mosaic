@@ -18,7 +18,7 @@ def process_image_with_sam_model(image):
 
     # Mask generation
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    generator = pipeline("mask-generation", model="facebook/sam-vit-base", device=device, use_fast=True)
+    generator = pipeline("mask-generation", model="facebook/sam-vit-huge", device=device, use_fast=True)
     outputs = generator(pil_image, points_per_batch=64)
     masks = outputs["masks"]
 
