@@ -411,7 +411,7 @@ folder_path = ''
 folder_name = ''
 
 if len(sys.argv) > 4 | len(sys.argv) <= 1:
-    print("Usage: python3 micas.py <input_folder> <identifier> <option>")
+    print("Usage: python3 mosaic.py <input_folder> <identifier> <option>")
     sys.exit(1)
 
 folder_path = sys.argv[1]

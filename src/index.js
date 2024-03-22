@@ -47,8 +47,6 @@ var image_track_filled = new Set()
 var undoHistory = [];
 const MAX_HISTORY_SIZE = 10;
 
-// Multi Image Classification And Segmentation : MICAS
-
 function init() {
     draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height);
     save_ctx.fillStyle = "#000000"; // flood with black
