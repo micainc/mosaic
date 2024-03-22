@@ -163,11 +163,11 @@ function init() {
 
         var searchBox = document.getElementsByClassName('search-box')[0]
         console.log(searchBox.style.display)
-        if (searchBox.style.display === 'none') {
-
+        const keys = Object.keys(images);
+        if (searchBox.style.display !== 'block' && keys.length > 1) {
+            console.log("KEY: ", event.key)
             if (event.key === 'ArrowRight' || event.key === 'd') {
                 cycleImage(1);
-
             }
 
             if (event.key === 'ArrowLeft' || event.key === 'a') {
