@@ -159,20 +159,17 @@ function createWindow () {
   })
 
   win.loadFile(path.join(__dirname, './src/index.html'))
-  win.webContents.openDevTools()
+  // win.webContents.openDevTools()
 }
 
 app.setName('Mosaic');
 app.disableHardwareAcceleration() // prevents stupid canvas slowdowns
 
-app.whenReady().then(() => {
-  createWindow()
-  if(os.platform() === 'darwin') {
-    app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) {
-        createWindow()
-      }
-    })
+app.whenReady().then(createWindow);
+
+app.on('activate', () => {
+  if(os.platform() === 'darwin' && BrowserWindow.getAllWindows().length === 0) {
+    createWindow()
   }
 })
 
