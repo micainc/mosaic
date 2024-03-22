@@ -154,6 +154,8 @@ function createWindow () {
           preload: path.join(__dirname, './src/preload.js'),
           enableRemoteModule: true
       },
+      icon: path.join(__dirname, './src/images/icon.png') // Specify the path to your icon
+
   })
 
   win.loadFile(path.join(__dirname, './src/index.html'))
