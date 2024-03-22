@@ -13,7 +13,7 @@
         <title>Mosaic</title>
     </head>
     <body>
-        <div id="cursor"><div id="active-label-text"></div></div>
+        <div id="cursor"><div id="cursor-text"></div></div>
         <div id="toolbar">
             <div id="toolbar-paths">
                 <button class="parameter-button" onclick="findRegions()"><img width="20px" src="./images/save_folder.png" ><span class="path" id="save-path">&nbsp; Save...</span></button> 
@@ -22,7 +22,7 @@
                 <button onclick="cycleImage(-1)"><img src="./images/left-arrow.png" width="10px"/></button><span id="toolbar-filename">Drag image set below...</span><button onclick="cycleImage(1)"><img src="./images/right-arrow.png" width="10px"/></button>
             </div>
             <div id="toolbar-right">
-                <div id="coords"></div>
+                <!-- <div id="coords"></div> -->
                 
                 <button id="pencil-button" class="parameter-button tool selected-tool" onclick="selectPencil(this)"><img id="pencil-img" width="20px" src="./images/pencil.png"></button>
                 <button id="fill-button" class="parameter-button tool" onclick="selectFill(this)"><img id="fill-img" width="20px" src="./images/bucket.png"></button>

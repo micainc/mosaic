@@ -2,10 +2,13 @@ var originX = 0;
 var originY = 0;
 var zoom = false;
 
-var mouseX = 0;
-var mouseY = 0;
+
+var offsetX = 0;
+var offsetY = 0;
 var scrollX = 0;
 var scrollY = 0;
+var mouseX = 0;
+var mouseY = 0;
 var leftClicked = false;
 var rightClicked = false;
 var drawDiameter = 10; // diameter
@@ -163,8 +166,7 @@ function init() {
 
         var searchBox = document.getElementsByClassName('search-box')[0]
         console.log(searchBox.style.display)
-        const keys = Object.keys(images);
-        if (searchBox.style.display !== 'block' && keys.length > 1) {
+        if (searchBox.style.display !== 'block') {
             console.log("KEY: ", event.key)
             if (event.key === 'ArrowRight' || event.key === 'd') {
                 cycleImage(1);
@@ -189,17 +191,33 @@ function init() {
             draw_canvas.style.opacity = '0.5';
         }
     });
+
     function updateCursor(event) {
-        const rect = image_canvas.getBoundingClientRect();
+
+        const rect = draw_canvas.getBoundingClientRect();
         
-        // Calculate the adjusted mouseX and mouseY with respect to the canvas's position and scale.
-        mouseX = Math.round((event.clientX - rect.left) * image_canvas.width / image_canvas.clientWidth);
-        mouseY = Math.round((event.clientY - rect.top) * image_canvas.height / image_canvas.clientHeight);
-        
-        // Update the cursor's position.
-    //  cursor.style.transform = `translate(${event.clientX + window.scrollX - drawDiameter/2}px, ${event.clientY + window.scrollY - drawDiameter/2}px)`;
-        cursor.style.transform = `translate(${event.clientX - drawDiameter/2}px, ${event.clientY - drawDiameter/2}px)`;
-    
+        if(event.type === 'scroll') {
+            // console.log(event)
+
+            scrollX = document.documentElement.scrollLeft || document.body.scrollLeft;
+            scrollY = document.documentElement.scrollTop || document.body.scrollTop;
+            console.log("SCROLL X/Y: ", scrollX+ ", " +scrollY)
+            cursor.style.transform = `translate(${offsetX+scrollX - drawDiameter/2}px, ${offsetY+scrollY - drawDiameter/2}px)`;
+
+        } else {
+            offsetX = event.clientX;
+            offsetY = event.clientY;
+            //console.log("OFFSET X/Y: ", offsetX+ ", " +offsetY)
+            // Calculate the adjusted mouseX and mouseY with respect to the canvas's position and scale.
+            mouseX = Math.round((event.clientX - rect.left) * image_canvas.width / image_canvas.clientWidth);
+            mouseY = Math.round((event.clientY - rect.top) * image_canvas.height / image_canvas.clientHeight);
+            cursor.style.transform = `translate(${event.clientX + scrollX - drawDiameter/2}px, ${event.clientY + scrollY - drawDiameter/2}px)`;
+
+        }
+
+        // Update coordinates text.
+        $('#coords').text(mouseX + ", " + mouseY);
+
         // Function to compare the current point with the last point
         function isDistinct(p1, p0) {
             let dx = p1.x - p0.x
@@ -211,9 +229,6 @@ function init() {
         if(leftClicked && isDistinct({x: mouseX, y: mouseY}, drawPath[drawPath.length - 1])) {
             drawPath.push({x: mouseX, y: mouseY});
         }
-    
-        // Update coordinates text.
-        $('#coords').text(mouseX + ", " + mouseY);
 
         // get colour of drawCanvas at mouse position
         var imageData = draw_ctx.getImageData(mouseX, mouseY, 1, 1);
@@ -227,20 +242,20 @@ function init() {
         // if we have traversed onto a NEW COLOUR on the segmentation map:
         if(hoveredColour !== pixelHex) {
             if(pixelHex === "#000000" || pixelHex === "#808080") {
-                $('#active-label-text').css("display", "none")
+                $('#cursor-text').css("display", "none")
             } else if(active.colour !== pixelHex) {
                 // var invertedPixelHex = rgbToHex(255-pixel[0], 255-pixel[1], 255-pixel[2])
                 drawColors.find((h, idx) => {
                     if(h === pixelHex) {
-                        $('#active-label-text').css("display", "block")
-                        // $('#active-label-text').css("color", pixelHex)
+                        $('#cursor-text').css("display", "block")
+                        // $('#cursor-text').css("color", pixelHex)
 
-                        $('#active-label-text').text(activeLabels[idx]);
+                        $('#cursor-text').text(activeLabels[idx]);
                     }
                 })
     
             } else if(active.colour === pixelHex){
-                $('#active-label-text').css("display", "none")
+                $('#cursor-text').css("display", "none")
             }
             hoveredColour = pixelHex
         }
@@ -706,7 +721,7 @@ function processImageFile(file) {
         const img = new Image();
         console.log(file)
         img.onload = function() {
-            console.log("CREATING IMAGE: ", file)
+            console.log("IMPORTING IMAGE: ", file)
             if(!dimensions_set) {
                 image_canvas.width = img.width;
                 image_canvas.height = img.height;
@@ -739,8 +754,9 @@ function updateCurrentImage() {
         document.getElementById('toolbar-filename').textContent = currentImage;
         img_ctx.putImageData(images[currentImage].data, 0, 0);
     } else {
+        document.getElementById('toolbar-filename').textContent = 'Drag image set below...';
         currentImage = '';
-        document.getElementById('toolbar-filename').textContent = '';
+        // document.getElementById('toolbar-filename').textContent = '';
         img_ctx.clearRect(0, 0, image_canvas.width, image_canvas.height);
         should_erase_draw_layer ? draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height) : null;
     }
@@ -748,6 +764,7 @@ function updateCurrentImage() {
 
 function cycleImage(dir) {
     const keys = Object.keys(images);
+    if(keys.length < 2) return;
     const idx = keys.indexOf(currentImage);
     const newIdx = (idx + dir + keys.length) % keys.length;
     currentImage = keys[newIdx];
@@ -832,7 +849,7 @@ function findRegions() {
                         if (x < 0 || y < 0 || x >= width || y >= height) {
                             continue; // Skip out-of-bounds points
                         }
-                        // if pixel untraversed AND NOT transparent and same colour as FIRST explored pixel 
+                        // if encounter untraversed pixel that is NOT transparent and same colour as FIRST explored pixel 
                         if (!visited.has(getKey(x, y)) && buffer32[y * width + x] === regionColour) {
                             floodStack.push({ x: x - 2, y: y });
                             floodStack.push({ x: x + 2, y: y });
@@ -931,7 +948,8 @@ function saveRegions() {
     }
     // identifier is a short, common name shared by this current image set. ex 'w15'
     console.log("IDENTIFIER: ", identifier)
-    
+    console.log("SRC: ", images[currentImage]['src'])
+
     window.api.invoke('set_file_path', {'path': images[currentImage]['src'], 'type': 'save'})
         .then(() => {
             var rgbs = {}

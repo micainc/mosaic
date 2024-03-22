@@ -22,10 +22,11 @@ button, select, .table-control {
     color: #323232;
     cursor:pointer;
     outline: none;
+    opacity: 0.5;
 }
 
 button:hover, select:hover {
-    background-color: #DDDDDD;
+    opacity: 1;
 }
 
 #toolbar {
@@ -34,12 +35,12 @@ button:hover, select:hover {
     top:0px;
     z-index: 3 !important;
     background-color: #FFFFFF;
-    opacity: 0.5;
     border:none;
     border-bottom: 1px solid #DDDDDD;
     -webkit-app-region: drag; /*allows dragging the electron app window around */
     width:100%;
 }
+
 
 #toolbar-paths {
     display: flex;
@@ -209,8 +210,13 @@ button:hover, select:hover {
     border-radius: 50%;
 }
 
-.active-label-text {
-    left:0px;
+#cursor-text {
+    
+    display: none;
+    position:absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, 50%);
 }
 
 .slider {
