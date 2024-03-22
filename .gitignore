@@ -97,8 +97,8 @@ outputs/
 *.jpg
 *.jpeg
 *.gif
-!images/*.png
-!images/*.jpg
-!images/*.jpeg
-!images/*.gif
+!src/images/*.png
+!src/images/*.jpg
+!src/images/*.jpeg
+!src/images/*.gif
 
