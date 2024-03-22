@@ -208,11 +208,12 @@ ipcMain.handle('set_loadout', async (event, args) => {
 
 ipcMain.handle('save_crop', async (event, args) => {
   var identifier = args['identifier']
+
   if(args['type'] !== 'map' && args['type'] !== 'segmentation_map') {
     identifier = getFilename(args['absolute_path'])
   }
 
-  fs.readdir(saveDirectory, (err, files) => {
+  fs.readdir(saveDirectory, (err, items) => {
     if (err) {
       console.error("Error reading directory:", err);
       return;
@@ -227,11 +228,11 @@ ipcMain.handle('save_crop', async (event, args) => {
       file = identifier+"_"+args['type']+'.png'
     }
     const base64Data = args['data'].replace(/^data:image\/png;base64,/, "");
+    // create folder for identifier
     fs.writeFile(saveDirectory+"/"+file, base64Data, 'base64', function (err) {
 
       if (err) {
         console.log("ERROR WRITING "+ file + ": "+ err)
-
         return "Segmentation could not be saved: "+err
       } else {
         console.log(file + " saved. ")
@@ -244,9 +245,11 @@ ipcMain.handle('save_crop', async (event, args) => {
 ipcMain.handle('set_file_path', async (event, args) => {
   console.log("FILE PATH ("+args['type']+"): " + args['path'])
   const path = args['path'].replace('file://', '')
+  const identifier = args['identifier']
 
+  // pass in path as inital starting point for dialog
   const save_dialog_options = {
-    title: args['type'] == 'save' ? 'Save Path' : 'Load Path',
+    title: args['type'] == 'save' ? "Save '/"+identifier+"' Grains: "  : 'Load Path',
     defaultPath: path,
     properties: ['openDirectory', 'createDirectory'],
   }
@@ -254,7 +257,18 @@ ipcMain.handle('set_file_path', async (event, args) => {
   if(args['type'] == 'save' && saveDirectory == '') {
     await dialog.showOpenDialog(win, save_dialog_options).then((result) => {
       if(typeof result['filePaths'][0]  !== 'undefined') {
-        saveDirectory = result['filePaths'][0]
+        
+        // if folder 'identifier' doesn't exist in saveDirectory, create it:
+        fs.mkdir(saveDirectory+"/"+identifier, function(err) {
+          if (err) {
+            console.log("ERROR CREATING GRAIN DIRECTORY: "+ err)
+            return "Segmentation could not be saved: "+err
+          } else {
+            console.log("Grain directory '"+identifier+"' created. ")
+          }
+        });
+        saveDirectory = result['filePaths'][0] + "/"+ identifier
+
         let code = `document.getElementById("save-path").innerHTML = "&nbsp; ${saveDirectory}"`;
         win.webContents.executeJavaScript(code);
       }

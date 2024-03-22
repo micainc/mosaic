@@ -249,7 +249,7 @@ function init() {
                 drawColors.find((h, idx) => {
                     if(h === pixelHex) {
                         $('#cursor-text').css("display", "block")
-                        // $('#cursor-text').css("color", pixelHex)
+                        $('#cursor-text').css("color", pixelHex)
 
                         $('#cursor-text').text(activeLabels[idx]);
                     }
@@ -947,11 +947,17 @@ function saveRegions() {
     if (identifier === '') {
         identifier = getCommonSubstring(parent_folders).replace(/^_+|_+$/g, '')// trim trailing/leading whitespace and underscores
     }
+
+    // if a common identifier is STILL not found, just use current unix timestamp 
+    if (identifier === '') {
+        identifier = Date.now().toString()
+    }
+
     // identifier is a short, common name shared by this current image set. ex 'w15'
     console.log("IDENTIFIER: ", identifier)
     console.log("SRC: ", images[currentImage]['src'])
 
-    window.api.invoke('set_file_path', {'path': images[currentImage]['src'], 'type': 'save'})
+    window.api.invoke('set_file_path', {'path': images[currentImage]['src'], 'type': 'save', identifier: identifier})
         .then(() => {
             var rgbs = {}
             // convert drawColors to RGB -> compare with pixels
@@ -979,7 +985,7 @@ function saveRegions() {
                         }
                     }
                 }
-                // first we save the draw layer...
+                // first we save each grain segmentation from the draw layer...
                 save_ctx.putImageData(crop, 0, 0)
                 let data = save_canvas.toDataURL("image/png");
                 window.api.invoke('save_crop', {'data': data, 'absolute_path': images[currentImage]['src'], 'identifier':identifier, 'type': 'map', 'idx': index})
