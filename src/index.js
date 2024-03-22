@@ -245,11 +245,11 @@ function init() {
             if(pixelHex === "#000000" || pixelHex === "#808080") {
                 $('#cursor-text').css("display", "none")
             } else if(active.colour !== pixelHex) {
-                // var invertedPixelHex = rgbToHex(255-pixel[0], 255-pixel[1], 255-pixel[2])
+                var invertedPixelHex = rgbToHex(255-pixel[0], 255-pixel[1], 255-pixel[2])
                 drawColors.find((h, idx) => {
                     if(h === pixelHex) {
                         $('#cursor-text').css("display", "block")
-                        $('#cursor-text').css("color", pixelHex)
+                        $('#cursor-text').css("color", invertedPixelHex)
 
                         $('#cursor-text').text(activeLabels[idx]);
                     }
@@ -632,16 +632,30 @@ function dropFiles(event) {
     event.preventDefault();
     if (event.dataTransfer && event.dataTransfer.files) {
         const files = Array.from(event.dataTransfer.files);
-        const imagePromises = files.map(file => {
+
+        // check if any of the file names include edge_map or segmentation_map
+        files.forEach(file => {
+            console.log("file.name: ", file.name)
             if (file.name.includes("edge_map") || file.name.includes("segmentation_map")) {
                 should_erase_draw_layer = false
-                return processEdgeOrSegmentationMap(file);
+            }
+        })
+
+        let drawFile = null
+        const imagePromises = files.map(file => {
+            if (file.name.includes("edge_map") || file.name.includes("segmentation_map")) {
+                //return processEdgeOrSegmentationMap(file);
+                drawFile = file;
             } else {
                 return processImageFile(file);
             }
         });
 
         Promise.all(imagePromises).then(() => {
+            if(drawFile !== null) {
+                processEdgeOrSegmentationMap(drawFile);
+            }
+            console.log("SHOULD ERASE DRAW LAYER? ", should_erase_draw_layer)
             updateCurrentImage();
         });
     }
@@ -653,13 +667,27 @@ function processEdgeOrSegmentationMap(file) {
         const reader = new FileReader();
         reader.onload = function(e) {
             const img = new Image();
+
             img.onload = function() {
+                if(!dimensions_set) {
+                    console.log("SETTING DIMENSIONS...")
+                    image_canvas.width = img.width;
+                    image_canvas.height = img.height;
+                    draw_canvas.width = img.width;
+                    draw_canvas.height = img.height;
+                    save_canvas.width = img.width;
+                    save_canvas.height = img.height;
+                    dimensions_set = true;
+                }
+
                 if (file.name.includes("edge_map")) {
+                    console.log("IMPORTING EDGE MAP...")
                     processEdgeMap(img);
                 } else {
+                    console.log("IMPORTING SEGMENTATION MAP...")
                     draw_ctx.drawImage(img, 0, 0);
                 }
-                resolve();
+                // resolve();
             };
             img.onerror = reject;
             img.src = e.target.result;
@@ -670,34 +698,26 @@ function processEdgeOrSegmentationMap(file) {
 }
 
 function processEdgeMap(img) {
-    const offscreenCanvas = document.createElement('canvas');
-    if(!dimensions_set) {
-        image_canvas.width = img.width;
-        image_canvas.height = img.height;
-        draw_canvas.width = img.width;
-        draw_canvas.height = img.height;
-        save_canvas.width = img.width;
-        save_canvas.height = img.height;
-        offscreenCanvas.width = img.width;
-        offscreenCanvas.height = img.height;
-        dimensions_set = true;
-    }
-    const offscreenCtx = offscreenCanvas.getContext('2d');
-    offscreenCtx.drawImage(img, 0, 0);
+    const temp_canvas = document.createElement('canvas');
+    temp_canvas.width = img.width;
+    temp_canvas.height = img.height;
 
-    const imageData = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+    const temp_ctx = temp_canvas.getContext('2d');
+    temp_ctx.drawImage(img, 0, 0);
+
+    const imageData = temp_ctx.getImageData(0, 0, temp_canvas.width, temp_canvas.height);
     const data = imageData.data;
 
     for (let i = 0; i < data.length; i += 4) {
         if (data[i] === 255 && data[i + 1] === 255 && data[i + 2] === 255) {
-            setTransparentNeighbors(i, data, offscreenCanvas.width);
+            setTransparentNeighbors(i, data, temp_canvas.width);
         } else if (data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 0) {
             data[i] = data[i + 1] = data[i + 2] = 128;
         }
     }
 
-    offscreenCtx.putImageData(imageData, 0, 0);
-    draw_ctx.drawImage(offscreenCanvas, 0, 0);
+    temp_ctx.putImageData(imageData, 0, 0);
+    draw_ctx.drawImage(temp_canvas, 0, 0);
 }
 
 
@@ -724,6 +744,7 @@ function processImageFile(file) {
         img.onload = function() {
             console.log("IMPORTING IMAGE: ", file)
             if(!dimensions_set) {
+                console.log("SETTING DIMENSIONS...")
                 image_canvas.width = img.width;
                 image_canvas.height = img.height;
                 draw_canvas.width = img.width;
