@@ -93,11 +93,12 @@ samples/
 outputs/
 
 #ignore ALL images (png, jpg, jpeg, gif) EXCEPT in the images folder:
-!images/*.png
-!images/*.jpg
-!images/*.jpeg
-!images/*.gif
 *.png
 *.jpg
 *.jpeg
 *.gif
+!images/*.png
+!images/*.jpg
+!images/*.jpeg
+!images/*.gif
+
