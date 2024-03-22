@@ -235,7 +235,6 @@ button:hover, select:hover {
 }
 
 .path {
-    max-width:200px;
     overflow-x: scroll;
     white-space: nowrap;
 }

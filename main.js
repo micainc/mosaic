@@ -159,7 +159,7 @@ function createWindow () {
   })
 
   win.loadFile(path.join(__dirname, './src/index.html'))
-  // win.webContents.openDevTools()
+  win.webContents.openDevTools()
 }
 
 app.setName('Mosaic');
@@ -258,7 +258,7 @@ ipcMain.handle('set_file_path', async (event, args) => {
       if(typeof result['filePaths'][0]  !== 'undefined') {
         
         // if folder 'identifier' doesn't exist in saveDirectory, create it:
-        fs.mkdir(saveDirectory+"/"+identifier, function(err) {
+        fs.mkdir(result['filePaths'][0]+"/"+identifier, function(err) {
           if (err) {
             console.log("ERROR CREATING GRAIN DIRECTORY: "+ err)
             return "Segmentation could not be saved: "+err

@@ -3,7 +3,9 @@ module.exports = {
     name: 'Mosaic',
     productName: 'Mosaic',
     executableName: 'Mosaic',
-    icon: './src/images/icon' // no file extension required
+    icon: './src/images/icon', // no file extension required
+    ignore: /(^\/(samples|grains|preprocessing|out))/
+
   },
   rebuildConfig: {},
   makers: [
@@ -24,5 +26,4 @@ module.exports = {
       config: {},
     },
   ],
-
 };
