@@ -242,16 +242,17 @@ function init() {
         if(leftClicked) {
             $('#cursor-text').css("display", "none")
         } else if(hoveredColour !== pixelHex) {
-            if(pixelHex === "#000000" || pixelHex === "#808080") {
+            if(pixelHex === "#000000" || pixelHex === "#7F7F7F") {
                 $('#cursor-text').css("display", "none")
             } else if(active.colour !== pixelHex) {
-                var invertedPixelHex = rgbToHex(255-pixel[0], 255-pixel[1], 255-pixel[2])
+                var label = colourLabelMap[pixelHex]
+                var inverted = rgbToHex(255-pixel[0], 255-pixel[1], 255-pixel[2])
+                
                 drawColors.find((h, idx) => {
                     if(h === pixelHex) {
                         $('#cursor-text').css("display", "block")
-                        $('#cursor-text').css("color", invertedPixelHex)
-
-                        $('#cursor-text').text(activeLabels[idx]);
+                        $('#cursor-text').css("color", inverted)
+                        $('#cursor-text').text(label);
                     }
                 })
     
@@ -708,7 +709,7 @@ function processEdgeMap(img) {
         if (data[i] === 255 && data[i + 1] === 255 && data[i + 2] === 255) {
             setTransparentNeighbors(i, data, temp_canvas.width);
         } else if (data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 0) {
-            data[i] = data[i + 1] = data[i + 2] = 128;
+            data[i] = data[i + 1] = data[i + 2] = 127;
         }
     }
 
@@ -846,9 +847,23 @@ function findRegions() {
                 const regionColour = buffer32[index]; // format:ABGR. If transparent: 00000000
                 //console.log("REGION COLOUR: ", regionColour)
                 
-                
+                // R = 127 (0x7F)
+                // G = 127 (0x7F)
+                // B = 127 (0x7F)
+                // A = 255 (0xFF)
+
+                // ABGR = (0xFF << 24) | (0x7F << 16) | (0x7F << 8) | 0x7F
+                //     = 0xFF000000 | 0x007F0000 | 0x00007F00 | 0x0000007F
+                //     = 0xFF7F7F7F
+                //11111111000000000000000000000000, 011111110000000000000000, 0111111100000000, 01111111
+                //  4278190080 + 8323072 + 32512 + 127
+                //
+
                 // if transparent pixel or colour is grey (#808080, 128 128 128), skip
-                if(regionColour === 0 || regionColour === 4286611584) {
+                // if(regionColour === 0 || regionColour === 4286611584) {
+                // if transparent pixel or colour is grey (#7F7F7F, 127 127 127), skip
+                if(regionColour === 0 || regionColour === 4286545791) {
+                     
                     visited.add(getKey(i, j)); // if canvas pixel is transparent, SKIP
                     continue;
 
@@ -989,23 +1004,11 @@ function saveRegions() {
                 console.log(" REGION " + index+ ": | "+colour+" | "+ save_canvas.width +"x"+save_canvas.height)
 
                 var crop = draw_ctx.getImageData(left, top, (right-left), (bottom-top))
-                var cropData = crop.data;
 
-                // use the opacity (A) channel to store up to 255 different class values, where class = 255-A.
-                // get each pixel value; convert opacity value to (255 - index)
-
-                for(var i = 0; i < cropData.length; i+=4) {
-                    for(var c = 0; c < drawColors.length; c++){
-                        if((rgbs[c]['r'] === cropData[i]) && (rgbs[c]['g'] === cropData[i+1]) && (rgbs[c]['b'] === cropData[i+2])) {
-                            cropData[i+3] = 254 - c // reserve 255 (full opacity) for (ironically) the EMPTY class!!
-                            break
-                        }
-                    }
-                }
                 // first we save each grain segmentation from the draw layer...
                 save_ctx.putImageData(crop, 0, 0)
                 let data = save_canvas.toDataURL("image/png");
-                window.api.invoke('save_crop', {'data': data, 'absolute_path': images[currentImage]['src'], 'identifier':identifier, 'type': 'map', 'idx': index})
+                window.api.invoke('save_segment', {'data': data, 'absolute_path': images[currentImage]['src'], 'identifier':identifier, 'type': 'map', 'idx': index})
 
                 //... then we save every other image layer...
                 saveSegmentLayers(left, top, right, bottom, index, identifier)
@@ -1013,7 +1016,7 @@ function saveRegions() {
 
             //... then we save the entire draw layer for a save state:
             var draw_data = draw_canvas.toDataURL("image/png");
-            window.api.invoke('save_crop', {'data': draw_data, 'absolute_path': '', 'identifier':identifier, 'type': 'segmentation_map', 'idx': ''})
+            window.api.invoke('save_segment', {'data': draw_data, 'absolute_path': '', 'identifier':identifier, 'type': 'segmentation_map', 'idx': ''})
 
             // ... finally we save a copy of the draw layer overlaid on each image layer:
             for (let i = 0; i < Object.keys(images).length; i++) {
@@ -1036,7 +1039,7 @@ function saveRegions() {
                     const data = save_canvas.toDataURL("image/png");
                     
                     // Save it
-                    window.api.invoke('save_crop', {
+                    window.api.invoke('save_segment', {
                         'data': data,
                         'absolute_path': images[key]['src'], // pass in the reference
                         'type': 'overlay',
@@ -1051,6 +1054,8 @@ function saveRegions() {
             // after all files have been saved, reset the temp canvas to fit the image
             save_canvas.width = image_canvas.width;
             save_canvas.height = image_canvas.height;
+
+            window.api.invoke('save_label_colours', {'dict': colourLabelMap})
         }).catch(function(err) {
             console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
         });
@@ -1079,7 +1084,7 @@ function saveSegmentLayers(left, top, right, bottom, index, identifier) {
             const data = save_canvas.toDataURL("image/png");
             
             // Save it
-            window.api.invoke('save_crop', {
+            window.api.invoke('save_segment', {
                 'data': data,
                 'absolute_path': images[key]['src'],
                 'type': 'img',

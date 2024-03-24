@@ -211,7 +211,6 @@ button:hover, select:hover {
 }
 
 #cursor-text {
-    
     display: none;
     position:absolute;
     top: 50%;

@@ -20,113 +20,113 @@ const static_loadouts = true;
 if(typeof storage.get('loadouts') === undefined || static_loadouts) {
   storage.set({'loadouts':
     { 
-      "minerals": {
-        0: "quartz",
-        1: "K-feldspar",
-        2: "plagioclase feldspar",
-        3: "muscovite",
-        4: "biotite",
-        5: "amphibole",
-        6: "orthopyroxene",
-        7: "clinopyroxene",
-        8: "olivine",
-        9: "calcite",
-        10: "dolomite",
-        11: "gypsum",
-        12: "anhydrite",
-        13: "epidote",
-        14: "garnet",
-        15: "fluorite",
-        16: "apatite",
-        17: "zircon",
-        18: "magnetite",
-        19: "cassiterite",
-        20: "chlorite",
-        21: "clay minerals",
-        22: "opal",
-        23: "hematite",
-        24: "limonite",
-        25: "goethite",
-        26: "pyrite",
-        27: "chalcopyrite",
-        28: "bornite",
-        29: "galena",
-        30: "sphalerite",
-        31: "halite",
-        32: "sylvite",
-        33: "titanite",
-        34: "rutile",
-        35: "ilmenite",
-        36: "corundum",
-        37: "kyanite",
-        38: "sillimanite",
-        39: "andalusite",
-        40: "staurolite",
-        41: "talc",
-        42: "serpentine",
-        43: "prehnite",
-        44: "zeolites",
-        45: "topaz",
-        46: "beryl",
-        47: "tourmaline",
-        48: "cordierite",
-        49: "wollastonite",
-        50: "vesuvianite",
-        51: "scapolite",
-        52: "siderite",
-        53: "rhodochrosite",
-        54: "smithsonite",
-        55: "cerussite",
-        56: "malachite",
-        57: "azurite",
-        58: "barite",
-        59: "celestite",
-        60: "graphite",
-        61: "diamond",
-        62: "native sulfur",
-        63: "native gold",
-        64: "native silver",
-        65: "native copper",
-        67: "chalcedony",
-        68: "pentlandite",
-        69: "chalcocite",
-        70: "arsenopyrite",
-        71: "cinnabar",
-        72: "pyrrhotite",
-        73: "molybdenite",
-        74: "chloritoid",
-        75: "stibnite",
-        76: "realgar",
-        77: "orpiment",
-        78: "wolframite",
-        79: "scheelite",
-        80: "columbite",
-        81: "tantalite",
-        82: "monazite",
-        83: "nepheline",
-        84: "cummingtonite",
-      },
+      "minerals": [
+        "quartz",
+        "K-feldspar",
+        "plagioclase feldspar",
+        "muscovite",
+        "biotite",
+        "amphibole",
+        "orthopyroxene",
+        "clinopyroxene",
+        "olivine",
+        "calcite",
+        "dolomite",
+        "gypsum",
+        "anhydrite",
+        "epidote",
+        "garnet",
+        "fluorite",
+        "apatite",
+        "zircon",
+        "magnetite",
+        "cassiterite",
+        "chlorite",
+        "clay minerals",
+        "opal",
+        "hematite",
+        "limonite",
+        "goethite",
+        "pyrite",
+        "chalcopyrite",
+        "bornite",
+        "galena",
+        "sphalerite",
+        "halite",
+        "sylvite",
+        "titanite",
+        "rutile",
+        "ilmenite",
+        "corundum",
+        "kyanite",
+        "sillimanite",
+        "andalusite",
+        "staurolite",
+        "talc",
+        "serpentine",
+        "prehnite",
+        "zeolites",
+        "topaz",
+        "beryl",
+        "tourmaline",
+        "cordierite",
+        "wollastonite",
+        "vesuvianite",
+        "scapolite",
+        "siderite",
+        "rhodochrosite",
+        "smithsonite",
+        "cerussite",
+        "malachite",
+        "azurite",
+        "barite",
+        "celestite",
+        "graphite",
+        "diamond",
+        "native sulfur",
+        "native gold",
+        "native silver",
+        "native copper",
+        "chalcedony",
+        "pentlandite",
+        "chalcocite",
+        "arsenopyrite",
+        "cinnabar",
+        "pyrrhotite",
+        "molybdenite",
+        "chloritoid",
+        "stibnite",
+        "realgar",
+        "orpiment",
+        "wolframite",
+        "scheelite",
+        "columbite",
+        "tantalite",
+        "monazite",
+        "nepheline",
+        "cummingtonite"
+      ],
 
-      "cystic_fibrosis": {
-          0: "cf_alive", 
-          1: "cf_dead", 
-          2: "healthy_alive", 
-          3: "healthy_dead"
-      },
+      "cystic_fibrosis": [
+          "cf_alive", 
+          "cf_dead", 
+          "healthy_alive", 
+          "healthy_dead"
+      ],
 
-      "plants": {
-        0: "oregano", 
-          1: "tomato", 
-          2: "strawberry", 
-          3: "pepper",
-          4: "lettuce", 
-          5: "zucchini", 
-          6: "basil", 
-          7: "cilantro",
-          8: "dill",
-          9: "mint",
-          10: "seedling",
-      }
+      "plants": [
+          "oregano", 
+          "tomato", 
+          "strawberry", 
+          "pepper",
+          "lettuce", 
+          "zucchini", 
+          "basil", 
+          "cilantro",
+          "dill",
+          "mint",
+          "seedling",
+      ]
     }
   });
 }
@@ -205,7 +205,7 @@ ipcMain.handle('set_loadout', async (event, args) => {
 });
 
 
-ipcMain.handle('save_crop', async (event, args) => {
+ipcMain.handle('save_segment', async (event, args) => {
   var identifier = args['identifier']
 
   if(args['type'] !== 'map' && args['type'] !== 'segmentation_map') {
@@ -238,6 +238,21 @@ ipcMain.handle('save_crop', async (event, args) => {
         return file
       }
     });
+  });
+});
+
+ipcMain.handle('save_label_colours', async(event, args) => {
+  const labelColorsDict = args['dict'];
+  const jsonString = JSON.stringify(labelColorsDict, null, 2);
+
+  fs.writeFile(saveDirectory + "/label_colours.txt", jsonString, 'utf8', function (err) {
+    if (err) {
+      console.log("ERROR WRITING label_colours.txt: " + err);
+      return "Label colors could not be saved: " + err;
+    } else {
+      console.log("label_colours.txt saved.");
+      return "label_colours.txt";
+    }
   });
 });
 
