@@ -87,8 +87,6 @@ typings/
 
 # Electron-Forge
 out/
-
-# ignore 'samples' folder
 samples/
 outputs/
 grains/
