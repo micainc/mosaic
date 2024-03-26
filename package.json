@@ -1,0 +1,29 @@
+{
+  "name": "mosaic",
+  "productName": "mosaic",
+  "version": "1.0.0",
+  "description": "Generate pixel maps for machine learning projects",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron-forge start",
+    "make": "electron-forge make",
+    "package": "electron-forge package"
+  },
+  "keywords": [],
+  "author": "kfilyk <kelvinfilyk@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "electron-squirrel-startup": "^1.0.0",
+    "electron-store": "^8.1.0",
+    "jquery": "^3.6.3",
+    "jquery-ui": "^1.13.2"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^6.0.5",
+    "@electron-forge/maker-deb": "^6.0.5",
+    "@electron-forge/maker-rpm": "^6.0.5",
+    "@electron-forge/maker-squirrel": "^6.0.5",
+    "@electron-forge/maker-zip": "^6.0.5",
+    "electron": "^22.0.3"
+  }
+}
