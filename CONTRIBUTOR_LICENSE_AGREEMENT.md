@@ -14,6 +14,10 @@ This Contributor License Agreement ("Agreement") is entered into between Kelvin 
 
 6. Governing Law: This Agreement shall be governed by the laws of the Province of British Columbia, Canada, and any disputes shall be resolved in the courts of the Province of British Columbia, Canada.
 
+7. Confidentiality: Contributor agrees to maintain the confidentiality of any non-public information related to the Mosaic project, including but not limited to source code, documentation, and business plans, and shall not disclose such information to any third party without the prior written consent of the Owner.
+
+8. Contributor Representations: Contributor represents and warrants that their contributions are original, do not infringe on any third-party rights, and that they have the necessary rights to grant the license to the Owner as described in this Agreement.
+
 By signing below, Contributor agrees to be bound by the terms and conditions of this Agreement.
 
 Contributor Name: ______________________
