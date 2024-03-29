@@ -1,3 +1,4 @@
+import time
 import numpy as np
 import cv2
 from transformers import pipeline
@@ -73,6 +74,7 @@ def process_image_with_sam_model_and_return_outline(image):
 
     round = 1
     coverage_till_now = 0
+    start_time = time.time()
     while np.mean(coverage_array) < 0.95:
         print("APPLYING SAM FOR MULTIPLE RUNS. RUN: " + str(round) + ", COVERAGE TILL NOW: " + str(
             np.mean(coverage_array)))
@@ -89,8 +91,14 @@ def process_image_with_sam_model_and_return_outline(image):
                 coverage_array[mask > 0] = 1  # Update coverage array
 
         if (np.mean(coverage_array) - coverage_till_now) < 0.01:
+            print("Coverage isn't getting better. Will stop re-running SAM model.")
             break;
         coverage_till_now = np.mean(coverage_array);
+    
+    print("Coverage at the end: " + str(coverage_till_now))
+    end_time = time.time()
+    time_taken = end_time - start_time
+    print(f"Time taken by the method: {time_taken} seconds")
 
     return draw_boundaries(all_masks)
 

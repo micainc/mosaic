@@ -24,7 +24,7 @@ from itertools import combinations
 # install the following packages if not already installed:
 #pip install git+https://github.com/facebookresearch/segment-anything.git
 #https://github.com/facebookresearch/segment-anything?tab=readme-ov-file
-from segment_anything_model import process_image_with_sam_model
+from segment_anything_model import process_image_with_sam_model, process_image_with_sam_model_and_return_outline
 
 
 lin_polar = None
@@ -512,33 +512,39 @@ texture_map = 255-normalize_image((255-normalize_image(diff_subtract_var)).astyp
 # multiply it by the picture to keep the black edges between grain boundaries
 Image.fromarray(texture_map).save(os.path.join(folder_path, folder_name + "_texture.jpg"), quality=100)
 
-###### CREATE SEGMENTATION MAP FROM CROSS POLARS + LIN USING SAM ######
 if len(segmentation_maps) == 0:
-    print("CREATING LP SEGMENTION MAP...")
-    segmentation_map_overlays = []
-    # downscale by 1/4
-    lin_polar_with_segmentation_map_overlay, lin_polar_segmentation_map = process_image_with_sam_model(cv2.resize(lin_polar, (lin_polar.shape[1] //4, lin_polar.shape[0] // 4), interpolation=cv2.INTER_CUBIC))
-    segmentation_maps.append(lin_polar_segmentation_map)
-    segmentation_map_overlays.append(lin_polar_with_segmentation_map_overlay)
+    edge_map = process_image_with_sam_model_and_return_outline(composite)
+    Image.fromarray(edge_map).save(os.path.join(folder_path, folder_name+"_edge_map.png"))
 
-    Image.fromarray(cv2.resize(lin_polar_segmentation_map, (lin_polar.shape[1] , lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_lin_polar_segmentation_map.png")) # save as png to avoid compression artifacts
 
-    cp_idx = 1
-    for cp in cross_polars:
-        print("CREATING CP SEGMENTION MAP "+str(cp_idx)+"/"+str(len(cross_polars))+"...")
-        # downscale by 1/4
-        cp_with_segmentation_map_overlay, cp_segmentation_map = process_image_with_sam_model(cv2.resize(cp, (cp.shape[1] //4, cp.shape[0] // 4), interpolation=cv2.INTER_CUBIC))
-        segmentation_maps.append(cp_segmentation_map.copy())
-        segmentation_map_overlays.append(cp_with_segmentation_map_overlay)
 
-        Image.fromarray(cv2.resize(cp_segmentation_map, (cp.shape[1] , cp.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_cross_polar_segmentation_map_"+str(cp_idx)+".png"))
-        cp_idx += 1
+###### CREATE SEGMENTATION MAP FROM CROSS POLARS + LIN USING SAM ######
+# if len(segmentation_maps) == 0:
+#     print("CREATING LP SEGMENTION MAP...")
+#     segmentation_map_overlays = []
+#     # downscale by 1/4
+#     lin_polar_with_segmentation_map_overlay, lin_polar_segmentation_map = process_image_with_sam_model(cv2.resize(lin_polar, (lin_polar.shape[1] //4, lin_polar.shape[0] // 4), interpolation=cv2.INTER_CUBIC))
+#     segmentation_maps.append(lin_polar_segmentation_map)
+#     segmentation_map_overlays.append(lin_polar_with_segmentation_map_overlay)
+
+#     Image.fromarray(cv2.resize(lin_polar_segmentation_map, (lin_polar.shape[1] , lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_lin_polar_segmentation_map.png")) # save as png to avoid compression artifacts
+
+#     cp_idx = 1
+#     for cp in cross_polars:
+#         print("CREATING CP SEGMENTION MAP "+str(cp_idx)+"/"+str(len(cross_polars))+"...")
+#         # downscale by 1/4
+#         cp_with_segmentation_map_overlay, cp_segmentation_map = process_image_with_sam_model(cv2.resize(cp, (cp.shape[1] //4, cp.shape[0] // 4), interpolation=cv2.INTER_CUBIC))
+#         segmentation_maps.append(cp_segmentation_map.copy())
+#         segmentation_map_overlays.append(cp_with_segmentation_map_overlay)
+
+#         Image.fromarray(cv2.resize(cp_segmentation_map, (cp.shape[1] , cp.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_cross_polar_segmentation_map_"+str(cp_idx)+".png"))
+#         cp_idx += 1
 
     # show_images(segmentation_map_overlays, "Segmentation Map Overlays", pause_to_display_images)
 
 # create edge map:
-edge_map = create_composite_edge_map(segmentation_maps)
-Image.fromarray(cv2.resize(edge_map, (lin_polar.shape[1] , lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_edge_map.png"))
+# edge_map = create_composite_edge_map(segmentation_maps)
+# Image.fromarray(cv2.resize(edge_map, (lin_polar.shape[1] , lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_edge_map.png"))
 
 
 # print("DETECTING EDGES...")
