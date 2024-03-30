@@ -24,7 +24,7 @@ from itertools import combinations
 # install the following packages if not already installed:
 #pip install git+https://github.com/facebookresearch/segment-anything.git
 #https://github.com/facebookresearch/segment-anything?tab=readme-ov-file
-from segment_anything_model import process_image_with_sam_model
+from segment_anything_model import process_image_with_sam_model, process_image_with_sam_model_and_return_outline
 
 
 lin_polar = None
@@ -553,6 +553,12 @@ texture_map = 255-normalize_image((255-normalize_image(diff_subtract_var)).astyp
 # multiply it by the picture to keep the black edges between grain boundaries
 Image.fromarray(texture_map).save(os.path.join(folder_path, folder_name + "_texture.jpg"), quality=100)
 
+if len(segmentation_maps) == 0:
+    edge_map = process_image_with_sam_model_and_return_outline(composite)
+    Image.fromarray(edge_map).save(os.path.join(folder_path, folder_name+"_edge_map.png"))
+
+
+
 ###### CREATE SEGMENTATION MAP FROM CROSS POLARS + LIN USING SAM ######
 # if len(segmentation_maps) == 0:
 #     print("CREATING LP SEGMENTION MAP...")
@@ -577,7 +583,8 @@ Image.fromarray(texture_map).save(os.path.join(folder_path, folder_name + "_text
 
 #     # show_images(segmentation_map_overlays, "Segmentation Map Overlays", pause_to_display_images)
 
-# # create edge map:
+
+# create edge map:
 # edge_map = create_composite_edge_map(segmentation_maps)
 # Image.fromarray(cv2.resize(edge_map, (lin_polar.shape[1] , lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_edge_map.png"))
 
