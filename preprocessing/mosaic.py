@@ -17,7 +17,7 @@ from sklearn.metrics import pairwise_distances_argmin
 from edge_detection import create_composite_edge_map, overlay_edges_on_image
 from contouring import mark_area_on_image_which_resemble_color_scheme
 
-from utils import show_images, resize_images, normalize_image, get_images_with_substring, get_image_with_substring_if_exists
+from utils import show_images, resize_images, normalize_image, get_images_with_substring, get_image_with_substring_if_exists, save_image_as_jpg
 from itertools import combinations
 
 
@@ -28,28 +28,39 @@ from segment_anything_model import process_image_with_sam_model
 
 
 lin_polar = None
+reflected = None
 cross_polars = []
 composite = []
 sobel = None
-blurred_images = []
+# blurred_images = []
 segmentation_maps = []
 
 pause_to_display_images = True
 
 # aligns images to the lin. if not aligned already
-def get_images(folder_path, folder_name):
+def get_images(folder_path, identifier):
+    identifier.replace(" ", "_").replace("-","_").replace("/", "")
+    print("IDENTIFIER: ", identifier)
     global lin_polar
+    global reflected
     global cross_polars
     global sobel
     global composite
     global segmentation_maps
-    global blurred_images
+    # global blurred_images
     all_files = os.listdir(folder_path)
 
     # Get the linear-polarized image
     lin_polar = get_image_with_substring_if_exists(all_files, folder_path, 'lin')
     if lin_polar is None:
         print("NO LIN POLAR IMAGE FOUND: please label linearly polarized image with '_lin' suffix. Exiting...")
+        # terminate program if no lin polar image found
+        sys.exit(1)
+
+    # Get the reflected light image
+    reflected = get_image_with_substring_if_exists(all_files, folder_path, 'ref')
+    if reflected is None:
+        print("NO REFLECTED LIGHT IMAGE FOUND: please label ref image with '_ref' suffix. Exiting...")
         # terminate program if no lin polar image found
         sys.exit(1)
     
@@ -64,50 +75,79 @@ def get_images(folder_path, folder_name):
     # get the sobel image, if it exists
     sobel = get_image_with_substring_if_exists(all_files, folder_path, 'sobel') 
 
-    # Filter for non-aligned cross-polar images: ignore all processed images
-    cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'sobel' not in f and 'msbf' not in f and 'segmentation_map' not in f and 'segregated' not in f and 'edge_map' not in f and 'variance' not in f and 'striation' not in f and 'laplacian' not in f and 'difference' not in f and 'texture' not in f and 'average' not in f]
-    
-    # For storing the cross-polarized images
     temp_dict = {}
 
-    lin_aligned = True
-    for cp in cps:
-        img_path = os.path.join(folder_path, cp)
-        if 'aligned' not in cp:
-            print(cp + " NOT ALIGNED")
-            lin_aligned = False
-            with Image.open(img_path) as img:
-                arr = np.array(img)
-                aligned_image = align_images(arr, lin_polar)
-                
-                aligned_img_name = os.path.join(folder_path, "aligned_" + cp)
+    aligned_cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'aligned_cp' in f] 
+    if len(aligned_cps) > 0:
+        # we have aligned cross polar images previously; just use these
+        for cp in aligned_cps:
+            img_path = os.path.join(folder_path, cp)
 
-                Image.fromarray(aligned_image).save(aligned_img_name, quality=100)
-                
-                # Delete the original image
-                os.remove(img_path)
-                
-                temp_dict["aligned_" + cp] = aligned_image
-        else:
-            print("CPs ALIGNED. FETCHING...")
-            # If the image is already aligned, just read it and add to the dictionary
             with Image.open(img_path) as img:
                 arr = np.array(img)
                 temp_dict[cp] = arr
-    
-    # save the lin polar in the same orientation as the aligned images
-    if not lin_aligned:
-        lin_file = next((f for f in all_files if 'lin' in f and f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG'))), None)
-        lin_img_path = os.path.join(folder_path, lin_file)
-        Image.fromarray(lin_polar).save(lin_img_path)
+    else:
+        # Filter for non-aligned cross-polar images: ignore all processed images
+        cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'ref' not in f and 'sobel' not in f and 'segmentation_map' not in f and 'edge_map' not in f and 'variance' not in f and 'difference' not in f and 'texture' not in f]
+        # For storing the cross-polarized images
+
+        for i, cp in enumerate(cps, start=1):
+            img_path = os.path.join(folder_path, cp)
+            if 'aligned' not in cp:
+                print(cp + " NOT ALIGNED")
+                with Image.open(img_path) as img:
+                    # Convert the image to RGB mode (removes the alpha channel if present)
+                    img = img.convert('RGB')
+                    arr = np.array(img)
+
+                    aligned_image = align_images(arr, lin_polar)
+                    
+                    aligned_img_name = os.path.join(folder_path, f"{identifier}_aligned_cp_{i}.jpg")
+                    Image.fromarray(aligned_image).save(aligned_img_name, format='JPEG', quality=100)
+                    
+                    # Delete the original image
+                    # os.remove(img_path)
+                    
+                    temp_dict[f"{identifier}_aligned_{i}.jpg"] = aligned_image
+            else:
+                print("CPs ALIGNED. FETCHING...")
+                # If the image is already aligned, just read it and add to the dictionary
+                with Image.open(img_path) as img:
+                    arr = np.array(img)
+                    temp_dict[f"{identifier}_aligned_cp_{i}.jpg"] = arr
 
     cross_polars = list(temp_dict.values())
 
+    # Rename and save lin_polar image
+    old_lin_file = next((f for f in all_files if 'lin' in f and f.endswith(('.tif', '.png', '.jpg', '.jpeg', '.JPG'))), None)
+    if old_lin_file:
+        old_lin_img_path = os.path.join(folder_path, old_lin_file)
+        new_lin_file_name = f'{identifier}_lin.jpg'
+        new_lin_file_path = os.path.join(folder_path, new_lin_file_name)
+        save_image_as_jpg(lin_polar, old_lin_img_path, new_lin_file_path)
 
-    # get ms_bfs, if they exist
-    blurred_images = get_images_with_substring(all_files, folder_path, 'msbf')
-    #downscale blurred images by 1/4
-    blurred_images = [cv2.resize(bi, (bi.shape[1] //4, bi.shape[0] // 4), interpolation=cv2.INTER_NEAREST) for bi in blurred_images]
+    # Rename and save reflected image
+    old_ref_file = next((f for f in all_files if 'ref' in f and f.endswith(('.tif', '.png', '.jpg', '.jpeg', '.JPG'))), None)
+
+    if old_ref_file:
+
+        # now align the reflected image, and - if it has not been aligned before -save it as such
+        if('aligned' not in reflected):
+
+            reflected = Image.fromarray(reflected).convert('RGB')
+            reflected = np.array(reflected)
+            reflected = align_images(reflected, lin_polar)
+
+            old_ref_img_path = os.path.join(folder_path, old_ref_file)
+            new_ref_file_name = f'{identifier}_aligned_ref.jpg'
+            new_ref_file_path = os.path.join(folder_path, new_ref_file_name)
+            reflected = save_image_as_jpg(reflected, old_ref_img_path, new_ref_file_path)
+
+
+    # # get ms_bfs, if they exist
+    # blurred_images = get_images_with_substring(all_files, folder_path, 'msbf')
+    # #downscale blurred images by 1/4
+    # blurred_images = [cv2.resize(bi, (bi.shape[1] //4, bi.shape[0] // 4), interpolation=cv2.INTER_NEAREST) for bi in blurred_images]
 
     # get segmentation maps, if they exist
     segmentation_maps = get_images_with_substring(all_files, folder_path, 'segmentation_map')
@@ -416,6 +456,7 @@ if len(sys.argv) > 4 | len(sys.argv) <= 1:
 
 folder_path = sys.argv[1]
 folder_name = os.path.basename(folder_path)
+print("FOLDER NAME: " + folder_name)
 
 for arg in sys.argv:
     if arg == '--no-show':
@@ -513,32 +554,32 @@ texture_map = 255-normalize_image((255-normalize_image(diff_subtract_var)).astyp
 Image.fromarray(texture_map).save(os.path.join(folder_path, folder_name + "_texture.jpg"), quality=100)
 
 ###### CREATE SEGMENTATION MAP FROM CROSS POLARS + LIN USING SAM ######
-if len(segmentation_maps) == 0:
-    print("CREATING LP SEGMENTION MAP...")
-    segmentation_map_overlays = []
-    # downscale by 1/4
-    lin_polar_with_segmentation_map_overlay, lin_polar_segmentation_map = process_image_with_sam_model(cv2.resize(lin_polar, (lin_polar.shape[1] //4, lin_polar.shape[0] // 4), interpolation=cv2.INTER_CUBIC))
-    segmentation_maps.append(lin_polar_segmentation_map)
-    segmentation_map_overlays.append(lin_polar_with_segmentation_map_overlay)
+# if len(segmentation_maps) == 0:
+#     print("CREATING LP SEGMENTION MAP...")
+#     segmentation_map_overlays = []
+#     # downscale by 1/4
+#     lin_polar_with_segmentation_map_overlay, lin_polar_segmentation_map = process_image_with_sam_model(cv2.resize(lin_polar, (lin_polar.shape[1] //4, lin_polar.shape[0] // 4), interpolation=cv2.INTER_CUBIC))
+#     segmentation_maps.append(lin_polar_segmentation_map)
+#     segmentation_map_overlays.append(lin_polar_with_segmentation_map_overlay)
 
-    Image.fromarray(cv2.resize(lin_polar_segmentation_map, (lin_polar.shape[1] , lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_lin_polar_segmentation_map.png")) # save as png to avoid compression artifacts
+#     Image.fromarray(cv2.resize(lin_polar_segmentation_map, (lin_polar.shape[1] , lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_lin_polar_segmentation_map.png")) # save as png to avoid compression artifacts
 
-    cp_idx = 1
-    for cp in cross_polars:
-        print("CREATING CP SEGMENTION MAP "+str(cp_idx)+"/"+str(len(cross_polars))+"...")
-        # downscale by 1/4
-        cp_with_segmentation_map_overlay, cp_segmentation_map = process_image_with_sam_model(cv2.resize(cp, (cp.shape[1] //4, cp.shape[0] // 4), interpolation=cv2.INTER_CUBIC))
-        segmentation_maps.append(cp_segmentation_map.copy())
-        segmentation_map_overlays.append(cp_with_segmentation_map_overlay)
+#     cp_idx = 1
+#     for cp in cross_polars:
+#         print("CREATING CP SEGMENTION MAP "+str(cp_idx)+"/"+str(len(cross_polars))+"...")
+#         # downscale by 1/4
+#         cp_with_segmentation_map_overlay, cp_segmentation_map = process_image_with_sam_model(cv2.resize(cp, (cp.shape[1] //4, cp.shape[0] // 4), interpolation=cv2.INTER_CUBIC))
+#         segmentation_maps.append(cp_segmentation_map.copy())
+#         segmentation_map_overlays.append(cp_with_segmentation_map_overlay)
 
-        Image.fromarray(cv2.resize(cp_segmentation_map, (cp.shape[1] , cp.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_cross_polar_segmentation_map_"+str(cp_idx)+".png"))
-        cp_idx += 1
+#         Image.fromarray(cv2.resize(cp_segmentation_map, (cp.shape[1] , cp.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_cross_polar_segmentation_map_"+str(cp_idx)+".png"))
+#         cp_idx += 1
 
-    # show_images(segmentation_map_overlays, "Segmentation Map Overlays", pause_to_display_images)
+#     # show_images(segmentation_map_overlays, "Segmentation Map Overlays", pause_to_display_images)
 
-# create edge map:
-edge_map = create_composite_edge_map(segmentation_maps)
-Image.fromarray(cv2.resize(edge_map, (lin_polar.shape[1] , lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_edge_map.png"))
+# # create edge map:
+# edge_map = create_composite_edge_map(segmentation_maps)
+# Image.fromarray(cv2.resize(edge_map, (lin_polar.shape[1] , lin_polar.shape[0]), interpolation=cv2.INTER_NEAREST)).save(os.path.join(folder_path, folder_name+"_edge_map.png"))
 
 
 # print("DETECTING EDGES...")

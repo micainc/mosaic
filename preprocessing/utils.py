@@ -124,3 +124,21 @@ def get_image_with_substring_if_exists(file_paths, folder_path, substring_to_mat
         # print uppercase
         print(substring_to_match.upper() + " NOT FOUND.")
         return None
+    
+    
+def save_image_as_jpg(img_array, old_img_path, new_img_path):
+    """
+    Saves the image array as a JPG file with the highest quality.
+    If the original image is a PNG, it ensures conversion to JPG.
+    
+    :param img_array: Numpy array of the image to be saved
+    :param old_img_path: Path of the old image to be replaced
+    :param new_img_path: New file path for saving the image
+    """
+    # Save the image as JPG with highest quality
+    jpg = Image.fromarray(img_array).convert('RGB')
+    jpg.save(new_img_path, 'JPEG', quality=100)
+    # Remove the old image file if it's different from the new file
+    if old_img_path != new_img_path:
+        os.remove(old_img_path)
+    return jpg
