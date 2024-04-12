@@ -23,13 +23,13 @@
             </div>
             <div id="toolbar-right">
                 <!-- <div id="coords"></div> -->
-                
+                <button id="undo-button" class="parameter-button" onclick="undo()"><img id="undo-img" width="20px" src="./images/undo.png"></button></button>
                 <button id="pencil-button" class="parameter-button tool selected-tool" onclick="selectPencil(this)"><img id="pencil-img" width="20px" src="./images/pencil.png"></button>
                 <button id="fill-button" class="parameter-button tool" onclick="selectFill(this)"><img id="fill-img" width="20px" src="./images/bucket.png"></button>
 
-                <button class="parameter-button" onclick="toggleZoom()"><img id="zoom-img" width="20px" src="./images/zoom_1.png"></button> 
+                <button class="parameter-button" onclick="toggleZoomLevel()"><img id="zoom-img" width="20px" src="./images/zoom_1.png"></button> 
 
-                <input class="slider" id="cursor-size-slider" type="range" min="10" max="200" value="10">
+                <input class="slider" id="cursor-size-slider" type="range" min="5" max="100" value="10">
 
                 <div class="toolbar-list" id="loadouts">
                     <div class="items hidden"></div>

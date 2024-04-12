@@ -1,7 +1,6 @@
 var originX = 0;
 var originY = 0;
-var zoom = false;
-
+var zoom = 0;
 
 var offsetX = 0;
 var offsetY = 0;
@@ -46,6 +45,8 @@ var currentImage = '';
 var image_track_filled = new Set()
 var undoHistory = [];
 const MAX_HISTORY_SIZE = 10;
+const origin = { x: 0, y: 0 };
+
 
 function init() {
     draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height);
@@ -153,20 +154,34 @@ function init() {
     draw_canvas.addEventListener("dragenter", catchDrag);
     draw_canvas.addEventListener("dragover", catchDrag);
     draw_canvas.addEventListener("drop", dropFiles);
+
+    let zoomActivated = false;
     document.addEventListener('keydown', function(event) {
+        console.log("KEY: ", event.key)
+
         if (event.code === 'Space') {
             event.preventDefault()
             draw_canvas.style.opacity = '0';
         }
 
+        // s for 'see segmentation'
+        if (event.key === 's') {
+            event.preventDefault()
+            draw_canvas.style.opacity = '1';
+        }
+
+        // ctrl z: undo
         if (event.ctrlKey && event.key === 'z') {
             undo();
+        } else if(event.key === 'z' && !zoomActivated) { // zoom
+            zoomActivated = true;
+            toggleZoomLevel();
+            ;
         }
 
         var searchBox = document.getElementsByClassName('search-box')[0]
         console.log(searchBox.style.display)
         if (searchBox.style.display !== 'block') {
-            console.log("KEY: ", event.key)
             if (event.key === 'ArrowRight' || event.key === 'd') {
                 cycleImage(1);
             }
@@ -185,14 +200,17 @@ function init() {
     });
     // Event listener for keyup
     document.addEventListener('keyup', function(event) {
-        if (event.code === 'Space') {
-            event.preventDefault()
+        event.preventDefault()
+
+        if (event.code === 'Space' || event.key === 's') {
             draw_canvas.style.opacity = '0.5';
+        } else if (!event.ctrlKey && event.key === 'z' && zoomActivated) { // ZOOM
+            toggleZoomLevel();
+            zoomActivated= false;
         }
     });
 
     function updateCursor(event) {
-
         const rect = draw_canvas.getBoundingClientRect();
         
         if(event.type === 'scroll') {
@@ -232,7 +250,17 @@ function init() {
         // get colour of drawCanvas at mouse position
         var imageData = draw_ctx.getImageData(mouseX, mouseY, 1, 1);
         var pixel = imageData.data;
-        // get colour as hex string
+        var inverted = rgbToHex(255-pixel[0], 255-pixel[1], 255-pixel[2])
+        var pixelHex = rgbToHex(pixel[0], pixel[1], pixel[2]); // get colour as hex string
+
+        if(active.colour === pixelHex) {
+            // invert the colour of the cursor itself
+            $('#cursor').css("border-color", inverted)
+        } else {
+            $('#cursor').css("border-color", active.colour)
+
+        }
+        
 
         var pixelHex = rgbToHex(pixel[0], pixel[1], pixel[2]);
         // console.log("HEX: ", hex)
@@ -246,7 +274,6 @@ function init() {
                 $('#cursor-text').css("display", "none")
             } else if(active.colour !== pixelHex) {
                 var label = colourLabelMap[pixelHex]
-                var inverted = rgbToHex(255-pixel[0], 255-pixel[1], 255-pixel[2])
                 
                 drawColors.find((h, idx) => {
                     if(h === pixelHex) {
@@ -261,6 +288,9 @@ function init() {
             }
             hoveredColour = pixelHex
         }
+        // let posX = mouseX / image_canvas.width;
+        // let posY = mouseY / image_canvas.height;
+        // console.log("UPDATED CURSOR POS: " + Math.round(1000*posX)/10 + ", " + Math.round(1000*posY)/10)
     }
     
     window.addEventListener('mousemove', (event) => {
@@ -294,7 +324,8 @@ function init() {
         console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
     });
 
-    window.requestAnimationFrame(draw);
+
+    window.requestAnimationFrame(draw); // start animating cursor movements
 }
 
 function drawLoopCenters(loops) {
@@ -604,17 +635,58 @@ document.getElementById('cursor-size-slider').addEventListener('input', function
     cursor.style.height = drawDiameter+"px";
 })
 
-function toggleZoom() {
-    console.log(zoom)
-    zoom = !zoom;
-    if(zoom) {
+// Function to update the transformation of the canvas based on the scale and origin
+function updateTransform() {
+}
+
+let savedScrollStateX = 0
+let savedScrollStateY = 0
+
+function setZoomLevel(z) {
+    if (z === zoom) return; // Exit if no change in zoom state
+
+    console.log("SET ZOOM LEVEL");
+
+    // Calculate relative positions of the cursor
+    let posX = mouseX / image_canvas.width;
+    let posY = mouseY / image_canvas.height;
+    console.log("UPDATED CURSOR POS: " + Math.round(1000 * posX) / 10 + ", " + Math.round(1000 * posY) / 10);
+
+    if (z === 1) {
+        $(".mosaic-canvas").css({"width":"max-content"}); // Set width to max content
+        zoom = 1;
+
+        // Calculate new absolute positions based on the current size of the canvas
+        const newWidth = $(".mosaic-canvas").width();
+        const newHeight = $(".mosaic-canvas").height();
+
+        savedScrollStateX = scrollX
+        savedScrollStateY = scrollY
+
+        const scrollToX = posX * newWidth - window.innerWidth / 2;
+        const scrollToY = posY * newHeight - window.innerHeight / 2;
+
+        window.scrollTo({
+            top: scrollToY,
+            left: scrollToX,
+        });
         $("#zoom-img").attr("src","./images/zoom_2.png");
-        $(".mosaic-canvas").css({"width":"max-content"});
-    } else {
+
+    } else if (z === 0) { // Zoom out
+        $(".mosaic-canvas").css({"width":"100%"}); // Reset width
+        window.scrollTo(savedScrollStateX, savedScrollStateY); // Scroll back to top
+        zoom = 0;
         $("#zoom-img").attr("src","./images/zoom_1.png");
-        $(".mosaic-canvas").css({"width":"100%"});
-        window.scrollTo(0, 0)
     }
+}
+
+function toggleZoomLevel() {
+    if(zoom === 1){
+        setZoomLevel(0)
+    } else {
+        setZoomLevel(1)
+    }
+
 }
 
 //------------------------------------------------------ LOAD DROPPED IMAGES ------------------------------------------------------//
@@ -642,19 +714,19 @@ function dropFiles(event) {
             }
         })
 
-        let drawFile = null
+        let segmentationLayer = null
         const imagePromises = files.map(file => {
             if (file.name.includes("edge_map") || file.name.includes("segmentation_map")) {
                 //return processEdgeOrSegmentationMap(file);
-                drawFile = file;
+                segmentationLayer = file;
             } else {
                 return processImageFile(file);
             }
         });
 
         Promise.all(imagePromises).then(() => {
-            if(drawFile !== null) {
-                processEdgeOrSegmentationMap(drawFile);
+            if(segmentationLayer !== null) {
+                processEdgeOrSegmentationMap(segmentationLayer);
             }
             console.log("SHOULD ERASE DRAW LAYER? ", should_erase_draw_layer)
             updateCurrentImage();

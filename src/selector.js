@@ -281,7 +281,6 @@ function filterLabels() {
   }
 }
 
-
 function resetSearch() {
   console.log("resetSearch()")
   // empty search box
