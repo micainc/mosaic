@@ -268,7 +268,7 @@ ipcMain.handle('set_file_path', async (event, args) => {
     properties: ['openDirectory', 'createDirectory'],
   }
   
-  if(args['type'] == 'save' && saveDirectory == '') {
+  if(args['type'] == 'save') {
     await dialog.showOpenDialog(win, save_dialog_options).then((result) => {
       if(typeof result['filePaths'][0]  !== 'undefined') {
         
@@ -283,8 +283,8 @@ ipcMain.handle('set_file_path', async (event, args) => {
         });
         saveDirectory = result['filePaths'][0] + "/"+ identifier
 
-        let code = `document.getElementById("save-path").innerHTML = "&nbsp; ${saveDirectory}"`;
-        win.webContents.executeJavaScript(code);
+        // let code = `document.getElementById("save-path").innerHTML = "&nbsp; ${saveDirectory}"`;
+        // win.webContents.executeJavaScript(code);
       }
     });
   } 
