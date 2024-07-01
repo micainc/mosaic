@@ -979,7 +979,6 @@ function findRegions() {
     }
     console.log("FOUND REGIONS ("+regions.length+"): ", regions)
     saveRegions()
-
 }
 
 function getCommonSubstring(strings) {
