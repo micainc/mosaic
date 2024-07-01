@@ -73,7 +73,9 @@ function initLoadoutList(loadouts) {
 
 }
 function mapLabelsToColors(labelNames, drawColors) {
-  const colourLabelMap = {};
+  const colourLabelMap = {"#00000000": "undefined", "undefined": "#00000000", "#7F7F7F": "unknown", "unknown": '#7F7F7F'}; // auto initialize 'undefined' and 'unknown' categories
+  // const colourLabelMap = {}; // auto initialize 'edges' and 'unknown' categories
+
   const sortedLabelNames = [...labelNames].sort(); // Create a sorted copy of labelNames
 
   for (const labelName of sortedLabelNames) {
@@ -104,15 +106,17 @@ function hashCode(str) {
 }
 
 function initLabelList(labels) {
-  console.log("initLabelList(): ", labels)
 
   colourLabelMap = mapLabelsToColors(labels, drawColors);
-  console.log("COLOUR LABEL MAP: ", colourLabelMap)
+  console.log("COLOUR <-> LABEL MAP: ", colourLabelMap)
   // colour_mapped_labels = mapLabelsToColors(labels)
   // console.log("COLOURED LABELS: ", colour_mapped_labels)
   // Initialize the 'items' list for holding label objects
   var items = $("#labels .items")[0]
-  for(const label of labels) {
+  for(const label of colourLabelMap ) {
+    // if(label.contains("#")) {
+    //   continue;
+    // }
     // if (labels.hasOwnProperty(label)) {    // Make sure the property belongs to the object itself, not its prototype
       var item = document.createElement("DIV");
       const color = colourLabelMap[label];
