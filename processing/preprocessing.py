@@ -13,12 +13,18 @@ from skimage.io import imread
 import matplotlib.pyplot as plt
 from kneed import KneeLocator
 from sklearn.metrics import pairwise_distances_argmin
+from skimage.registration import phase_cross_correlation
+from skimage.feature import ORB, match_descriptors
+from skimage.transform import EuclideanTransform, warp
+from scipy import ndimage as ndi
 
 from edge_detection import create_composite_edge_map, overlay_edges_on_image
 from contouring import mark_area_on_image_which_resemble_color_scheme
 
 from utils import show_images, resize_images, normalize_image, get_images_with_substring, get_image_with_substring_if_exists, save_image_as_jpg
 from itertools import combinations
+
+from alignment import *
 
 
 # install the following packages if not already installed:
@@ -98,10 +104,9 @@ def get_images(folder_path, identifier):
                 with Image.open(img_path) as img:
                     # Convert the image to RGB mode (removes the alpha channel if present)
                     img = img.convert('RGB')
-                    arr = np.array(img)
-
-                    aligned_image = align_images(arr, lin_polar)
-                    
+                    img = np.array(img)
+                    # show_images([img, lin_polar], 'input, ref')
+                    aligned_image = align_images(img, lin_polar)
                     aligned_img_name = os.path.join(folder_path, f"{identifier}_aligned_cp_{i}.jpg")
                     Image.fromarray(aligned_image).save(aligned_img_name, format='JPEG', quality=100)
                     
@@ -157,37 +162,8 @@ def get_images(folder_path, identifier):
     #downscale seg maps by 1/4
     segmentation_maps = [cv2.resize(sm, (sm.shape[1] //4, sm.shape[0] // 4), interpolation=cv2.INTER_NEAREST) for sm in segmentation_maps]
 
-#align images
-def align_images(img, reference, blend_width=100):
-    """Aligns images using phase correlation and blends the boundaries."""
 
-    # Ensure the images are in the same orientation
-    if img.shape != reference.shape:
-        img = np.transpose(img, (1, 0, 2))
 
-    dft_ref = np.fft.fft2(reference[:,:,0])
-    dft_img = np.fft.fft2(img[:,:,0])
-    cross_power_spectrum = dft_ref * np.conj(dft_img)
-    r0 = np.fft.ifft2(cross_power_spectrum / (abs(cross_power_spectrum) + 1e-5))
-    
-    shift = np.unravel_index(np.argmax(r0), r0.shape)
-    shift = tuple((s if s < r0.shape[i] // 2 else s - r0.shape[i]) for i, s in enumerate(shift))
-    
-    aligned = np.roll(img, shift, axis=(0,1))
-    
-    # Create a linear gradient mask
-    rows, cols, _ = aligned.shape
-    mask = np.ones((rows, cols))
-
-    mask[:blend_width] = np.linspace(0, 1, blend_width)[:, None]
-    mask[-blend_width:] = np.linspace(1, 0, blend_width)[:, None]
-    mask[:, :blend_width] *= np.linspace(0, 1, blend_width)
-    mask[:, -blend_width:] *= np.linspace(1, 0, blend_width)
-
-    # Blend using the mask
-    blended = aligned * mask[:,:,None] + img * (1 - mask[:,:,None])
-    
-    return blended.astype(np.uint8)
 
 def create_composite(arrays):
     stacked = np.stack(arrays)

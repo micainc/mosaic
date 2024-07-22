@@ -149,7 +149,7 @@ while regions:
         merged_regions.append(current)
 
 # Create output directory
-output_dir = os.path.join(folder_path, folder_name+"_grains")
+output_dir = os.path.join(folder_path, folder_name)
 if os.path.exists(output_dir):
     # Remove the directory if it exists
     for file in os.listdir(output_dir):
