@@ -126,7 +126,7 @@ def get_image_with_substring_if_exists(file_paths, folder_path, substring_to_mat
         return None
     
     
-def save_image_as_jpg(img_array, old_img_path, new_img_path):
+def save_image_as_png(img_array, old_img_path, new_img_path):
     """
     Saves the image array as a JPG file with the highest quality.
     If the original image is a PNG, it ensures conversion to JPG.
@@ -136,9 +136,9 @@ def save_image_as_jpg(img_array, old_img_path, new_img_path):
     :param new_img_path: New file path for saving the image
     """
     # Save the image as JPG with highest quality
-    jpg = Image.fromarray(img_array).convert('RGB')
-    jpg.save(new_img_path, 'JPEG', quality=100)
+    png = Image.fromarray(img_array).convert('RGB')
+    png.save(new_img_path, 'PNG', quality=100)
     # Remove the old image file if it's different from the new file
     # if old_img_path != new_img_path:
     #     os.remove(old_img_path)
-    return jpg
+    return png

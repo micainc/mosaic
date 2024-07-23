@@ -21,7 +21,7 @@ from scipy import ndimage as ndi
 from edge_detection import create_composite_edge_map, overlay_edges_on_image
 from contouring import mark_area_on_image_which_resemble_color_scheme
 
-from utils import show_images, resize_images, normalize_image, get_images_with_substring, get_image_with_substring_if_exists, save_image_as_jpg
+from utils import show_images, resize_images, normalize_image, get_images_with_substring, get_image_with_substring_if_exists, save_image_as_png
 from itertools import combinations
 
 from alignment import *
@@ -50,7 +50,6 @@ def get_images(folder_path, identifier):
     global lin_polar
     global reflected
     global cross_polars
-    global sobel
     global composite
     global segmentation_maps
     # global blurred_images
@@ -78,21 +77,21 @@ def get_images(folder_path, identifier):
         with Image.open(composite_path) as img:
             composite = np.array(img)
 
-    # get the sobel image, if it exists
-    sobel = get_image_with_substring_if_exists(all_files, folder_path, 'sobel') 
-
     temp_dict = {}
 
     aligned_cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'aligned_cp' in f] 
+    
     if len(aligned_cps) > 0:
         # we have aligned cross polar images previously; just use these
         for cp in aligned_cps:
             img_path = os.path.join(folder_path, cp)
 
             with Image.open(img_path) as img:
+                img = img.convert('RGB')
                 arr = np.array(img)
                 temp_dict[cp] = arr
     else:
+        print("NO ALIGNED CROSS POLARS DETECTED...")
         # Filter for non-aligned cross-polar images: ignore all processed images
         cps = [f for f in all_files if f.endswith(('.tif', '.png', 'jpg', '.jpeg', '.JPG')) and 'composite' not in f and 'lin' not in f and 'ref' not in f and 'sobel' not in f and 'segmentation_map' not in f and 'edge_map' not in f and 'variance' not in f and 'difference' not in f and 'texture' not in f and 'beauty' not in f]
         # For storing the cross-polarized images
@@ -100,37 +99,32 @@ def get_images(folder_path, identifier):
         for i, cp in enumerate(cps, start=1):
             img_path = os.path.join(folder_path, cp)
             if 'aligned' not in cp:
-                print(cp + " NOT ALIGNED")
+                print("ALIGNING " + cp + "...")
                 with Image.open(img_path) as img:
                     # Convert the image to RGB mode (removes the alpha channel if present)
                     img = img.convert('RGB')
                     img = np.array(img)
                     # show_images([img, lin_polar], 'input, ref')
                     aligned_image = align_images(img, lin_polar)
-                    aligned_img_name = os.path.join(folder_path, f"{identifier}_aligned_cp_{i}.jpg")
-                    Image.fromarray(aligned_image).save(aligned_img_name, format='JPEG', quality=100)
+                    aligned_img_name = os.path.join(folder_path, f"{identifier}_aligned_cp_{i}.png")
+                    Image.fromarray(aligned_image).save(aligned_img_name, format='PNG', quality=100)
                     
                     # Delete the original image
                     # os.remove(img_path)
                     
-                    temp_dict[f"{identifier}_aligned_{i}.jpg"] = aligned_image
-            else:
-                print("CPs ALIGNED. FETCHING...")
-                # If the image is already aligned, just read it and add to the dictionary
-                with Image.open(img_path) as img:
-                    arr = np.array(img)
-                    temp_dict[f"{identifier}_aligned_cp_{i}.jpg"] = arr
+                    temp_dict[f"{identifier}_aligned_cp_{i}.png"] = aligned_image
+
 
     cross_polars = list(temp_dict.values())
-
+    print("CROSS POLARS: ", temp_dict.keys())
 
     # Rename and save lin_polar image
-    old_lin_file = next((f for f in all_files if 'lin' in f and f.endswith(('.tif', '.png', '.jpg', '.jpeg', '.JPG'))), None)
+    old_lin_file = next((f for f in all_files if 'lin' in f and 'aligned' not in f and f.endswith(('.tif', '.png', '.jpg', '.jpeg', '.JPG'))), None)
     if old_lin_file:
         old_lin_img_path = os.path.join(folder_path, old_lin_file)
-        new_lin_file_name = f'{identifier}_lin.jpg'
+        new_lin_file_name = f'{identifier}_aligned_lin.png'
         new_lin_file_path = os.path.join(folder_path, new_lin_file_name)
-        save_image_as_jpg(lin_polar, old_lin_img_path, new_lin_file_path)
+        save_image_as_png(lin_polar, old_lin_img_path, new_lin_file_path)
 
     if reflected is not None:
             
@@ -147,9 +141,9 @@ def get_images(folder_path, identifier):
                 reflected = align_images(reflected, lin_polar)
 
                 old_ref_img_path = os.path.join(folder_path, old_ref_file)
-                new_ref_file_name = f'{identifier}_aligned_ref.jpg'
+                new_ref_file_name = f'{identifier}_aligned_ref.png'
                 new_ref_file_path = os.path.join(folder_path, new_ref_file_name)
-                reflected = save_image_as_jpg(reflected, old_ref_img_path, new_ref_file_path)
+                reflected = save_image_as_png(reflected, old_ref_img_path, new_ref_file_path)
 
 
     # # get ms_bfs, if they exist
@@ -161,16 +155,6 @@ def get_images(folder_path, identifier):
     segmentation_maps = get_images_with_substring(all_files, folder_path, 'segmentation_map')
     #downscale seg maps by 1/4
     segmentation_maps = [cv2.resize(sm, (sm.shape[1] //4, sm.shape[0] // 4), interpolation=cv2.INTER_NEAREST) for sm in segmentation_maps]
-
-
-
-
-def create_composite(arrays):
-    stacked = np.stack(arrays)
-    # For every pixel, get the maximum value across all images
-    composite = np.max(stacked, axis=0)
-    return composite  # convert back to uint8 type
-
 
 def create_sobel(image):
     # Convert the image to HSV
@@ -458,8 +442,8 @@ get_images(folder_path, folder_name)
 ###### CREATE BRIGHT COMPOSITE ######
 if len(composite) == 0:
     print("GENERATING COMPOSITE...")
-    composite = np.max(np.stack(cross_polars), axis=0)
-    Image.fromarray(composite).save(os.path.join(folder_path, folder_name+"_composite.jpg"), quality=100)
+    composite = normalize_image(np.max(np.stack(cross_polars), axis=0))
+    Image.fromarray(composite).save(os.path.join(folder_path, folder_name+"_composite.png"), quality=100)
 
 
 ###### CREATE VARIANCE FROM CROSS POLARS ######
@@ -467,36 +451,29 @@ cross_polars_32 = [cp.astype(np.float32) for cp in cross_polars]
 lin_polar_32 = lin_polar.astype(np.float32)
 composite_32 = composite.astype(np.float32)
 
-variance = np.std(np.stack(cross_polars_32), axis=0)
-
-print("MIN, MAX VARIANCE: " + str(variance.min()) + " | " + str(variance.max()))
-# variance = normalize_image(variance)
+variance = normalize_image(np.std(np.stack(cross_polars_32), axis=0))
 # show_images([variance], "Variance Map", pause_to_display_images)
-Image.fromarray(normalize_image(variance)).save(os.path.join(folder_path, folder_name+"_variance.jpg"), quality=100)
+Image.fromarray(variance).save(os.path.join(folder_path, folder_name+"_variance.png"), quality=100)
 
 ###### CREATE DIFFERENCE IMG FROM CROSS POLARS ######
 # Get MAX difference between the brightest pixel and the darkest pixel in cross polars
-difference = np.max([composite_32 - cp for cp in cross_polars_32], axis=0)
-print("MIN, MAX DIFF: " + str(difference.min()) + " | " + str(difference.max()))
+difference = normalize_image(np.max([composite_32 - cp for cp in cross_polars_32], axis=0))
 
-Image.fromarray(normalize_image(difference)).save(os.path.join(folder_path, folder_name + "_difference.jpg"), quality=100)
+Image.fromarray(difference).save(os.path.join(folder_path, folder_name + "_difference.png"), quality=100)
 
 ###### CREATE DIFF-VAR MASK ######
 
-diff_subtract_var = normalize_image(normalize_image(difference).astype(np.float32)-normalize_image(variance).astype(np.float32)).astype(np.float32)
-Image.fromarray(normalize_image(diff_subtract_var)).save(os.path.join(folder_path, folder_name + "_difference_subtract_var.jpg"), quality=100)
-print("MIN, MAX DSV: " + str(difference.min()) + " | " + str(difference.max()))
+diff_subtract_var = normalize_image(difference.astype(np.float32)-variance.astype(np.float32))
+Image.fromarray(diff_subtract_var).save(os.path.join(folder_path, folder_name + "_difference_subtract_var.png"), quality=100)
 
 diffs = [composite_32 - cp for cp in cross_polars_32] 
 diff_sobels = [create_rgb_sobel(diff) for diff in diffs] # use create_rgb_sobel(diff, False) to return unsigned sobel map: creates beauty map!
-diff_sobels.append(create_rgb_sobel(diff_subtract_var, False))
-for d in diff_sobels:
-    print("DIFF SOBEL MIN/MAX: " + str(d.min()) + ", " + str(d.max()))
+# diff_sobels.append(create_rgb_sobel(diff_subtract_var))
 
-diff_sobel = np.sum(np.stack(diff_sobels), axis=0) 
+diff_sobel = normalize_image(np.sum(np.stack(diff_sobels), axis=0))
 
 
-Image.fromarray(normalize_image(diff_sobel)).save(os.path.join(folder_path, folder_name+"_rgb_sobel.jpg"), quality=100)
+Image.fromarray(diff_sobel).save(os.path.join(folder_path, folder_name+"_rgb_sobel.png"), quality=100)
 
 def overlay_blend(top, bottom):
     # Ensure inputs are float32 for calculations
@@ -512,19 +489,19 @@ def overlay_blend(top, bottom):
     
     return normalize_image(result)
 
-texture_map = overlay_blend(normalize_image(diff_subtract_var), normalize_image(diff_sobel))
+texture_map = overlay_blend(diff_subtract_var, diff_sobel)
 
 # multiply it by the picture to keep the black edges between grain boundaries
-Image.fromarray(texture_map).save(os.path.join(folder_path, folder_name + "_texture.jpg"), quality=100)
+Image.fromarray(texture_map).save(os.path.join(folder_path, folder_name + "_texture.png"), quality=100)
 
 
 ##### CREATE BEAUTY MAP ######
 beauty_sobels = [create_rgb_sobel(diff, False) for diff in diffs] # use create_rgb_sobel(diff, False) to return unsigned sobel map: creates beauty map!
-beauty_sobels.append(create_rgb_sobel(diff_subtract_var, False)) # in what situations is this not good to use?
+beauty_sobels.append(create_rgb_sobel(diff_subtract_var, False)) # in what situations is diff_sub_var not good to use?
 beauty_sobel = np.std(np.stack(beauty_sobels), axis=0) # std proved cleaner than max, mean
 beauty_map = normalize_image(overlay_blend(normalize_image(beauty_sobel**0.5), normalize_image(diff_subtract_var)))
 # beauty_map = normalize_image(diff_subtract_var + normalize_image(beauty_sobel).astype(np.float32))
-Image.fromarray(beauty_map).save(os.path.join(folder_path, folder_name + "_beauty.jpg"), quality=100)
+Image.fromarray(beauty_map).save(os.path.join(folder_path, folder_name + "_beauty.png"), quality=100)
 
 sys.exit(0)
 
