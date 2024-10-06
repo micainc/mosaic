@@ -1,20 +1,22 @@
 var originX = 0;
 var originY = 0;
-var zoom = false;
+var zoom = 0;
 
-var mouseX = 0;
-var mouseY = 0;
+var offsetX = 0;
+var offsetY = 0;
 var scrollX = 0;
 var scrollY = 0;
-leftClicked = false;
-rightClicked = false;
+var mouseX = 0;
+var mouseY = 0;
+var leftClicked = false;
+var rightClicked = false;
 var drawDiameter = 10; // diameter
 var drawPath = []
 var loadouts = {}
 
 const image_canvas = document.getElementById('image-canvas')
 const draw_canvas = document.getElementById('draw-canvas')
-const save_canvas = document.getElementById('temp-canvas')
+const save_canvas = document.getElementById('save-canvas')
 
 image_canvas.width = window.innerWidth;
 image_canvas.height = window.innerHeight;
@@ -30,28 +32,45 @@ var save_ctx = save_canvas.getContext('2d');
 //draw_ctx.imageSmoothingEnabled= false
 //save_ctx.imageSmoothingEnabled= false
 
-var cursor = document.querySelector('.cursor');
+var cursor = document.getElementById('cursor');
 cursor.style.width = drawDiameter+"px";
 cursor.style.height = drawDiameter+"px";
 
-var activeColour = "#FF0000" // opaque red
+var active = {'colour': "#000000", 'label': ""}
+var hoveredColour = "#000000"
 var floodStack = []
 
-var images = {}
+var images = {} // image layers used by MOSAIC
 var currentImage = '';
 var image_track_filled = new Set()
 var undoHistory = [];
 const MAX_HISTORY_SIZE = 10;
+const origin = { x: 0, y: 0 };
 
-// Multi Image Classification And Segmentation : MICAS
 
 function init() {
+
+    document.getElementById('cursor-size-slider').addEventListener('input', function(e) {
+        //console.log("sliding: ", e.target.value)
+        drawDiameter = Number(e.target.value);
+        cursor.style.width = drawDiameter+"px";
+        cursor.style.height = drawDiameter+"px";
+    })
+    
+    document.getElementById('cursor-size-slider').addEventListener('input', function(e) {
+        //console.log("sliding: ", e.target.value)
+        drawDiameter = Number(e.target.value);
+        cursor.style.width = drawDiameter+"px";
+        cursor.style.height = drawDiameter+"px";
+    })
+
     draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height);
     save_ctx.fillStyle = "#000000"; // flood with black
 
     //save_ctx.globalCompositeOperation = 'source-over'
 
     draw_canvas.addEventListener('mousedown', function(e) {
+        $('#cursor-text').css("display", "none")
         if (e.button === 0) {
             leftClicked = true;
             // push starting point of draw path
@@ -83,7 +102,7 @@ function init() {
                         // then: either flood the area, or draw that erased point back
                         draw_ctx.globalCompositeOperation = 'source-over'
                         if(flood(mouseX, mouseY)) {
-                            flood(mouseX, mouseY, activeColour)
+                            flood(mouseX, mouseY, active.colour)
                         } else {
                             fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
                         }
@@ -104,21 +123,12 @@ function init() {
     })
 
     draw_canvas.addEventListener("mouseleave", function(e) {
+        document.getElementById('cursor').style.display = "none";
         switch (selectedTool) {
             case Tools.pencil:
                 if(leftClicked) {
                     drawPath.push({x: mouseX, y: mouseY}); // finish drawPath
                     drawPath = fillGaps(drawPath); // algorithmically fills gaps in the draw path to create a solid continuous line 
-                    /*
-                    console.log("DRAW PATH: ", drawPath)
-                    var loops = findLoopsInPath(drawPath, drawDiameter)         
-                    console.log("LOOPS: ", loops)   
-                    */
-        
-                    /*
-                    var res = findClosedLoops(drawPath);
-                    fillLoops(res[0])
-                    */
                     
                 }
                 break;
@@ -134,59 +144,158 @@ function init() {
         rightClicked = false;
     })
 
+    draw_canvas.addEventListener("mouseenter", function(e) {
+        document.getElementById('cursor').style.display = "block";
+    })
+
+    document.getElementById('cursor-size-slider').addEventListener('mouseenter', function(e) {
+        document.getElementById('cursor').style.display = "block";
+    })
+
+    document.getElementById('cursor-size-slider').addEventListener('mouseleave', function(e) {
+        document.getElementById('cursor').style.display = "none";
+    })
+
     draw_canvas.addEventListener("dragenter", catchDrag);
     draw_canvas.addEventListener("dragover", catchDrag);
     draw_canvas.addEventListener("drop", dropFiles);
+
+    let zoomActivated = false;
     document.addEventListener('keydown', function(event) {
+        console.log("KEY: ", event.key)
+
         if (event.code === 'Space') {
             event.preventDefault()
             draw_canvas.style.opacity = '0';
         }
 
+        // s for 'see segmentation'
+        if (event.key === 's') {
+            event.preventDefault()
+            draw_canvas.style.opacity = '1';
+        }
+
+        // ctrl z: undo
         if (event.ctrlKey && event.key === 'z') {
             undo();
+        } else if(event.key === 'z' && !zoomActivated) { // zoom
+            zoomActivated = true;
+            toggleZoomLevel();
+            ;
         }
 
-        if (event.key === 'ArrowRight' || event.key === 'd') {
-            cycleImage(1);
-        }
+        var searchBox = document.getElementsByClassName('search-box')[0]
+        console.log(searchBox.style.display)
+        if (searchBox.style.display !== 'block') {
+            if (event.key === 'ArrowRight' || event.key === 'd') {
+                cycleImage(1);
+            }
 
-        if (event.key === 'ArrowLeft' || event.key === 'a') {
-            cycleImage(-1);
+            if (event.key === 'ArrowLeft' || event.key === 'a') {
+                cycleImage(-1);
+            }
+        } else {
+            if(event.key === 'Escape') {
+                //blur searchbox
+                searchBox.blur()
+
+
+            }
         }
     });
     // Event listener for keyup
     document.addEventListener('keyup', function(event) {
-        if (event.code === 'Space') {
-            event.preventDefault()
+        event.preventDefault()
+
+        if (event.code === 'Space' || event.key === 's') {
             draw_canvas.style.opacity = '0.5';
+        } else if (!event.ctrlKey && event.key === 'z' && zoomActivated) { // ZOOM
+            toggleZoomLevel();
+            zoomActivated= false;
         }
     });
 
     function updateCursor(event) {
-        const rect = image_canvas.getBoundingClientRect();
+        const rect = draw_canvas.getBoundingClientRect();
         
-        // Calculate the adjusted mouseX and mouseY with respect to the canvas's position and scale.
-        mouseX = Math.round((event.clientX - rect.left) * image_canvas.width / image_canvas.clientWidth);
-        mouseY = Math.round((event.clientY - rect.top) * image_canvas.height / image_canvas.clientHeight);
-        
-        // Update the cursor's position.
-        cursor.style.transform = `translate(${event.clientX + window.scrollX - drawDiameter/2}px, ${event.clientY + window.scrollY - drawDiameter/2}px)`;
-    
+        if(event.type === 'scroll') {
+            // console.log(event)
+
+            scrollX = document.documentElement.scrollLeft || document.body.scrollLeft;
+            scrollY = document.documentElement.scrollTop || document.body.scrollTop;
+            console.log("SCROLL X/Y: ", scrollX+ ", " +scrollY)
+            cursor.style.transform = `translate(${offsetX+scrollX - drawDiameter/2}px, ${offsetY+scrollY - drawDiameter/2}px)`;
+
+        } else {
+            offsetX = event.clientX;
+            offsetY = event.clientY;
+            //console.log("OFFSET X/Y: ", offsetX+ ", " +offsetY)
+            // Calculate the adjusted mouseX and mouseY with respect to the canvas's position and scale.
+            mouseX = Math.round((event.clientX - rect.left) * image_canvas.width / image_canvas.clientWidth);
+            mouseY = Math.round((event.clientY - rect.top) * image_canvas.height / image_canvas.clientHeight);
+            cursor.style.transform = `translate(${event.clientX + scrollX - drawDiameter/2}px, ${event.clientY + scrollY - drawDiameter/2}px)`;
+
+        }
+
+        // Update coordinates text.
+        $('#coords').text(mouseX + ", " + mouseY);
+
         // Function to compare the current point with the last point
         function isDistinct(p1, p0) {
             let dx = p1.x - p0.x
             let dy = p1.y - p0.y
             return Math.sqrt(dx * dx + dy * dy) > drawDiameter;
         }
-
+    
         // If the mouse is being pressed, check if the last point is different from the current point before pushing
         if(leftClicked && isDistinct({x: mouseX, y: mouseY}, drawPath[drawPath.length - 1])) {
             drawPath.push({x: mouseX, y: mouseY});
         }
+
+        // get colour of drawCanvas at mouse position
+        var imageData = draw_ctx.getImageData(mouseX, mouseY, 1, 1);
+        var pixel = imageData.data;
+        var inverted = rgbToHex(255-pixel[0], 255-pixel[1], 255-pixel[2])
+        var pixelHex = rgbToHex(pixel[0], pixel[1], pixel[2]); // get colour as hex string
+
+        if(active.colour === pixelHex) {
+            // invert the colour of the cursor itself
+            $('#cursor').css("border-color", inverted)
+        } else {
+            $('#cursor').css("border-color", active.colour)
+
+        }
+        
+
+        var pixelHex = rgbToHex(pixel[0], pixel[1], pixel[2]);
+        // console.log("HEX: ", hex)
+        // console.log("ACTIVE: ", active.colour)
+
+        // if we have traversed onto a NEW COLOUR on the segmentation map:
+        if(leftClicked) {
+            $('#cursor-text').css("display", "none")
+        } else if(hoveredColour !== pixelHex) {
+            if(pixelHex === "#000000" || pixelHex === "#7F7F7F") {
+                $('#cursor-text').css("display", "none")
+            } else if(active.colour !== pixelHex) {
+                var label = colourLabelMap[pixelHex]
+                
+                drawColors.find((h, idx) => {
+                    if(h === pixelHex) {
+                        $('#cursor-text').css("display", "block")
+                        $('#cursor-text').css("color", inverted)
+                        $('#cursor-text').text(label);
+                    }
+                })
     
-        // Update coordinates text.
-        $('#coords').text(mouseX + ", " + mouseY);
+            } else if(active.colour === pixelHex){
+                $('#cursor-text').css("display", "none")
+            }
+            hoveredColour = pixelHex
+        }
+        // let posX = mouseX / image_canvas.width;
+        // let posY = mouseY / image_canvas.height;
+        // console.log("UPDATED CURSOR POS: " + Math.round(1000*posX)/10 + ", " + Math.round(1000*posY)/10)
     }
     
     window.addEventListener('mousemove', (event) => {
@@ -203,7 +312,7 @@ function init() {
     window.api.invoke('get_loadouts')
     .then(function(loadouts) {
         console.log("LOADOUTS: ", loadouts)
-        setLoadoutList(loadouts)
+        initLoadoutList(loadouts)
         /*
         for (var [loadout] of Object.entries(loadouts) ) {
             $("#loadouts > select").append('<option value='+loadout+'>'+loadouts[loadout]['name']+'</option>');
@@ -212,16 +321,32 @@ function init() {
         for (const [label, label_data] of Object.entries(Object.values(loadouts)[0]['labels'])) {
             $("#labels > select").append('<option value='+label+'>'+label_data['name']+'</option>');
         }
-        initializeItemList(changeColour, document.getElementById('loadouts'));
-        initializeItemList(changeColour, document.getElementById('labels'));
+        initializeItemList(changeActive, document.getElementById('loadouts'));
+        initializeItemList(changeActive, document.getElementById('labels'));
         */
 
     }).catch(function(err) {
         console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
     });
 
-    window.requestAnimationFrame(draw);
+    
+    window.requestAnimationFrame(draw); // start animating cursor movements
 }
+
+async function handleApplyClassifier() {
+    console.log("APPLYING CLASSIFIER")
+    try {
+      const result = await window.api.applyClassifier(images);
+      if (result.success) {
+        console.log('Classifier applied successfully:', result.predictions);
+        // Handle the predictions here
+      } else {
+        console.error('Error applying classifier:', result.error);
+      }
+    } catch (error) {
+      console.error('Error calling classifier:', error);
+    }
+  }
 
 function drawLoopCenters(loops) {
     for(var l = 0; l< loops.length; l++) {
@@ -236,12 +361,12 @@ function drawLoopCenters(loops) {
         y /= loop.length;
         draw_ctx.fillStyle = "#00FF00"
         fillRegion(draw_ctx, x, y)
-        draw_ctx.fillStyle = activeColour
+        draw_ctx.fillStyle = active.colour
     }
 }
 
 function fillGaps(path) {
-    draw_ctx.fillStyle = activeColour;
+    draw_ctx.fillStyle = active.colour;
     draw_ctx.imageSmoothingEnabled = false; // Disable anti-aliasing to draw sharp circles
 
     // Calculate line width based on draw size and scaling factor, ensure it's not anti-aliased
@@ -373,48 +498,6 @@ function findLoopsInPath(path, margin) {
     return loops; // Return all loops found
 }
 
-
-function findClosedLoops(path) {
-    var boundingBox = getBoundingBox(path);
-    
-    console.log(boundingBox)
-    var loopCenters = [];
-    var rows = 7;
-    var cols = 7;
-    var cellWidth = (boundingBox.right - boundingBox.left) / cols;
-    var cellHeight = (boundingBox.bottom - boundingBox.top) / rows;
-
-    for (var r = 0; r < rows; r++) {
-        for (var c = 0; c < cols; c++) {
-            var testX = Math.floor(boundingBox.left + c * cellWidth + cellWidth / 2);
-            var testY = Math.floor(boundingBox.top + r * cellHeight + cellHeight / 2);
-
-            var data = draw_ctx.getImageData(testX, testY, 1, 1).data;
-            var col = rgbToHex(data[0], data[1], data[2]);
-
-            // if canvas not painted
-            if (col != activeColour) {
-                const start = Date.now();
-
-                if (flood(testX, testY)) { 
-                    const end = Date.now();
-                    console.log(`LOOP FIND EXECUTION TIME: ${end - start} ms`);
-                    loopCenters.push({ 'x': testX, 'y': testY });
-                }
-            }
-        }
-    }
-
-    return [loopCenters, {
-        'top': boundingBox.top - drawDiameter,
-        'left': boundingBox.left - drawDiameter,
-        'right': boundingBox.right + drawDiameter,
-        'bottom': boundingBox.bottom + drawDiameter,
-        'colour': activeColour
-    }];
-}
-
-
 function getBoundingBox(path) {
     var drawRadius = Math.ceil(drawDiameter / 2);
     var top = Infinity;
@@ -448,7 +531,7 @@ function flood(x1, y1, col=null) {
     let width = draw_canvas.width;
     let height = draw_canvas.height;
 
-    let activeColourValue = activeColour.startsWith("#") ? activeColour.slice(1) : activeColour;
+    let activeColourValue = active.colour.startsWith("#") ? active.colour.slice(1) : active.colour;
     activeColourValue = parseInt(activeColourValue, 16);
     let red = (activeColourValue >> 16) & 0xFF;
     let green = (activeColourValue >> 8) & 0xFF;
@@ -501,7 +584,7 @@ function flood(x1, y1, col=null) {
 function fillLoops(loops) {
     for(l in loops) { // fill areas
         const start = Date.now();
-        flood(loops[l]['x'], loops[l]['y'], activeColour)
+        flood(loops[l]['x'], loops[l]['y'], active.colour)
 
         const end = Date.now();
         console.log(`LOOP FLOOD EXECUTION TIME: ${end - start} ms`);
@@ -516,31 +599,68 @@ function fillRegion(canvas, x, y) {
 
 //------------------------------------------------------ PARAM LISTENER FUNCTIONALITY ------------------------------------------------------//
 
-document.getElementById('cursor-size-slider').addEventListener('input', function(e) {
-    //console.log("sliding: ", e.target.value)
-    drawDiameter = Number(e.target.value);
-    cursor.style.width = drawDiameter+"px";
-    cursor.style.height = drawDiameter+"px";
-})
+// document.getElementById('cursor-size-slider').addEventListener('input', function(e) {
+//     //console.log("sliding: ", e.target.value)
+//     drawDiameter = Number(e.target.value);
+//     cursor.style.width = drawDiameter+"px";
+//     cursor.style.height = drawDiameter+"px";
+// })
 
-document.getElementById('cursor-size-slider').addEventListener('input', function(e) {
-    //console.log("sliding: ", e.target.value)
-    drawDiameter = Number(e.target.value);
-    cursor.style.width = drawDiameter+"px";
-    cursor.style.height = drawDiameter+"px";
-})
+// document.getElementById('cursor-size-slider').addEventListener('input', function(e) {
+//     //console.log("sliding: ", e.target.value)
+//     drawDiameter = Number(e.target.value);
+//     cursor.style.width = drawDiameter+"px";
+//     cursor.style.height = drawDiameter+"px";
+// })
 
-function toggleZoom() {
-    console.log(zoom)
-    zoom = !zoom;
-    if(zoom) {
-        $("#zoom-img").attr("src","./images/zoom_2.png");
-        $(".mapier-canvas").css({"width":"max-content"});
-    } else {
-        $("#zoom-img").attr("src","./images/zoom_1.png");
-        $(".mapier-canvas").css({"width":"100%"});
-        window.scrollTo(0, 0)
+let savedScrollStateX = 0
+let savedScrollStateY = 0
+
+function setZoomLevel(z) {
+    if (z === zoom) return; // Exit if no change in zoom state
+
+    console.log("SET ZOOM LEVEL");
+
+    // Calculate relative positions of the cursor
+    let posX = mouseX / image_canvas.width;
+    let posY = mouseY / image_canvas.height;
+    console.log("UPDATED CURSOR POS: " + Math.round(1000 * posX) / 10 + ", " + Math.round(1000 * posY) / 10);
+
+    if (z === 1) {
+        $(".mosaic-canvas").css({"width":"max-content"}); // Set width to max content
+        zoom = 1;
+
+        // Calculate new absolute positions based on the current size of the canvas
+        const newWidth = $(".mosaic-canvas").width();
+        const newHeight = $(".mosaic-canvas").height();
+
+        savedScrollStateX = scrollX
+        savedScrollStateY = scrollY
+
+        const scrollToX = posX * newWidth - window.innerWidth / 2;
+        const scrollToY = posY * newHeight - window.innerHeight / 2;
+
+        window.scrollTo({
+            top: scrollToY,
+            left: scrollToX,
+        });
+        $("#zoom-img").attr("src","./public/img/zoom_2.png");
+
+    } else if (z === 0) { // Zoom out
+        $(".mosaic-canvas").css({"width":"100%"}); // Reset width
+        window.scrollTo(savedScrollStateX, savedScrollStateY); // Scroll back to top
+        zoom = 0;
+        $("#zoom-img").attr("src","./public/img/zoom_1.png");
     }
+}
+
+function toggleZoomLevel() {
+    if(zoom === 1){
+        setZoomLevel(0)
+    } else {
+        setZoomLevel(1)
+    }
+
 }
 
 //------------------------------------------------------ LOAD DROPPED IMAGES ------------------------------------------------------//
@@ -559,19 +679,34 @@ function dropFiles(event) {
     event.preventDefault();
     if (event.dataTransfer && event.dataTransfer.files) {
         const files = Array.from(event.dataTransfer.files);
-        const imagePromises = files.map(file => {
+
+        // check if any of the file names include edge_map or segmentation_map
+        files.forEach(file => {
+            console.log("file.name: ", file.name)
             if (file.name.includes("edge_map") || file.name.includes("segmentation_map")) {
                 should_erase_draw_layer = false
-                return processEdgeOrSegmentationMap(file);
+            }
+        })
+
+        let segmentationLayer = null
+        const imagePromises = files.map(file => {
+            if (file.name.includes("edge_map") || file.name.includes("segmentation_map")) {
+                //return processEdgeOrSegmentationMap(file);
+                segmentationLayer = file;
             } else {
                 return processImageFile(file);
             }
         });
 
         Promise.all(imagePromises).then(() => {
+            if(segmentationLayer !== null) {
+                processEdgeOrSegmentationMap(segmentationLayer);
+            }
+            console.log("SHOULD ERASE DRAW LAYER? ", should_erase_draw_layer)
             updateCurrentImage();
         });
     }
+    console.log("IMAGES: ", images)
 }
 
 
@@ -580,13 +715,23 @@ function processEdgeOrSegmentationMap(file) {
         const reader = new FileReader();
         reader.onload = function(e) {
             const img = new Image();
+
             img.onload = function() {
+                if(!dimensions_set) {
+                    console.log("SETTING DIMENSIONS...")
+                    draw_canvas.width = img.width;
+                    draw_canvas.height = img.height;
+                    dimensions_set = true;
+                }
+
                 if (file.name.includes("edge_map")) {
+                    console.log("IMPORTING EDGE MAP...")
                     processEdgeMap(img);
                 } else {
+                    console.log("IMPORTING SEGMENTATION MAP...")
                     draw_ctx.drawImage(img, 0, 0);
                 }
-                resolve();
+                // resolve();
             };
             img.onerror = reject;
             img.src = e.target.result;
@@ -597,34 +742,26 @@ function processEdgeOrSegmentationMap(file) {
 }
 
 function processEdgeMap(img) {
-    const offscreenCanvas = document.createElement('canvas');
-    if(!dimensions_set) {
-        image_canvas.width = img.width;
-        image_canvas.height = img.height;
-        draw_canvas.width = img.width;
-        draw_canvas.height = img.height;
-        save_canvas.width = img.width;
-        save_canvas.height = img.height;
-        offscreenCanvas.width = img.width;
-        offscreenCanvas.height = img.height;
-        dimensions_set = true;
-    }
-    const offscreenCtx = offscreenCanvas.getContext('2d');
-    offscreenCtx.drawImage(img, 0, 0);
+    const temp_canvas = document.createElement('canvas');
+    temp_canvas.width = img.width;
+    temp_canvas.height = img.height;
 
-    const imageData = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+    const temp_ctx = temp_canvas.getContext('2d');
+    temp_ctx.drawImage(img, 0, 0);
+
+    const imageData = temp_ctx.getImageData(0, 0, temp_canvas.width, temp_canvas.height);
     const data = imageData.data;
 
     for (let i = 0; i < data.length; i += 4) {
         if (data[i] === 255 && data[i + 1] === 255 && data[i + 2] === 255) {
-            setTransparentNeighbors(i, data, offscreenCanvas.width);
+            setTransparentNeighbors(i, data, temp_canvas.width);
         } else if (data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 0) {
-            data[i] = data[i + 1] = data[i + 2] = 128;
+            data[i] = data[i + 1] = data[i + 2] = 127;
         }
     }
 
-    offscreenCtx.putImageData(imageData, 0, 0);
-    draw_ctx.drawImage(offscreenCanvas, 0, 0);
+    temp_ctx.putImageData(imageData, 0, 0);
+    draw_ctx.drawImage(temp_canvas, 0, 0);
 }
 
 
@@ -647,10 +784,11 @@ function setTransparentNeighbors(index, data, width) {
 function processImageFile(file) {
     return new Promise((resolve, reject) => {
         const img = new Image();
-        console.log(file)
+        // console.log(file)
         img.onload = function() {
-            console.log("CREATING IMAGE: ", file)
+            // console.log("IMPORTING IMAGE: ", file)
             if(!dimensions_set) {
+                // console.log("SETTING DIMENSIONS...")
                 image_canvas.width = img.width;
                 image_canvas.height = img.height;
                 draw_canvas.width = img.width;
@@ -679,11 +817,12 @@ function updateCurrentImage() {
     const imageKeys = Object.keys(images);
     if (imageKeys.length > 0) {
         currentImage = imageKeys[0];
-        document.getElementById('parameters-filename').textContent = currentImage;
+        document.getElementById('toolbar-filename').textContent = currentImage;
         img_ctx.putImageData(images[currentImage].data, 0, 0);
     } else {
+        document.getElementById('toolbar-filename').textContent = 'Drag image set below...';
         currentImage = '';
-        document.getElementById('parameters-filename').textContent = '';
+        // document.getElementById('toolbar-filename').textContent = '';
         img_ctx.clearRect(0, 0, image_canvas.width, image_canvas.height);
         should_erase_draw_layer ? draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height) : null;
     }
@@ -691,13 +830,14 @@ function updateCurrentImage() {
 
 function cycleImage(dir) {
     const keys = Object.keys(images);
+    if(keys.length < 2) return;
     const idx = keys.indexOf(currentImage);
     const newIdx = (idx + dir + keys.length) % keys.length;
     currentImage = keys[newIdx];
 
     img_ctx.clearRect(0, 0, image_canvas.width, image_canvas.height);
     img_ctx.putImageData(images[currentImage].data, 0, 0);
-    document.getElementById('parameters-filename').textContent = currentImage;
+    document.getElementById('toolbar-filename').textContent = currentImage;
 }
 
 
@@ -710,7 +850,7 @@ function draw() {
         case Tools.pencil:
             if(leftClicked) {
                 draw_ctx.globalCompositeOperation = 'source-over'
-                draw_ctx.fillStyle = activeColour; 
+                draw_ctx.fillStyle = active.colour; 
                 fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
 
             } else if(rightClicked) {
@@ -754,9 +894,23 @@ function findRegions() {
                 const regionColour = buffer32[index]; // format:ABGR. If transparent: 00000000
                 //console.log("REGION COLOUR: ", regionColour)
                 
-                
+                // R = 127 (0x7F)
+                // G = 127 (0x7F)
+                // B = 127 (0x7F)
+                // A = 255 (0xFF)
+
+                // ABGR = (0xFF << 24) | (0x7F << 16) | (0x7F << 8) | 0x7F
+                //     = 0xFF000000 | 0x007F0000 | 0x00007F00 | 0x0000007F
+                //     = 0xFF7F7F7F
+                //11111111000000000000000000000000, 011111110000000000000000, 0111111100000000, 01111111
+                //  4278190080 + 8323072 + 32512 + 127
+                //
+
                 // if transparent pixel or colour is grey (#808080, 128 128 128), skip
-                if(regionColour === 0 || regionColour === 4286611584) {
+                // if(regionColour === 0 || regionColour === 4286611584) {
+                // if transparent pixel or colour is grey (#7F7F7F, 127 127 127), skip
+                if(regionColour === 0 || regionColour === 4286545791) {
+                     
                     visited.add(getKey(i, j)); // if canvas pixel is transparent, SKIP
                     continue;
 
@@ -775,7 +929,7 @@ function findRegions() {
                         if (x < 0 || y < 0 || x >= width || y >= height) {
                             continue; // Skip out-of-bounds points
                         }
-                        // if pixel untraversed AND NOT transparent and same colour as FIRST explored pixel 
+                        // if encounter untraversed pixel that is NOT transparent and same colour as FIRST explored pixel 
                         if (!visited.has(getKey(x, y)) && buffer32[y * width + x] === regionColour) {
                             floodStack.push({ x: x - 2, y: y });
                             floodStack.push({ x: x + 2, y: y });
@@ -800,7 +954,6 @@ function findRegions() {
     }
     console.log("FOUND REGIONS ("+regions.length+"): ", regions)
     saveRegions()
-
 }
 
 function getCommonSubstring(strings) {
@@ -872,10 +1025,17 @@ function saveRegions() {
     if (identifier === '') {
         identifier = getCommonSubstring(parent_folders).replace(/^_+|_+$/g, '')// trim trailing/leading whitespace and underscores
     }
+
+    // if a common identifier is STILL not found, just use current unix timestamp 
+    if (identifier === '') {
+        identifier = Date.now().toString()
+    }
+
     // identifier is a short, common name shared by this current image set. ex 'w15'
     console.log("IDENTIFIER: ", identifier)
-    
-    window.api.invoke('set_file_path', {'path': images[currentImage]['src'], 'type': 'save'})
+    console.log("SRC: ", images[currentImage]['src'])
+
+    window.api.invoke('set_file_path', {'path': images[currentImage]['src'], 'type': 'save', identifier: identifier})
         .then(() => {
             var rgbs = {}
             // convert drawColors to RGB -> compare with pixels
@@ -890,23 +1050,11 @@ function saveRegions() {
                 console.log(" REGION " + index+ ": | "+colour+" | "+ save_canvas.width +"x"+save_canvas.height)
 
                 var crop = draw_ctx.getImageData(left, top, (right-left), (bottom-top))
-                var cropData = crop.data;
 
-                // use the opacity (A) channel to store up to 255 different class values, where class = 255-A.
-                // get each pixel value; convert opacity value to (255 - index)
-
-                for(var i = 0; i < cropData.length; i+=4) {
-                    for(var c = 0; c < drawColors.length; c++){
-                        if((rgbs[c]['r'] === cropData[i]) && (rgbs[c]['g'] === cropData[i+1]) && (rgbs[c]['b'] === cropData[i+2])) {
-                            cropData[i+3] = 254 - c // reserve 255 (full opacity) for (ironically) the EMPTY class!!
-                            break
-                        }
-                    }
-                }
-                // first we save the draw layer...
+                // first we save each grain segmentation from the draw layer...
                 save_ctx.putImageData(crop, 0, 0)
                 let data = save_canvas.toDataURL("image/png");
-                window.api.invoke('save_crop', {'data': data, 'absolute_path': images[currentImage]['src'], 'identifier':identifier, 'type': 'map', 'idx': index})
+                window.api.invoke('save_segment', {'data': data, 'absolute_path': images[currentImage]['src'], 'identifier':identifier, 'type': 'map', 'idx': index})
 
                 //... then we save every other image layer...
                 saveSegmentLayers(left, top, right, bottom, index, identifier)
@@ -914,7 +1062,7 @@ function saveRegions() {
 
             //... then we save the entire draw layer for a save state:
             var draw_data = draw_canvas.toDataURL("image/png");
-            window.api.invoke('save_crop', {'data': draw_data, 'absolute_path': '', 'identifier':identifier, 'type': 'segmentation_map', 'idx': ''})
+            window.api.invoke('save_segment', {'data': draw_data, 'absolute_path': '', 'identifier':identifier, 'type': 'segmentation_map', 'idx': ''})
 
             // ... finally we save a copy of the draw layer overlaid on each image layer:
             for (let i = 0; i < Object.keys(images).length; i++) {
@@ -937,7 +1085,7 @@ function saveRegions() {
                     const data = save_canvas.toDataURL("image/png");
                     
                     // Save it
-                    window.api.invoke('save_crop', {
+                    window.api.invoke('save_segment', {
                         'data': data,
                         'absolute_path': images[key]['src'], // pass in the reference
                         'type': 'overlay',
@@ -952,6 +1100,8 @@ function saveRegions() {
             // after all files have been saved, reset the temp canvas to fit the image
             save_canvas.width = image_canvas.width;
             save_canvas.height = image_canvas.height;
+
+            window.api.invoke('save_label_colours', {'dict': colourLabelMap})
         }).catch(function(err) {
             console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
         });
@@ -980,7 +1130,7 @@ function saveSegmentLayers(left, top, right, bottom, index, identifier) {
             const data = save_canvas.toDataURL("image/png");
             
             // Save it
-            window.api.invoke('save_crop', {
+            window.api.invoke('save_segment', {
                 'data': data,
                 'absolute_path': images[key]['src'],
                 'type': 'img',
@@ -997,14 +1147,15 @@ function saveSegmentLayers(left, top, right, bottom, index, identifier) {
 
 }
 
-function changeColour(colour) {
-    activeColour = colour;
-    cursor.style.borderColor= activeColour;
-    document.getElementById("cursor-size-slider").style.setProperty('--color', activeColour);
+function changeActive(selection) {
+    active = selection
+    console.log("NEW ACTIVE: ", selection)
+    cursor.style.borderColor= active.colour;
+    document.getElementById("cursor-size-slider").style.setProperty('--color', active.colour);
 }
 
 function fillPointsWithActiveColor(points) {
-    draw_ctx.fillStyle = activeColour
+    draw_ctx.fillStyle = active.colour
     points.forEach(point => {
         draw_ctx.fillRect(point.x, point.y, 1, 1);
     });

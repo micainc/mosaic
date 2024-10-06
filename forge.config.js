@@ -1,9 +1,11 @@
 module.exports = {
   packagerConfig: {
-    name: 'Mapier',
-    productName: 'Mapier',
-    executableName: 'Mapier',
-    icon: './src/images/icon' // no file extension required
+    name: 'Mosaic',
+    productName: 'Mosaic',
+    executableName: 'Mosaic',
+    icon: './src/public/img/icon', // no file extension required
+    ignore: /(^\/(samples|grains|preprocessing|out))/
+
   },
   rebuildConfig: {},
   makers: [
@@ -24,5 +26,4 @@ module.exports = {
       config: {},
     },
   ],
-
 };

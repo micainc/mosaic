@@ -87,17 +87,18 @@ typings/
 
 # Electron-Forge
 out/
-
-# ignore 'samples' folder
-samples/
 outputs/
+models/
+models/**
+dist/
 
-#ignore ALL images (png, jpg, jpeg, gif) EXCEPT in the images folder:
-!images/*.png
-!images/*.jpg
-!images/*.jpeg
-!images/*.gif
+#ignore ALL images (png, jpg, jpeg, gif) EXCEPT in the public folder:
 *.png
 *.jpg
 *.jpeg
 *.gif
+!src/public/img/*.png
+!src/public/img/*.jpg
+!src/public/img/*.jpeg
+!src/public/img/*.gif
+

@@ -1,8 +1,24 @@
-// 64 different colours
-var drawColors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FF8000', '#80FF00', '#8000FF', '#FF0080', '#00FF80', '#0080FF', '#FFFF80', '#FF80FF', '#80FFFF', '#800000', '#008000', '#000080', '#808000', '#800080', '#008080', '#FF8080', '#80FF80', '#8080FF', '#FF4040', '#40FF40', '#4040FF', '#FFFF40', '#FF40FF', '#40FFFF', '#A00000', '#00A000', '#0000A0', '#A0A000', '#A000A0', '#00A0A0', '#FFA0A0', '#A0FFA0', '#A0A0FF', '#A0A040', '#A040A0', '#40A0A0', '#FFC0C0', '#C0FFC0', '#C0C0FF', '#400000', '#004000', '#000040', '#404000', '#400040', '#004040', '#804040', '#408040', '#404080', '#804080', '#408080', '#FF8040', '#80FF40', '#8040FF', '#FF4080', '#40FF80', '#4080FF', '#FFFF90', '#FF90FF', '#90FFFF', '#A00040', '#00A040', '#0040A0', '#A0A040', '#A040A0', '#40A0A0', '#FFA0C0', '#A0FFC0', '#A0C0FF', '#C00000', '#00C000', '#0000C0', '#C0C000', '#C000C0', '#00C0C0', '#FFC0E0', '#C0FFE0', '#C0E0FF', '#600000', '#006000', '#000060', '#606000', '#600060', '#006060', '#906060', '#609060', '#606090', '#906090', '#609090', '#FF6060', '#60FF60', '#6060FF', '#FFFF60', '#FF60FF', '#60FFFF', '#E00000', '#00E000', '#0000E0', '#E0E000', '#E000E0', '#00E0E0', '#FFE0E0', '#E0FFE0', '#E0E0FF', '#E00060', '#00E060', '#0060E0', '#E0E060', '#E060E0', '#60E0E0', '#FFE0F0', '#E0FFF0', '#E0F0FF', '#900000', '#009000', '#000090', '#909000', '#900090', '#009090', '#B09090', '#90B090', '#9090B0', '#B090B0', '#90B0B0', '#FF9090', '#90FF90', '#9090FF', '#FFFF90', '#FF90FF', '#90FFFF'];
-var fontColors = ['#FFFFFF', '#FFFFFF', '#FFFFFF', '#000000', '#FFFFFF', '#000000', '#FFFFFF', '#000000', '#FFFFFF', '#FFFFFF', '#000000', '#FFFFFF', '#000000', '#000000', '#000000', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#000000', '#000000', '#FFFFFF', '#FFFFFF', '#000000', '#FFFFFF', '#000000', '#000000', '#000000', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#000000', '#000000', '#000000', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#000000', '#000000', '#000000', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#000000', '#000000', '#FFFFFF', '#000000', '#000000', '#FFFFFF', '#000000', '#000000', '#000000', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#000000', '#FFFFFF', '#FFFFFF', '#000000', '#000000', '#FFFFFF', '#000000', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#000000', '#FFFFFF', '#000000', '#000000', '#FFFFFF', '#000000', '#000000', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#000000', '#FFFFFF', '#000000', '#FFFFFF', '#000000', '#FFFFFF', '#FFFFFF', '#000000', '#FFFFFF', '#000000', '#000000', '#000000', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#000000', '#000000', '#000000', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#000000', '#000000', '#000000', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#000000', '#000000', '#FFFFFF', '#000000', '#000000', '#FFFFFF', '#000000', '#000000', '#000000', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF'];
+const drawColors = ['#00001F', '#00003F', '#00005F', '#00007F', '#00009F', '#0000BF', '#0000DF', '#0000FF', '#001F00', '#001F1F', '#001F3F', '#001F5F', '#001F7F', '#001F9F', '#001FBF', '#001FDF', '#001FFF', '#003F00', '#003F1F', '#003F3F', '#003F5F', '#003F7F', '#003F9F', '#003FBF', '#003FDF', '#003FFF', '#005F00', '#005F1F', '#005F3F', '#005F5F', '#005F7F', '#005F9F', '#005FBF', '#005FDF', '#005FFF', '#007F00', '#007F1F', '#007F3F', '#007F5F', '#007F7F', '#007F9F', '#007FBF', '#007FDF', '#007FFF', '#009F00', '#009F1F', '#009F3F', '#009F5F', '#009F7F', '#009F9F', '#009FBF', '#009FDF', '#009FFF', '#00BF00', '#00BF1F', '#00BF3F', '#00BF5F', '#00BF7F', '#00BF9F', '#00BFBF', '#00BFDF', '#00BFFF', '#00DF00', '#00DF1F', '#00DF3F', '#00DF5F', '#00DF7F', '#00DF9F', '#00DFBF', '#00DFDF', '#00DFFF', '#00FF00', '#00FF1F', '#00FF3F', '#00FF5F', '#00FF7F', '#00FF9F', '#00FFBF', '#00FFDF', '#00FFFF', '#1F0000', '#1F001F', '#1F003F', '#1F005F', '#1F007F', '#1F009F', '#1F00BF', '#1F00DF', '#1F00FF', '#1F1F00', '#1F1F1F', '#1F1F3F', '#1F1F5F', '#1F1F7F', '#1F1F9F', '#1F1FBF', '#1F1FDF', '#1F1FFF', '#1F3F00', '#1F3F1F', '#1F3F3F', '#1F3F5F', '#1F3F7F', '#1F3F9F', '#1F3FBF', '#1F3FDF', '#1F3FFF', '#1F5F00', '#1F5F1F', '#1F5F3F', '#1F5F5F', '#1F5F7F', '#1F5F9F', '#1F5FBF', '#1F5FDF', '#1F5FFF', '#1F7F00', '#1F7F1F', '#1F7F3F', '#1F7F5F', '#1F7F7F', '#1F7F9F', '#1F7FBF', '#1F7FDF', '#1F7FFF', '#1F9F00', '#1F9F1F', '#1F9F3F', '#1F9F5F', '#1F9F7F', '#1F9F9F', '#1F9FBF', '#1F9FDF', '#1F9FFF', '#1FBF00', '#1FBF1F', '#1FBF3F', '#1FBF5F', '#1FBF7F', '#1FBF9F', '#1FBFBF', '#1FBFDF', '#1FBFFF', '#1FDF00', '#1FDF1F', '#1FDF3F', '#1FDF5F', '#1FDF7F', '#1FDF9F', '#1FDFBF', '#1FDFDF', '#1FDFFF', '#1FFF00', '#1FFF1F', '#1FFF3F', '#1FFF5F', '#1FFF7F', '#1FFF9F', '#1FFFBF', '#1FFFDF', '#1FFFFF', '#3F0000', '#3F001F', '#3F003F', '#3F005F', '#3F007F', '#3F009F', '#3F00BF', '#3F00DF', '#3F00FF', '#3F1F00', '#3F1F1F', '#3F1F3F', '#3F1F5F', '#3F1F7F', '#3F1F9F', '#3F1FBF', '#3F1FDF', '#3F1FFF', '#3F3F00', '#3F3F1F', '#3F3F3F', '#3F3F5F', '#3F3F7F', '#3F3F9F', '#3F3FBF', '#3F3FDF', '#3F3FFF', '#3F5F00', '#3F5F1F', '#3F5F3F', '#3F5F5F', '#3F5F7F', '#3F5F9F', '#3F5FBF', '#3F5FDF', '#3F5FFF', '#3F7F00', '#3F7F1F', '#3F7F3F', '#3F7F5F', '#3F7F7F', '#3F7F9F', '#3F7FBF', '#3F7FDF', '#3F7FFF', '#3F9F00', '#3F9F1F', '#3F9F3F', '#3F9F5F', '#3F9F7F', '#3F9F9F', '#3F9FBF', '#3F9FDF', '#3F9FFF', '#3FBF00', '#3FBF1F', '#3FBF3F', '#3FBF5F', '#3FBF7F', '#3FBF9F', '#3FBFBF', '#3FBFDF', '#3FBFFF', '#3FDF00', '#3FDF1F', '#3FDF3F', '#3FDF5F', '#3FDF7F', '#3FDF9F', '#3FDFBF', '#3FDFDF', '#3FDFFF', '#3FFF00', '#3FFF1F', '#3FFF3F', '#3FFF5F', '#3FFF7F', '#3FFF9F', '#3FFFBF', '#3FFFDF', '#3FFFFF', '#5F0000', '#5F001F', '#5F003F', '#5F005F', '#5F007F', '#5F009F', '#5F00BF', '#5F00DF', '#5F00FF', '#5F1F00', '#5F1F1F', '#5F1F3F', '#5F1F5F', '#5F1F7F', '#5F1F9F', '#5F1FBF', '#5F1FDF', '#5F1FFF', '#5F3F00', '#5F3F1F', '#5F3F3F', '#5F3F5F', '#5F3F7F', '#5F3F9F', '#5F3FBF', '#5F3FDF', '#5F3FFF', '#5F5F00', '#5F5F1F', '#5F5F3F', '#5F5F5F', '#5F5F7F', '#5F5F9F', '#5F5FBF', '#5F5FDF', '#5F5FFF', '#5F7F00', '#5F7F1F', '#5F7F3F', '#5F7F5F', '#5F7F7F', '#5F7F9F', '#5F7FBF', '#5F7FDF', '#5F7FFF', '#5F9F00', '#5F9F1F', '#5F9F3F', '#5F9F5F', '#5F9F7F', '#5F9F9F', '#5F9FBF', '#5F9FDF', '#5F9FFF', '#5FBF00', '#5FBF1F', '#5FBF3F', '#5FBF5F', '#5FBF7F', '#5FBF9F', '#5FBFBF', '#5FBFDF', '#5FBFFF', '#5FDF00', '#5FDF1F', '#5FDF3F', '#5FDF5F', '#5FDF7F', '#5FDF9F', '#5FDFBF', '#5FDFDF', '#5FDFFF', '#5FFF00', '#5FFF1F', '#5FFF3F', '#5FFF5F', '#5FFF7F', '#5FFF9F', '#5FFFBF', '#5FFFDF', '#5FFFFF', '#7F0000', '#7F001F', '#7F003F', '#7F005F', '#7F007F', '#7F009F', '#7F00BF', '#7F00DF', '#7F00FF', '#7F1F00', '#7F1F1F', '#7F1F3F', '#7F1F5F', '#7F1F7F', '#7F1F9F', '#7F1FBF', '#7F1FDF', '#7F1FFF', '#7F3F00', '#7F3F1F', '#7F3F3F', '#7F3F5F', '#7F3F7F', '#7F3F9F', '#7F3FBF', '#7F3FDF', '#7F3FFF', '#7F5F00', '#7F5F1F', '#7F5F3F', '#7F5F5F', '#7F5F7F', '#7F5F9F', '#7F5FBF', '#7F5FDF', '#7F5FFF', '#7F7F00', '#7F7F1F', '#7F7F3F', '#7F7F5F', '#7F7F9F', '#7F7FBF', '#7F7FDF', '#7F7FFF', '#7F9F00', '#7F9F1F', '#7F9F3F', '#7F9F5F', '#7F9F7F', '#7F9F9F', '#7F9FBF', '#7F9FDF', '#7F9FFF', '#7FBF00', '#7FBF1F', '#7FBF3F', '#7FBF5F', '#7FBF7F', '#7FBF9F', '#7FBFBF', '#7FBFDF', '#7FBFFF', '#7FDF00', '#7FDF1F', '#7FDF3F', '#7FDF5F', '#7FDF7F', '#7FDF9F', '#7FDFBF', '#7FDFDF', '#7FDFFF', '#7FFF00', '#7FFF1F', '#7FFF3F', '#7FFF5F', '#7FFF7F', '#7FFF9F', '#7FFFBF', '#7FFFDF', '#7FFFFF', '#9F0000', '#9F001F', '#9F003F', '#9F005F', '#9F007F', '#9F009F', '#9F00BF', '#9F00DF', '#9F00FF', '#9F1F00', '#9F1F1F', '#9F1F3F', '#9F1F5F', '#9F1F7F', '#9F1F9F', '#9F1FBF', '#9F1FDF', '#9F1FFF', '#9F3F00', '#9F3F1F', '#9F3F3F', '#9F3F5F', '#9F3F7F', '#9F3F9F', '#9F3FBF', '#9F3FDF', '#9F3FFF', '#9F5F00', '#9F5F1F', '#9F5F3F', '#9F5F5F', '#9F5F7F', '#9F5F9F', '#9F5FBF', '#9F5FDF', '#9F5FFF', '#9F7F00', '#9F7F1F', '#9F7F3F', '#9F7F5F', '#9F7F7F', '#9F7F9F', '#9F7FBF', '#9F7FDF', '#9F7FFF', '#9F9F00', '#9F9F1F', '#9F9F3F', '#9F9F5F', '#9F9F7F', '#9F9F9F', '#9F9FBF', '#9F9FDF', '#9F9FFF', '#9FBF00', '#9FBF1F', '#9FBF3F', '#9FBF5F', '#9FBF7F', '#9FBF9F', '#9FBFBF', '#9FBFDF', '#9FBFFF', '#9FDF00', '#9FDF1F', '#9FDF3F', '#9FDF5F', '#9FDF7F', '#9FDF9F', '#9FDFBF', '#9FDFDF', '#9FDFFF', '#9FFF00', '#9FFF1F', '#9FFF3F', '#9FFF5F', '#9FFF7F', '#9FFF9F', '#9FFFBF', '#9FFFDF', '#9FFFFF', '#BF0000', '#BF001F', '#BF003F', '#BF005F', '#BF007F', '#BF009F', '#BF00BF', '#BF00DF', '#BF00FF', '#BF1F00', '#BF1F1F', '#BF1F3F', '#BF1F5F', '#BF1F7F', '#BF1F9F', '#BF1FBF', '#BF1FDF', '#BF1FFF', '#BF3F00', '#BF3F1F', '#BF3F3F', '#BF3F5F', '#BF3F7F', '#BF3F9F', '#BF3FBF', '#BF3FDF', '#BF3FFF', '#BF5F00', '#BF5F1F', '#BF5F3F', '#BF5F5F', '#BF5F7F', '#BF5F9F', '#BF5FBF', '#BF5FDF', '#BF5FFF', '#BF7F00', '#BF7F1F', '#BF7F3F', '#BF7F5F', '#BF7F7F', '#BF7F9F', '#BF7FBF', '#BF7FDF', '#BF7FFF', '#BF9F00', '#BF9F1F', '#BF9F3F', '#BF9F5F', '#BF9F7F', '#BF9F9F', '#BF9FBF', '#BF9FDF', '#BF9FFF', '#BFBF00', '#BFBF1F', '#BFBF3F', '#BFBF5F', '#BFBF7F', '#BFBF9F', '#BFBFBF', '#BFBFDF', '#BFBFFF', '#BFDF00', '#BFDF1F', '#BFDF3F', '#BFDF5F', '#BFDF7F', '#BFDF9F', '#BFDFBF', '#BFDFDF', '#BFDFFF', '#BFFF00', '#BFFF1F', '#BFFF3F', '#BFFF5F', '#BFFF7F', '#BFFF9F', '#BFFFBF', '#BFFFDF', '#BFFFFF', '#DF0000', '#DF001F', '#DF003F', '#DF005F', '#DF007F', '#DF009F', '#DF00BF', '#DF00DF', '#DF00FF', '#DF1F00', '#DF1F1F', '#DF1F3F', '#DF1F5F', '#DF1F7F', '#DF1F9F', '#DF1FBF', '#DF1FDF', '#DF1FFF', '#DF3F00', '#DF3F1F', '#DF3F3F', '#DF3F5F', '#DF3F7F', '#DF3F9F', '#DF3FBF', '#DF3FDF', '#DF3FFF', '#DF5F00', '#DF5F1F', '#DF5F3F', '#DF5F5F', '#DF5F7F', '#DF5F9F', '#DF5FBF', '#DF5FDF', '#DF5FFF', '#DF7F00', '#DF7F1F', '#DF7F3F', '#DF7F5F', '#DF7F7F', '#DF7F9F', '#DF7FBF', '#DF7FDF', '#DF7FFF', '#DF9F00', '#DF9F1F', '#DF9F3F', '#DF9F5F', '#DF9F7F', '#DF9F9F', '#DF9FBF', '#DF9FDF', '#DF9FFF', '#DFBF00', '#DFBF1F', '#DFBF3F', '#DFBF5F', '#DFBF7F', '#DFBF9F', '#DFBFBF', '#DFBFDF', '#DFBFFF', '#DFDF00', '#DFDF1F', '#DFDF3F', '#DFDF5F', '#DFDF7F', '#DFDF9F', '#DFDFBF', '#DFDFDF', '#DFDFFF', '#DFFF00', '#DFFF1F', '#DFFF3F', '#DFFF5F', '#DFFF7F', '#DFFF9F', '#DFFFBF', '#DFFFDF', '#DFFFFF', '#FF0000', '#FF001F', '#FF003F', '#FF005F', '#FF007F', '#FF009F', '#FF00BF', '#FF00DF', '#FF00FF', '#FF1F00', '#FF1F1F', '#FF1F3F', '#FF1F5F', '#FF1F7F', '#FF1F9F', '#FF1FBF', '#FF1FDF', '#FF1FFF', '#FF3F00', '#FF3F1F', '#FF3F3F', '#FF3F5F', '#FF3F7F', '#FF3F9F', '#FF3FBF', '#FF3FDF', '#FF3FFF', '#FF5F00', '#FF5F1F', '#FF5F3F', '#FF5F5F', '#FF5F7F', '#FF5F9F', '#FF5FBF', '#FF5FDF', '#FF5FFF', '#FF7F00', '#FF7F1F', '#FF7F3F', '#FF7F5F', '#FF7F7F', '#FF7F9F', '#FF7FBF', '#FF7FDF', '#FF7FFF', '#FF9F00', '#FF9F1F', '#FF9F3F', '#FF9F5F', '#FF9F7F', '#FF9F9F', '#FF9FBF', '#FF9FDF', '#FF9FFF', '#FFBF00', '#FFBF1F', '#FFBF3F', '#FFBF5F', '#FFBF7F', '#FFBF9F', '#FFBFBF', '#FFBFDF', '#FFBFFF', '#FFDF00', '#FFDF1F', '#FFDF3F', '#FFDF5F', '#FFDF7F', '#FFDF9F', '#FFDFBF', '#FFDFDF', '#FFDFFF', '#FFFF00', '#FFFF1F', '#FFFF3F', '#FFFF5F', '#FFFF7F', '#FFFF9F', '#FFFFBF', '#FFFFDF']
+// 726 possible colours (classees)
+// excluded_colors = ['#FFFFFF', '#000000', '#7F7F7F']
 
-function setLoadoutList(loadouts) {
+// generate colour permutations in python: 
+// values = [ 0     31    63    95   127   159    191   223  255 ]
+// values = ['00', '1F', '3F', '5F', '7F', '9F', 'BF', 'DF', 'FF']
+
+// color_permutations = []
+
+// for r in values:
+//     for g in values:
+//         for b in values:
+//             color = f'#{r}{g}{b}'
+//             if color not in excluded_colors:
+//                 color_permutations.append(color)
+
+var colourLabelMap = {} // '#FF0000': 'quartz'
+function initLoadoutList(loadouts) {
+  console.log("initLoadoutList(): ", loadouts)
+
   var items = $("#loadouts .items")[0]
   console.log(items)
 
@@ -13,7 +29,7 @@ function setLoadoutList(loadouts) {
       item.setAttribute("class", "selectable");
       item.setAttribute("contenteditable", "true");
       item.setAttribute("placeholder", "...");
-      item.addEventListener("click", handleItemClick);
+      item.addEventListener("click", onSelectItem);
       item.innerHTML = loadout;
       items.append(item)
     }
@@ -33,7 +49,7 @@ function setLoadoutList(loadouts) {
     lbl.setAttribute("class", "selectable selected");
     lbl.setAttribute("contenteditable", "true")
     lbl.setAttribute("placeholder", '...')
-    lbl.addEventListener("click", handleItemClick);
+    lbl.addEventListener("click", onSelectItem);
     $("#labels > .selected").remove()
     $("#labels > .items").empty();
     activeCursor = false;
@@ -50,31 +66,78 @@ function setLoadoutList(loadouts) {
     this.parentNode.parentNode.prepend(lbl);
   })
 
-  
-    // initialize the first item in list as selected item
+  // initialize the first item in list as selected item
   items.firstChild.classList.toggle("selected")
   items.parentNode.prepend(items.firstChild)
-  setLabelList(loadouts[$("#loadouts .selected")[0].innerHTML])
+  initLabelList(loadouts[$("#loadouts .selected")[0].innerHTML])
 
 }
+function mapLabelsToColors(labelNames, drawColors) {
+  const colourLabelMap = {"#00000000": "undefined", "undefined": "#00000000"}; // auto initialize 'undefined' and 'unknown' categories
+  // const colourLabelMap = {}; // auto initialize 'edges' and 'unknown' categories
 
-function setLabelList(labels) {
-  console.log("LABELS: ", labels)
-  // Initialize the labels list
+  const sortedLabelNames = [...labelNames].sort(); // Create a sorted copy of labelNames
+
+  for (const labelName of sortedLabelNames) {
+    let index = hashCode(labelName) % drawColors.length;
+
+    // Handle collisions using linear probing
+    while (colourLabelMap[drawColors[index]]) {
+      console.log("'" + labelName + "' collision with " + colourLabelMap[drawColors[index]] + " on " + drawColors[index]);
+      index = (index + 1) % drawColors.length;
+    }
+
+    const color = drawColors[index];
+    colourLabelMap[color] = labelName;
+    colourLabelMap[labelName] = color;
+  }
+  colourLabelMap['unknown'] = '#7F7F7F';
+  colourLabelMap['#7F7F7F'] = "unknown";
+  return colourLabelMap;
+}
+
+// Hash function to generate an index for each label name
+function hashCode(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0; // Convert to 32-bit integer
+  }
+  return Math.abs(hash);
+}
+
+function initLabelList(labels) {
+
+  colourLabelMap = mapLabelsToColors(labels, drawColors);
+  console.log("COLOUR <-> LABEL MAP: ", colourLabelMap)
+
+  // colour_mapped_labels = mapLabelsToColors(labels)
+  // console.log("COLOURED LABELS: ", colour_mapped_labels)
+  // Initialize the 'items' list for holding label objects
   var items = $("#labels .items")[0]
-  for(const label in labels) {
-    if (labels.hasOwnProperty(label)) {    // Make sure the property belongs to the object itself, not its prototype
+  for (const [key, value] of Object.entries(colourLabelMap)) {
+    if (key.startsWith('#') || key.startsWith('undefined')) continue;
+
+    // if(label.contains("#")) {
+    //   continue;
+    // }
+    // if (labels.hasOwnProperty(label)) {    // Make sure the property belongs to the object itself, not its prototype
       var item = document.createElement("DIV");
-      item.style.backgroundColor = drawColors[label]
-      item.style.color = fontColors[label];
+      const color = value; // The value is the color for label entries
+      // const color = colourLabelMap[label];
+      item.style.backgroundColor = color;
+      item.style.color = invertHex(color);
       item.setAttribute("class", "selectable");
       item.setAttribute("contenteditable", "true");
-      item.setAttribute("placeholder", label+"...");
-      item.setAttribute("value", label)
-      item.addEventListener("click", handleItemClick);
-      item.innerHTML = labels[label];
+      item.setAttribute("placeholder", key+"...");
+      item.setAttribute("value", key)
+      // item.setAttribute("placeholder", label+"...");
+      // item.setAttribute("value", label)
+      item.addEventListener("click", onSelectItem);
+      // item.innerHTML = label;
+      item.innerHTML = key;
       items.append(item)
-    }
+    // }
   }
 
   //Add "+" button to item list 
@@ -91,10 +154,11 @@ function setLabelList(labels) {
     lbl.setAttribute("contenteditable", "true")
     lbl.setAttribute("placeholder", idx+'...')
     lbl.setAttribute("value", idx)
-    lbl.addEventListener("click", handleItemClick);
+    lbl.addEventListener("click", onSelectItem);
+    // lbl.addEventListener('blur', onBlur) // if user clicks on canvas/ outside list, close list
     lbl.style.backgroundColor = drawColors[idx]
-    lbl.style.color = fontColors[idx]
-    changeColour(drawColors[idx])
+    lbl.style.color = invertHex(drawColors[idx])
+    changeActive({'colour': drawColors[idx], 'label': idx})
     activeCursor = true;
 
     // when add is clicked, move selected item into item-list. 
@@ -109,98 +173,106 @@ function setLabelList(labels) {
     this.parentNode.parentNode.prepend(lbl);
   })
 
-  items.firstChild.classList.toggle("selected")
-  items.parentNode.prepend(items.firstChild)
-  changeColour(rgbStringToHex($('#labels .selected').css('backgroundColor')));
+  // Create and add search box to list
+  var searchBox = document.createElement("DIV");
+  searchBox.setAttribute("class", "selectable selected search-box hidden");
+  searchBox.setAttribute("contenteditable", "true");
+  searchBox.setAttribute("placeholder", "Search...");
+  searchBox.addEventListener("input", filterLabels);
+  searchBox.addEventListener("blur", onBlur); // if user clicks on canvas/ outside search, close list
+
+  // We do not want this close all open label when re-clicked on search.
+  searchBox.addEventListener("click", function(e) {
+    e.stopPropagation();
+  });
+  items.parentNode.prepend(searchBox);
+
+    
+  // now add selected item
+  var initialSelected = items.firstChild
+
+  initialSelected.classList.toggle("selected")
+  items.parentNode.prepend(initialSelected)
+  changeActive({'colour': rgbStringToHex(initialSelected.style.backgroundColor), 'label': initialSelected.innerHTML})
 
   // every time a label list is changed, ensure that if the user clicks anywhere outside the select box, then close all select boxes
-  document.addEventListener("click", closeAllSelect);
+  // document.addEventListener("click", closeList);
 
 }
 
 // when a label is clicked, change to that label
-function handleItemClick(e) {
-  console.log("clicked on ")
-  if(this.classList.contains("selected")) {
+function onSelectItem(e) {
+
+  // opened list
+  if(this.classList.contains("selected") && !this.classList.contains("search-box") ) {
+    var list = this.parentNode;
+    var items = list.getElementsByClassName("items")[0]
+    items.classList.toggle("hidden");
+  
+    console.log("Opened '" + list.id+"'")
+
     e.stopPropagation();
-    closeAllSelect(this);
-    this.parentNode.lastElementChild.classList.toggle("select-hide");
-    
-    console.log("partent id" , this.parentNode.parentNode.id)
 
-    if (this.parentNode.id === "labels" && !this.classList.contains("search-box")) {
-      var labelList = this.parentNode;
-      var selectedLabel = labelList.removeChild(this);
-      selectedLabel.classList.remove("selected");
-      labelList.children[0].appendChild(selectedLabel);
-
-      // Create and add a search box
-      var searchBox = document.createElement("DIV");
-      searchBox.setAttribute("class", "selectable selected search-box");
-      searchBox.setAttribute("contenteditable", "true");
-      searchBox.setAttribute("placeholder", "Search...");
-      searchBox.addEventListener("input", filterLabels);
-      searchBox.addEventListener("blur", handleSearchBlur);
-
-      // We do not want this close all open label when re-clicked on search.
-      searchBox.addEventListener("click", function(e) {
-        e.stopPropagation();
-      });
-      labelList.prepend(searchBox);
-
+    if (list.id === "labels") {
+      var searchBox = list.getElementsByClassName('search-box')[0];
+      console.log(searchBox)
+      searchBox.classList.toggle("hidden"); // hide search box
       searchBox.focus();
     }
+    
   } else { // if unselected element (in items list)
-    if(this.parentNode.parentNode.id === "loadouts") {
+    var list = this.parentNode.parentNode;
+    var items = list.getElementsByClassName("items")[0]
+
+    console.log("Opened '" + list.id+"'")
+    if(list.id === "loadouts") {
       // if a new loadout is being selected, delete all label entries from the  previous loadout and reinitialize
       $("#labels > .selected").remove()
       $("#labels > .items").empty();
       window.api.invoke('get_loadouts', this.innerHTML)
       .then((loadout) => {
-          setLabelList(loadout)
+          initLabelList(loadout)
       }).catch(function(err) {
           console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
       });
     } else {
-      changeColour(rgbStringToHex(this.style.backgroundColor))
+      items.classList.toggle("hidden");
+
+      var searchBox = list.getElementsByClassName('search-box')[0];
+      searchBox.classList.toggle("hidden"); // hide search box
+
+      // propogate the colour of the selected item to the frontend
+      changeActive({'colour': rgbStringToHex(this.style.backgroundColor), 'label': this.innerHTML})
     }
 
-    // move previouly selected node into item list
-    try {
-      var a = this.parentNode.parentNode.firstChild; // item -> items list -> loadouts/labels container -> selected
-      a.classList.toggle("selected") // turn the selected to unselected
-      this.parentNode.prepend(a); // put back in the items list
-    } catch {
-      console.log("No selected found... populating with first value.")
-    }
+    // get item with class 'selected' but NOT 'search-box'
+    var a = list.querySelectorAll('.selected:not(.search-box)')[0];
+    a.classList.toggle("selected") // turn the selected to unselected
+    items.prepend(a); // put back in the items list at the top
+
     // move newly selected item to top
     this.classList.toggle("selected")
-    this.parentNode.parentNode.prepend(this);
+    list.prepend(this);
 
-    clearSearchBoxAndClearSeclectablesDisplay(); 
   }
+  resetSearch(); 
+
 }
 
-function closeAllSelect(elmnt) {
-  /*a function that will close all select boxes in the document,
-  except the current select box:*/
-
-  var x, y, xl, yl, arrNo = [];
-  x = document.getElementsByClassName("items");
-  y = document.getElementsByClassName("selected");
-  xl = x.length;
-  yl = y.length;
-  for (var i = 0; i < yl; i++) {
-    if (elmnt == y[i]) {
-      arrNo.push(i)
-    } 
-  }
-  for (i = 0; i < xl; i++) {
-    if (arrNo.indexOf(i)) {
-      x[i].classList.add("select-hide");
-    }
-  }
-  saveLoadout()
+function onBlur(e) {
+  var list = this.parentNode;
+  var items = list.getElementsByClassName("items")[0]
+  console.log("onBlur(e): ", e.relatedTarget)
+  // if selected element is not an element in the list that the search bar is contained in, then close the list
+  if(e.relatedTarget === null) {
+    this.classList.toggle("hidden");
+    items.classList.toggle("hidden");
+  } else if(e.relatedTarget.classList.contains('selected')) {
+    return;
+  }else if(!e.relatedTarget.parentNode.classList.contains('items') || !e.relatedTarget.parentNode.parentNode.classList.contains('toolbar-list')) {
+    this.classList.toggle("hidden");
+    items.classList.toggle("hidden");
+  } 
 }
 
 function filterLabels() {
@@ -221,42 +293,16 @@ function filterLabels() {
   }
 }
 
-function handleSearchBlur(event) {
-  // Wait for the document to update and check if the new focused element is a label
-  setTimeout(() => {
-      const newFocus = document.activeElement;
-      const isLabelItem = newFocus.classList.contains("selectable");
-      const labelList = document.getElementById("labels");
-
-      if (!isLabelItem && labelList) {
-        clearSearchBoxAndClearSeclectablesDisplay()
-        
-          // Find the last label item and select it
-          const lastLabelItem = labelList.querySelector('.items').lastElementChild;
-          if (lastLabelItem && !lastLabelItem.classList.contains("add")) {
-              // Reset the selection
-              var currentlySelected = labelList.querySelector('.selected');
-              if (currentlySelected) {
-                  currentlySelected.classList.remove('selected');
-              }
-              lastLabelItem.classList.add('selected');
-
-              lastLabelItem.remove()
-              labelList.prepend(lastLabelItem)
-          }
-      }
-  }, 0);
-}
-
-function clearSearchBoxAndClearSeclectablesDisplay() {
-  var searchBox = document.querySelector("#labels .search-box");
-  if (searchBox) {
-      searchBox.parentNode.removeChild(searchBox);
-  }
+function resetSearch() {
+  console.log("resetSearch()")
+  // empty search box
+  var searchBox = document.getElementsByClassName('search-box')[0];
+  searchBox.innerText = '';
   var allLabels = $("#labels .items")[0].getElementsByClassName("selectable");
     for (var i = 0; i < allLabels.length; i++) {
         allLabels[i].style.display = "";
   }
+
 }
 
 /* is there a way I can save RGB colours so that they always map to the same value from 0-255: no. SO, instead, save a new val in th */
