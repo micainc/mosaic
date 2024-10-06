@@ -40,7 +40,7 @@ var active = {'colour': "#000000", 'label': ""}
 var hoveredColour = "#000000"
 var floodStack = []
 
-var images = {}
+var images = {} // image layers used by MOSAIC
 var currentImage = '';
 var image_track_filled = new Set()
 var undoHistory = [];
@@ -49,6 +49,21 @@ const origin = { x: 0, y: 0 };
 
 
 function init() {
+
+    document.getElementById('cursor-size-slider').addEventListener('input', function(e) {
+        //console.log("sliding: ", e.target.value)
+        drawDiameter = Number(e.target.value);
+        cursor.style.width = drawDiameter+"px";
+        cursor.style.height = drawDiameter+"px";
+    })
+    
+    document.getElementById('cursor-size-slider').addEventListener('input', function(e) {
+        //console.log("sliding: ", e.target.value)
+        drawDiameter = Number(e.target.value);
+        cursor.style.width = drawDiameter+"px";
+        cursor.style.height = drawDiameter+"px";
+    })
+
     draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height);
     save_ctx.fillStyle = "#000000"; // flood with black
 
@@ -114,16 +129,6 @@ function init() {
                 if(leftClicked) {
                     drawPath.push({x: mouseX, y: mouseY}); // finish drawPath
                     drawPath = fillGaps(drawPath); // algorithmically fills gaps in the draw path to create a solid continuous line 
-                    /*
-                    console.log("DRAW PATH: ", drawPath)
-                    var loops = findLoopsInPath(drawPath, drawDiameter)         
-                    console.log("LOOPS: ", loops)   
-                    */
-        
-                    /*
-                    var res = findClosedLoops(drawPath);
-                    fillLoops(res[0])
-                    */
                     
                 }
                 break;
@@ -324,9 +329,24 @@ function init() {
         console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
     });
 
-
+    
     window.requestAnimationFrame(draw); // start animating cursor movements
 }
+
+async function handleApplyClassifier() {
+    console.log("APPLYING CLASSIFIER")
+    try {
+      const result = await window.api.applyClassifier(images);
+      if (result.success) {
+        console.log('Classifier applied successfully:', result.predictions);
+        // Handle the predictions here
+      } else {
+        console.error('Error applying classifier:', result.error);
+      }
+    } catch (error) {
+      console.error('Error calling classifier:', error);
+    }
+  }
 
 function drawLoopCenters(loops) {
     for(var l = 0; l< loops.length; l++) {
@@ -478,48 +498,6 @@ function findLoopsInPath(path, margin) {
     return loops; // Return all loops found
 }
 
-
-function findClosedLoops(path) {
-    var boundingBox = getBoundingBox(path);
-    
-    console.log(boundingBox)
-    var loopCenters = [];
-    var rows = 7;
-    var cols = 7;
-    var cellWidth = (boundingBox.right - boundingBox.left) / cols;
-    var cellHeight = (boundingBox.bottom - boundingBox.top) / rows;
-
-    for (var r = 0; r < rows; r++) {
-        for (var c = 0; c < cols; c++) {
-            var testX = Math.floor(boundingBox.left + c * cellWidth + cellWidth / 2);
-            var testY = Math.floor(boundingBox.top + r * cellHeight + cellHeight / 2);
-
-            var data = draw_ctx.getImageData(testX, testY, 1, 1).data;
-            var col = rgbToHex(data[0], data[1], data[2]);
-
-            // if canvas not painted
-            if (col != active.colour) {
-                const start = Date.now();
-
-                if (flood(testX, testY)) { 
-                    const end = Date.now();
-                    console.log(`LOOP FIND EXECUTION TIME: ${end - start} ms`);
-                    loopCenters.push({ 'x': testX, 'y': testY });
-                }
-            }
-        }
-    }
-
-    return [loopCenters, {
-        'top': boundingBox.top - drawDiameter,
-        'left': boundingBox.left - drawDiameter,
-        'right': boundingBox.right + drawDiameter,
-        'bottom': boundingBox.bottom + drawDiameter,
-        'colour': active.colour
-    }];
-}
-
-
 function getBoundingBox(path) {
     var drawRadius = Math.ceil(drawDiameter / 2);
     var top = Infinity;
@@ -621,23 +599,19 @@ function fillRegion(canvas, x, y) {
 
 //------------------------------------------------------ PARAM LISTENER FUNCTIONALITY ------------------------------------------------------//
 
-document.getElementById('cursor-size-slider').addEventListener('input', function(e) {
-    //console.log("sliding: ", e.target.value)
-    drawDiameter = Number(e.target.value);
-    cursor.style.width = drawDiameter+"px";
-    cursor.style.height = drawDiameter+"px";
-})
+// document.getElementById('cursor-size-slider').addEventListener('input', function(e) {
+//     //console.log("sliding: ", e.target.value)
+//     drawDiameter = Number(e.target.value);
+//     cursor.style.width = drawDiameter+"px";
+//     cursor.style.height = drawDiameter+"px";
+// })
 
-document.getElementById('cursor-size-slider').addEventListener('input', function(e) {
-    //console.log("sliding: ", e.target.value)
-    drawDiameter = Number(e.target.value);
-    cursor.style.width = drawDiameter+"px";
-    cursor.style.height = drawDiameter+"px";
-})
-
-// Function to update the transformation of the canvas based on the scale and origin
-function updateTransform() {
-}
+// document.getElementById('cursor-size-slider').addEventListener('input', function(e) {
+//     //console.log("sliding: ", e.target.value)
+//     drawDiameter = Number(e.target.value);
+//     cursor.style.width = drawDiameter+"px";
+//     cursor.style.height = drawDiameter+"px";
+// })
 
 let savedScrollStateX = 0
 let savedScrollStateY = 0
@@ -670,13 +644,13 @@ function setZoomLevel(z) {
             top: scrollToY,
             left: scrollToX,
         });
-        $("#zoom-img").attr("src","./images/zoom_2.png");
+        $("#zoom-img").attr("src","./public/img/zoom_2.png");
 
     } else if (z === 0) { // Zoom out
         $(".mosaic-canvas").css({"width":"100%"}); // Reset width
         window.scrollTo(savedScrollStateX, savedScrollStateY); // Scroll back to top
         zoom = 0;
-        $("#zoom-img").attr("src","./images/zoom_1.png");
+        $("#zoom-img").attr("src","./public/img/zoom_1.png");
     }
 }
 
@@ -732,6 +706,7 @@ function dropFiles(event) {
             updateCurrentImage();
         });
     }
+    console.log("IMAGES: ", images)
 }
 
 
@@ -809,11 +784,11 @@ function setTransparentNeighbors(index, data, width) {
 function processImageFile(file) {
     return new Promise((resolve, reject) => {
         const img = new Image();
-        console.log(file)
+        // console.log(file)
         img.onload = function() {
-            console.log("IMPORTING IMAGE: ", file)
+            // console.log("IMPORTING IMAGE: ", file)
             if(!dimensions_set) {
-                console.log("SETTING DIMENSIONS...")
+                // console.log("SETTING DIMENSIONS...")
                 image_canvas.width = img.width;
                 image_canvas.height = img.height;
                 draw_canvas.width = img.width;

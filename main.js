@@ -1,13 +1,8 @@
 // main.js
 const os = require('os');
-const { app, BrowserWindow } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog } = require('electron')
 const path = require('path');
-const {ipcMain} = require('electron')
 const fs = require('fs');
-//const fsp = require('fs').promises;
-
-//const { resolve } = require('path');
-const {dialog} = require('electron')
 const Store = require('electron-store');
 
 
@@ -151,10 +146,13 @@ function createWindow () {
       trafficLightPosition: trafficLightPosition,
 
       webPreferences: {
-          preload: path.join(__dirname, './src/preload.js'),
-          enableRemoteModule: true
+          preload: path.join(__dirname, 'preload.js'),
+          nodeIntegration: false, // this is the best for distributables: keep it this way: Node.js is available in the Main and preload but not in the Renderer.
+          contextIsolation: true,  // this is the best for distributables: keep it this way: preload NEEDED. default for electron now
+          // enableRemoteModule: true,
+          sandbox:false, // unfortunately, we absolutely need this to be set this to false in order to use some node modules
       },
-      icon: path.join(__dirname, './src/images/icon.png') // Specify the path to your icon
+      icon: path.join(__dirname, './src/public/img/icon.png') // Specify the path to your icon
 
   })
 
@@ -178,6 +176,8 @@ app.on('window-all-closed', () => {
     app.quit()
   }
 })
+
+
 
 function getFilename(path) {
   // Extract the filename from a path, handling both Windows and Unix paths
@@ -289,3 +289,85 @@ ipcMain.handle('set_file_path', async (event, args) => {
     });
   } 
 })
+
+// const tf = require('@tensorflow/tfjs'); // this is for BROWSER environments
+const tf = require('@tensorflow/tfjs-node');  // this is for node.js, supports loading models from the filesys
+
+const { applyClassifier } = require('./src/classifier');
+
+let model = null;
+
+function custom_sparse_categorical_crossentropy(yTrue, yPred) {
+  return tf.tidy(() => {
+      const yTrueInt = tf.cast(yTrue, 'int32');
+      const ignoreMask = tf.logicalOr(tf.equal(yTrueInt, 0), tf.equal(yTrueInt, 1));
+      const yTrueModified = tf.where(ignoreMask, tf.onesLike(yTrueInt).mul(-1), yTrueInt);
+      
+      const lossFn = tf.losses.sparseCategoricalCrossentropy({
+          from_logits: false,
+          reduction: 'none'
+      });
+      
+      const loss = lossFn(yTrueModified, yPred);
+      const validMask = tf.logicalNot(ignoreMask);
+      return tf.sum(tf.mul(loss, tf.cast(validMask, 'float32'))) / tf.sum(tf.cast(validMask, 'float32'));
+  });
+}
+
+function custom_accuracy(yTrue, yPred) {
+  return tf.tidy(() => {
+      const yTrueInt = tf.cast(yTrue, 'int32');
+      const ignoreMask = tf.logicalOr(tf.equal(yTrueInt, 0), tf.equal(yTrueInt, 1));
+      const validMask = tf.logicalNot(ignoreMask);
+      
+      const correctPredictions = tf.equal(yTrueInt, tf.argMax(yPred, -1));
+      const maskedCorrectPredictions = tf.logicalAnd(correctPredictions, validMask);
+      
+      return tf.mean(tf.cast(maskedCorrectPredictions, 'float32'));
+  });
+}
+
+async function loadModel() {
+  if (!model) {
+    const customObjects = {
+      custom_sparse_categorical_crossentropy,
+      custom_accuracy
+    };
+
+    const modelPath = path.join(__dirname, 'models', 'linear_composite_beauty_model', 'model.json');
+
+    // Read the model.json file
+    const modelJSON = JSON.parse(fs.readFileSync(modelPath, 'utf8'));
+
+    // Update the weightData paths to be absolute
+    modelJSON.weightsManifest[0].paths = modelJSON.weightsManifest[0].paths.map(weightPath => 
+      path.join(path.dirname(modelPath), weightPath)
+    );
+
+    // Create an IOHandler to load the weights
+    const weightHandler = tf.io.fileSystem(path.dirname(modelPath));
+
+
+    console.log("HERE")
+    model = await tf.loadLayersModel(tf.io.fromMemory(modelJSON, weightHandler), { customObjects });  // Replace backslashes with forward slashes on Windows
+    console.log("Model loaded successfully. Input shape:", model.inputs[0].shape);
+
+  }
+}
+
+ipcMain.handle('apply-classifier', async (event, images) => {
+  try {
+    if (!model) {
+      await loadModel();
+    }
+    console.log("Model loaded successfully. Input shape:", model.inputs[0].shape);
+
+    // console.log("APPLYING CLASSIFIER")
+    // const predictions = await applyClassifier(images, model);
+    let predictions = []
+    return { success: true, predictions };
+  } catch (error) {
+    console.error('Error applying classifier:', error);
+    return { success: false, error: error.message };
+  }
+});

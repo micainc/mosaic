@@ -1,6 +1,7 @@
 const Tools = {
     pencil: "pencil",
-    fill: "fill"
+    fill: "fill",
+    wand: "wand",
 };
 
 var selectedTool = Tools.pencil;
@@ -12,6 +13,11 @@ function selectPencil(button) {
 
 function selectFill(button) {
     selectedTool = Tools.fill;
+    updateButtonStyles(button);
+}
+
+function selectWand(button) {
+    selectedTool = Tools.wand;
     updateButtonStyles(button);
 }
 

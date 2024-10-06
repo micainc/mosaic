@@ -3,7 +3,7 @@ module.exports = {
     name: 'Mosaic',
     productName: 'Mosaic',
     executableName: 'Mosaic',
-    icon: './src/images/icon', // no file extension required
+    icon: './src/public/img/icon', // no file extension required
     ignore: /(^\/(samples|grains|preprocessing|out))/
 
   },

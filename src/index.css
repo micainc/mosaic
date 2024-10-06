@@ -222,10 +222,10 @@ button:hover, select:hover {
    /*accent-color: #000000;*/
 }
 
-.parameter-button {
+.toolbar-button {
     display:flex;
 }
-.parameter-button span {
+.toolbar-button span {
     line-height: 20px;
 }
 
@@ -251,7 +251,8 @@ button:hover, select:hover {
 #coords {
     padding-right: 5px;
 }
-/*------------------------------------------------------ SELECTOR FUNCTIONALITY ------------------------------------------------------*/
+
+/*------------------------------------------------------ SELECTOR COMPONENT ------------------------------------------------------*/
 
 /*the container must be positioned relative:*/
 .toolbar-list {

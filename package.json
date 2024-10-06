@@ -9,21 +9,55 @@
     "make": "electron-forge make",
     "package": "electron-forge package"
   },
+  "build": {
+    "appId": "com.yourapp.id",
+    "asarUnpack": [
+      "models/**"
+    ],
+    "extraResources": [
+      {
+        "from": "models/",
+        "to": "models/",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "files": [
+      "**/*"
+    ],
+    "directories": {
+      "buildResources": "build"
+    }
+  },
+  "config": {
+    "forge": {
+      "packagerConfig": {
+        "asar": true
+      }
+    }
+  },
   "keywords": [],
   "author": "kfilyk <kelvinfilyk@gmail.com>",
   "license": "MIT",
   "dependencies": {
+    "@tensorflow/tfjs": "^4.21.0",
     "electron-squirrel-startup": "^1.0.0",
     "electron-store": "^8.1.0",
-    "jquery": "^3.6.3",
-    "jquery-ui": "^1.13.2"
+    "jquery": "^3.7.1",
+    "jquery-ui": "^1.14.0",
+    "path": "^0.12.7"
   },
   "devDependencies": {
-    "@electron-forge/cli": "^6.0.5",
+    "@electron-forge/cli": "^7.5.0",
     "@electron-forge/maker-deb": "^6.0.5",
     "@electron-forge/maker-rpm": "^6.0.5",
     "@electron-forge/maker-squirrel": "^6.0.5",
     "@electron-forge/maker-zip": "^6.0.5",
-    "electron": "^22.0.3"
+    "@electron-forge/plugin-webpack": "^7.5.0",
+    "css-loader": "^7.1.2",
+    "electron": "^32.1.2",
+    "electron-builder": "^25.1.7",
+    "style-loader": "^4.0.0"
   }
 }
