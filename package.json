@@ -41,7 +41,7 @@
   "author": "kfilyk <kelvinfilyk@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "@tensorflow/tfjs": "^4.21.0",
+    "@tensorflow/tfjs-node": "^4.21.0",
     "electron-squirrel-startup": "^1.0.0",
     "electron-store": "^8.1.0",
     "jquery": "^3.7.1",

@@ -48,6 +48,8 @@ const MAX_HISTORY_SIZE = 10;
 const origin = { x: 0, y: 0 };
 
 
+
+
 function init() {
 
     document.getElementById('cursor-size-slider').addEventListener('input', function(e) {
@@ -332,21 +334,6 @@ function init() {
     
     window.requestAnimationFrame(draw); // start animating cursor movements
 }
-
-async function handleApplyClassifier() {
-    console.log("APPLYING CLASSIFIER")
-    try {
-      const result = await window.api.applyClassifier(images);
-      if (result.success) {
-        console.log('Classifier applied successfully:', result.predictions);
-        // Handle the predictions here
-      } else {
-        console.error('Error applying classifier:', result.error);
-      }
-    } catch (error) {
-      console.error('Error calling classifier:', error);
-    }
-  }
 
 function drawLoopCenters(loops) {
     for(var l = 0; l< loops.length; l++) {
@@ -784,7 +771,7 @@ function setTransparentNeighbors(index, data, width) {
 function processImageFile(file) {
     return new Promise((resolve, reject) => {
         const img = new Image();
-        // console.log(file)
+        console.log("FILE: ", file)
         img.onload = function() {
             // console.log("IMPORTING IMAGE: ", file)
             if(!dimensions_set) {
@@ -800,10 +787,12 @@ function processImageFile(file) {
 
             img_ctx.drawImage(img, 0, 0, img.width, img.height);
             const imageData = img_ctx.getImageData(0, 0, img.width, img.height);
-
+            console.log("IMAGE DATA: ", imageData)
             images[file.name] = {
                 data: imageData,
-                src: file.path
+                src: file.path,
+                width: img.width,
+                height: img.height
             };
 
             resolve();

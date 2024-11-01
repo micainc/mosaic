@@ -5,6 +5,8 @@ const path = require('path');
 const fs = require('fs');
 const Store = require('electron-store');
 
+// const tf = require('@tensorflow/tfjs'); // this is for BROWSER environments
+const tf = require('@tensorflow/tfjs-node');  // this is for node.js, supports loading models from the filesys
 
 var win = ""
 var saveDirectory = ""
@@ -290,68 +292,22 @@ ipcMain.handle('set_file_path', async (event, args) => {
   } 
 })
 
-// const tf = require('@tensorflow/tfjs'); // this is for BROWSER environments
-const tf = require('@tensorflow/tfjs-node');  // this is for node.js, supports loading models from the filesys
 
 const { applyClassifier } = require('./src/classifier');
 
 let model = null;
 
-function custom_sparse_categorical_crossentropy(yTrue, yPred) {
-  return tf.tidy(() => {
-      const yTrueInt = tf.cast(yTrue, 'int32');
-      const ignoreMask = tf.logicalOr(tf.equal(yTrueInt, 0), tf.equal(yTrueInt, 1));
-      const yTrueModified = tf.where(ignoreMask, tf.onesLike(yTrueInt).mul(-1), yTrueInt);
-      
-      const lossFn = tf.losses.sparseCategoricalCrossentropy({
-          from_logits: false,
-          reduction: 'none'
-      });
-      
-      const loss = lossFn(yTrueModified, yPred);
-      const validMask = tf.logicalNot(ignoreMask);
-      return tf.sum(tf.mul(loss, tf.cast(validMask, 'float32'))) / tf.sum(tf.cast(validMask, 'float32'));
-  });
-}
-
-function custom_accuracy(yTrue, yPred) {
-  return tf.tidy(() => {
-      const yTrueInt = tf.cast(yTrue, 'int32');
-      const ignoreMask = tf.logicalOr(tf.equal(yTrueInt, 0), tf.equal(yTrueInt, 1));
-      const validMask = tf.logicalNot(ignoreMask);
-      
-      const correctPredictions = tf.equal(yTrueInt, tf.argMax(yPred, -1));
-      const maskedCorrectPredictions = tf.logicalAnd(correctPredictions, validMask);
-      
-      return tf.mean(tf.cast(maskedCorrectPredictions, 'float32'));
-  });
-}
-
 async function loadModel() {
   if (!model) {
-    const customObjects = {
-      custom_sparse_categorical_crossentropy,
-      custom_accuracy
-    };
-
     const modelPath = path.join(__dirname, 'models', 'linear_composite_beauty_model', 'model.json');
-
-    // Read the model.json file
-    const modelJSON = JSON.parse(fs.readFileSync(modelPath, 'utf8'));
-
-    // Update the weightData paths to be absolute
-    modelJSON.weightsManifest[0].paths = modelJSON.weightsManifest[0].paths.map(weightPath => 
-      path.join(path.dirname(modelPath), weightPath)
-    );
-
-    // Create an IOHandler to load the weights
-    const weightHandler = tf.io.fileSystem(path.dirname(modelPath));
-
-
-    console.log("HERE")
-    model = await tf.loadLayersModel(tf.io.fromMemory(modelJSON, weightHandler), { customObjects });  // Replace backslashes with forward slashes on Windows
-    console.log("Model loaded successfully. Input shape:", model.inputs[0].shape);
-
+    try {
+      model = await tf.loadLayersModel(`file://${modelPath}`);
+      console.log("Model loaded successfully.");
+      // Note: model.summary() is not available for SavedModels
+      // You can print other information about the model if needed
+    } catch (error) {
+      console.error("Error loading model:", error);
+    }
   }
 }
 
@@ -360,11 +316,12 @@ ipcMain.handle('apply-classifier', async (event, images) => {
     if (!model) {
       await loadModel();
     }
-    console.log("Model loaded successfully. Input shape:", model.inputs[0].shape);
-
-    // console.log("APPLYING CLASSIFIER")
-    // const predictions = await applyClassifier(images, model);
-    let predictions = []
+    if (!model) {
+      console.error("Model failed to load");
+      return { success: false, error: "Model failed to load" };
+    }
+    console.log("APPLYING CLASSIFIER")
+    const predictions = await applyClassifier(images, model);
     return { success: true, predictions };
   } catch (error) {
     console.error('Error applying classifier:', error);
