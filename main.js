@@ -5,8 +5,36 @@ const path = require('path');
 const fs = require('fs');
 const Store = require('electron-store');
 
-// const tf = require('@tensorflow/tfjs'); // this is for BROWSER environments
-const tf = require('@tensorflow/tfjs-node');  // this is for node.js, supports loading models from the filesys
+
+// ENABLE LOGGER
+const log = require('electron-log');
+
+// Configure log
+log.transports.file.level = 'debug';
+log.transports.console.level = 'debug';
+
+// Then use log instead of console
+log.info('App starting...');
+log.error('Something failed:', error);
+
+
+
+// ENABLE TFJS-NODE
+let tf;
+try {
+  const isPackaged = app.isPackaged;
+  if (isPackaged) {
+      // We're in production/packaged mode
+      const tfPath = path.join(process.resourcesPath, 'app.asar.unpacked/node_modules/@tensorflow/tfjs-node');
+      tf = require(tfPath);
+  } else {
+      // We're in development mode
+      tf = require('@tensorflow/tfjs-node');
+  }
+} catch (error) {
+  console.error('Failed to load TensorFlow:', error);
+}
+
 
 var win = ""
 var saveDirectory = ""
@@ -295,12 +323,29 @@ ipcMain.handle('set_file_path', async (event, args) => {
 
 const { applyClassifier } = require('./src/classifier');
 
+
 let model = null;
 
 async function loadModel() {
   if (!model) {
-    const modelPath = path.join(__dirname, 'models', 'lin_comp_beaut_model', 'model.json');
     try {
+      let modelPath;
+
+      // Log environment info
+      console.log('Is app packaged?', app.isPackaged);
+      console.log('Current __dirname:', __dirname);
+      console.log('Resource path:', process.resourcesPath);
+      
+      if (app.isPackaged) {
+        // In production, use resourcesPath
+        modelPath = path.join(process.resourcesPath, 'models', 'lin_comp_beaut_model', 'model.json');
+      } else {
+        // In development
+        modelPath = path.join(__dirname, 'models', 'lin_comp_beaut_model', 'model.json');
+      }
+
+      console.log('Attempting to load model from:', modelPath);
+
       model = await tf.loadLayersModel(`file://${modelPath}`);
       console.log("Model loaded successfully.");
       // Note: model.summary() is not available for SavedModels
@@ -321,7 +366,7 @@ ipcMain.handle('apply-classifier', async (event, images) => {
       return { success: false, error: "Model failed to load" };
     }
     console.log("APPLYING CLASSIFIER")
-    const predictions = await applyClassifier(images, model);
+    const predictions = await applyClassifier(images, model, tf);
     return { success: true, predictions };
   } catch (error) {
     console.error('Error applying classifier:', error);

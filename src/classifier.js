@@ -1,6 +1,4 @@
-const tf = require('@tensorflow/tfjs-node');
-
-async function applyClassifier(images, model) {
+async function applyClassifier(images, model, tf) {
     // console.log("APPLY CLASSIFIER IMAGES: ", images)
     // 1. Sort and prepare the images
     console.log("IMAGES: ", images)
@@ -10,7 +8,7 @@ async function applyClassifier(images, model) {
         return;
     }
 
-    return applySlideWindow({ lin, composite, beauty, width, height }, model);
+    return applySlideWindow({ lin, composite, beauty, width, height }, model, tf);
 
 }
 
@@ -26,7 +24,7 @@ function sortImages(images) {
     return (lin && composite && beauty) ? { lin, composite, beauty, width, height } : null;
 }
 
-async function applySlideWindow(input, model) {
+async function applySlideWindow(input, model, tf) {
     const windowSize = 256;
     const stride = 256;
     const { lin, composite, beauty, width, height } = input;
@@ -40,7 +38,7 @@ async function applySlideWindow(input, model) {
     
     for (let y = 0; y < height; y += stride) {
         for (let x = 0; x < width; x += stride) {
-            const windowTensor = extractWindow({ lin, composite, beauty }, x, y, windowSize, width, height);
+            const windowTensor = extractWindow({ lin, composite, beauty }, x, y, windowSize, width, height, tf);
             console.log("CLASSIFYING " + windowTensor.shape + " (" + windowTensor.dtype+ ") REGION AT "+ x + ", " + y + "... ");
             const predictionTensor = model.predict(windowTensor);
             const prediction = await predictionTensor.array();
@@ -86,7 +84,7 @@ async function applySlideWindow(input, model) {
     return percentPredictions;
 }
 
-function extractWindow(images, x, y, windowSize, fullWidth, fullHeight) {
+function extractWindow(images, x, y, windowSize, fullWidth, fullHeight, tf) {
 
     // console.log("IMAGES LIN: ", images.lin)
     // Get a mutable buffer from the tensor to modify its values
