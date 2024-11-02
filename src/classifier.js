@@ -35,11 +35,13 @@ async function applySlideWindow(input, model) {
     const predictions = new Uint16Array(width * height * 86) // instead of float32, use uInt8 to store percent predictions: normalize predition values from range (0,1) to 0 to 255
 
     const counts = new Uint8Array(height * width);
-
+    console.log(model.inputs[0].shape);  // Shows input shape
+    console.log(model.inputs[0].dtype);  // Shows expected data type
+    
     for (let y = 0; y < height; y += stride) {
         for (let x = 0; x < width; x += stride) {
             const windowTensor = extractWindow({ lin, composite, beauty }, x, y, windowSize, width, height);
-            console.log("CLASSIFYING " + windowTensor.shape + " REGION AT "+ x + ", " + y + "... ");
+            console.log("CLASSIFYING " + windowTensor.shape + " (" + windowTensor.dtype+ ") REGION AT "+ x + ", " + y + "... ");
             const predictionTensor = model.predict(windowTensor);
             const prediction = await predictionTensor.array();
 

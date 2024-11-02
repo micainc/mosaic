@@ -6,8 +6,14 @@
   "main": "main.js",
   "scripts": {
     "start": "electron-forge start",
-    "make": "electron-forge make",
-    "package": "electron-forge package"
+    "compile-cpp-win": "g++ ./resources/slic.cpp -o ./resources/slic_win.exe",
+    "compile-cpp-unix": "g++ ./resources/slic.cpp -o ./resources/slic_unix && chmod +x ./resources/slic_unix",
+    "compile-cpp": "npm run compile-cpp-win && npm run compile-cpp-unix",
+    "make": "npm run compile-cpp && electron-forge make",
+    "make-mac": "npm run compile-cpp && electron-forge make --platform darwin",
+    "make-win": "npm run compile-cpp && electron-forge make --platform win32",
+    "make-linux": "npm run compile-cpp && electron-forge make --platform linux",
+    "package": "npm run compile-cpp && electron-forge package"
   },
   "build": {
     "appId": "com.yourapp.id",
@@ -20,6 +26,14 @@
         "to": "models/",
         "filter": [
           "**/*"
+        ]
+      },
+      {
+        "from": "resources/",
+        "to": "resources/",
+        "filter": [
+          "slic_win.exe",
+          "slic_unix"
         ]
       }
     ],
@@ -51,6 +65,7 @@
   "devDependencies": {
     "@electron-forge/cli": "^7.5.0",
     "@electron-forge/maker-deb": "^6.0.5",
+    "@electron-forge/maker-dmg": "^7.5.0",
     "@electron-forge/maker-rpm": "^6.0.5",
     "@electron-forge/maker-squirrel": "^6.0.5",
     "@electron-forge/maker-zip": "^6.0.5",

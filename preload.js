@@ -1,4 +1,20 @@
 const { contextBridge, ipcRenderer } = require("electron");
+const { execFile } = require('child_process')
+const path = require('path')
+
+// Helper function to get the correct SLIC executable path
+const getSlicPath = () => {
+    switch (process.platform) {
+        case 'win32':
+            return path.join(process.resourcesPath, 'slic_win.exe');
+        case 'darwin':
+            return path.join(process.resourcesPath, 'slic_unix');
+        case 'linux':
+            return path.join(process.resourcesPath, 'slic_unix');
+        default:
+            throw new Error('Unsupported platform');
+    }
+};
 
 window.addEventListener('DOMContentLoaded', () => {
     const replaceText = (selector, text) => {
@@ -22,5 +38,20 @@ contextBridge.exposeInMainWorld(
             }
         },
         applyClassifier: (images) => ipcRenderer.invoke('apply-classifier', images),
+        runSlic: async (data) => {
+            // currently, 'data' is just a string
+            return new Promise((resolve, reject) => {
+                const slicPath = getSlicPath();
+                
+                execFile(slicPath, [data], (error, stdout, stderr) => {
+                    if (error) {
+                        console.error('SLIC Error:', error);
+                        reject(error);
+                        return;
+                    }
+                    resolve(stdout);
+                });
+            });
+        }
     },
 );

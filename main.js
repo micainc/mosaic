@@ -299,7 +299,7 @@ let model = null;
 
 async function loadModel() {
   if (!model) {
-    const modelPath = path.join(__dirname, 'models', 'linear_composite_beauty_model', 'model.json');
+    const modelPath = path.join(__dirname, 'models', 'lin_comp_beaut_model', 'model.json');
     try {
       model = await tf.loadLayersModel(`file://${modelPath}`);
       console.log("Model loaded successfully.");
