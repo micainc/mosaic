@@ -48,6 +48,14 @@ async function handleApplyClassifier() {
 async function handleApplySlic() {
     console.log("HEY SLICK!")
     console.log("IMAGES: ", images)
+
+    try {
+        const result = await window.electronAPI.runSlic("test")
+        console.log("RESULT: " + result)
+        // Update your canvas with result
+    } catch (error) {
+        console.error('SLIC processing failed:', error)
+    }
     // pass the ACTIVE image in
     // invoke a python script
     // RUN the python script ON the input image USING any cluent-specified parameters
