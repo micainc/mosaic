@@ -50,7 +50,7 @@ async function handleApplySlic() {
     console.log("IMAGES: ", images)
 
     try {
-        const result = await window.electronAPI.runSlic("test")
+        const result = await window.api.runSlic("test")
         console.log("RESULT: " + result)
         // Update your canvas with result
     } catch (error) {
