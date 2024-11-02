@@ -4,16 +4,15 @@ const path = require('path')
 
 // Helper function to get the correct SLIC executable path
 const getSlicPath = () => {
-    switch (process.platform) {
-        case 'win32':
-            return path.join(process.resourcesPath, 'slic_win.exe');
-        case 'darwin':
-            return path.join(process.resourcesPath, 'slic_unix');
-        case 'linux':
-            return path.join(process.resourcesPath, 'slic_unix');
-        default:
-            throw new Error('Unsupported platform');
-    }
+    // For development, use project directory
+    const basePath = path.join(__dirname, 'resources');
+    const execName = process.platform === 'win32' ? 'slic_win.exe' : 'slic_unix';
+    
+    // Debug log
+    console.log('Base path:', basePath);
+    console.log('Looking for executable:', execName);
+    
+    return path.join(basePath, execName);
 };
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -45,7 +44,7 @@ contextBridge.exposeInMainWorld(
                 
                 execFile(slicPath, [data], (error, stdout, stderr) => {
                     if (error) {
-                        console.error('SLIC Error:', error);
+                        console.error('SLIC PATH: ' + slicPath+ "| ERROR: "+error);
                         reject(error);
                         return;
                     }
