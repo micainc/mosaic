@@ -26,6 +26,7 @@
                     console.log('jQuery and jQuery UI loaded');
 
                     // Now load your app scripts
+                    await loadScript('./wasm-handler.js'); // Load this before segmentation.js
                     await loadScript('./selector.js');
                     await loadScript('./rgb-utils.js');
                     await loadScript('./tools.js');

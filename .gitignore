@@ -29,8 +29,15 @@ coverage
 # node-waf configuration
 .lock-wscript
 
-# Compiled binary addons (https://nodejs.org/api/addons.html)
-build/Release
+# Build artifacts
+build/
+*.wasm
+src/slic.js
+
+# Emscripten cache
+.emscripten_cache/
+
+.vscode/
 
 # Dependency directories
 node_modules/

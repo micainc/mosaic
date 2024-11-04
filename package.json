@@ -15,7 +15,8 @@
     "make-linux": "npm run rebuild && npm run compile-cpp-unix && electron-forge make --platform linux",
     "package": "npm run rebuild && npm run compile-cpp && electron-forge package",
     "postinstall": "electron-builder install-app-deps",
-    "rebuild": "electron-rebuild -f -w @tensorflow/tfjs-node"
+    "rebuild": "electron-rebuild -f -w @tensorflow/tfjs-node",
+    "build:wasm": "chmod +x ./scripts/build-wasm.sh && ./scripts/build-wasm.sh"
   },
   "build": {
     "appId": "com.yourapp.id",
