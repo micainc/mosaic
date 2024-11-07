@@ -15,7 +15,7 @@ log.transports.console.level = 'debug';
 
 // Then use log instead of console
 log.info('App starting...');
-log.error('Something failed:', error);
+// log.error('Something failed:', error);
 
 
 
