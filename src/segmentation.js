@@ -50,7 +50,7 @@ async function handleApplySlic() {
     console.log("IMAGES: ", images)
 
     try {
-        const result = await window.api.runSlic("test")
+        const result = await window.api.runSlic("2 1 0 0 255 0 0 255 255 0 0 100 100 100")
         console.log("RESULT: " + result)
         // Update your canvas with result
     } catch (error) {
