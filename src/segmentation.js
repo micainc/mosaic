@@ -48,14 +48,43 @@ async function handleApplyClassifier() {
 async function handleApplySlic() {
     console.log("HEY SLICK!")
     console.log("IMAGES: ", images)
+    //TODO: This is for testing, we likely don't simply want the first image a user dragged in!
+    const firstImage = Object.values(images)[0];
+    const imageData = firstImage.data;
+
 
     try {
-        const result = await window.api.runSlic("2 1 0 0 255 0 0 255 255 0 0 100 100 100")
-        console.log("RESULT: " + result)
-        // Update your canvas with result
+        // Extract dimensions
+        const width = imageData.width;
+        const height = imageData.height;
+        
+        // Create new array without alpha channel
+        const rgbOnly = new Array(width * height * 3);
+        const data = imageData.data;
+        
+        // Copy RGB values, skipping alpha channel
+        // Possibly innefficient! We loop through the entire image
+        let j = 0;
+        for (let i = 0; i < data.length; i += 4) {
+            rgbOnly[j] = data[i];     // R
+            rgbOnly[j + 1] = data[i + 1]; // G
+            rgbOnly[j + 2] = data[i + 2]; // B
+            j += 3;
+        }
+
+        // Convert to space-separated string and add dimensions at start
+        const inputString = `${width} ${height} ${rgbOnly.join(' ')}`;
+
+        // Run SLIC
+        const result = await window.api.runSlic(inputString);
+        console.log("RESULT: " + result);
+        return result;
+
     } catch (error) {
-        console.error('SLIC processing failed:', error)
+        console.error('SLIC processing failed:', error);
+        throw error;
     }
+
     // pass the ACTIVE image in
     // invoke a python script
     // RUN the python script ON the input image USING any cluent-specified parameters
