@@ -72,11 +72,11 @@ async function handleApplySlic() {
             j += 3;
         }
 
-        // Convert to space-separated string and add dimensions at start
-        const inputString = `${width} ${height} ${rgbOnly.join(' ')}`;
+        const result = await window.api.runSlic({
+            dimensions: `${width} ${height}`,
+            pixelData: rgbOnly.join(' ')
+        });
 
-        // Run SLIC
-        const result = await window.api.runSlic(inputString);
         console.log("RESULT: " + result);
         return result;
 

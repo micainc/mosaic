@@ -189,7 +189,7 @@ public:
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " \"width height [r g b] [r g b] ...\"" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " \"width height\"" << std::endl;
         return 1;
     }
     
@@ -200,17 +200,20 @@ int main(int argc, char* argv[]) {
     // Initialize matrix
     ImageMatrix pixels(width, height);
     
-    // Read pixels
+    // Read pixels from stdin
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             int r, g, b;
-            iss >> r >> g >> b;
+            if (!(std::cin >> r >> g >> b)) {
+                std::cerr << "Error reading pixel data from stdin" << std::endl;
+                return 1;
+            }
             pixels(x, y) = {static_cast<uint8_t>(r), 
                            static_cast<uint8_t>(g), 
                            static_cast<uint8_t>(b)};
         }
     }
-    
+
     // Run SLIC
     SLIC slic(pixels, 100);  // Create 100 superpixels
     auto labels = slic.compute(10);  // Run for 10 iterations
