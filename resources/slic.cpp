@@ -2,6 +2,8 @@
 #include <string>
 #include <iostream>
 #include <sstream>
+#include <queue>
+#include <map>
 #include <cmath>
 #include <limits>
 #include <algorithm>
@@ -129,6 +131,101 @@ private:
         centers = std::move(new_centers);
     }
 
+    void enforceConnectivity(int min_size = 25) {
+        std::vector<std::vector<bool>> visited(image.height(), std::vector<bool>(image.width(), false));
+        std::vector<std::vector<int>> new_labels = labels; // Copy current labels
+        
+        // First pass: find all segments and their sizes
+        struct Segment {
+            int label;
+            int size;
+            std::vector<std::pair<int,int>> pixels;
+        };
+        std::map<int, Segment> segments;
+
+        // Find connected components for each original label
+        for(int y = 0; y < image.height(); y++) {
+            for(int x = 0; x < image.width(); x++) {
+                if(visited[y][x]) continue;
+                
+                int originalLabel = labels[y][x];
+                int size = 0;
+                std::vector<std::pair<int,int>> component;
+                
+                // BFS to find connected component
+                std::queue<std::pair<int,int>> q;
+                q.push({y,x});
+                
+                while(!q.empty()) {
+                    auto [cy, cx] = q.front();
+                    q.pop();
+                    
+                    if(cy < 0 || cy >= image.height() || cx < 0 || cx >= image.width()) continue;
+                    if(visited[cy][cx] || labels[cy][cx] != originalLabel) continue;
+                    
+                    visited[cy][cx] = true;
+                    size++;
+                    component.push_back({cy,cx});
+                    
+                    // Add 4-connected neighbors
+                    q.push({cy+1, cx});
+                    q.push({cy-1, cx});
+                    q.push({cy, cx+1});
+                    q.push({cy, cx-1});
+                }
+                
+                if(size > 0) {
+                    segments[originalLabel].label = originalLabel;
+                    segments[originalLabel].size = size;
+                    segments[originalLabel].pixels = component;
+                }
+            }
+        }
+
+        // Second pass: merge small segments
+        for(const auto& segment : segments) {
+            if(segment.second.size < min_size) {
+                // Find neighboring segments
+                std::map<int, int> neighborCounts;
+                
+                for(const auto& pixel : segment.second.pixels) {
+                    int y = pixel.first;
+                    int x = pixel.second;
+                    
+                    // Check 4-connected neighbors
+                    std::vector<std::pair<int,int>> dirs = {{1,0}, {-1,0}, {0,1}, {0,-1}};
+                    for(const auto& [dy, dx] : dirs) {
+                        int ny = y + dy;
+                        int nx = x + dx;
+                        
+                        if(ny < 0 || ny >= image.height() || nx < 0 || nx >= image.width()) continue;
+                        int neighborLabel = labels[ny][nx];
+                        if(neighborLabel != segment.first) {
+                            neighborCounts[neighborLabel]++;
+                        }
+                    }
+                }
+                
+                // Find most frequent neighbor
+                int bestNeighbor = segment.first;
+                int maxCount = 0;
+                for(const auto& [label, count] : neighborCounts) {
+                    if(count > maxCount) {
+                        maxCount = count;
+                        bestNeighbor = label;
+                    }
+                }
+                
+                // Merge with best neighbor
+                for(const auto& pixel : segment.second.pixels) {
+                    new_labels[pixel.first][pixel.second] = bestNeighbor;
+                }
+            }
+        }
+        
+        labels = std::move(new_labels);
+    }
+
 public:
     SLIC(const ImageMatrix& img, int num_segments, float compact = 10.0)
         : image(img), 
@@ -148,8 +245,7 @@ public:
     }
     
     std::vector<std::vector<int>> compute(int max_iter = 10) {
-        // TODO: Convert to LAB color space for better results
-        // TODO: Implement enforce_connectivity as described in the original paper
+        // TODO: Convert to LAB or HSV color space for better results
         
         for (int iter = 0; iter < max_iter; ++iter) {
             // Reset distances
@@ -182,6 +278,8 @@ public:
             // Update centers
             updateCenters();
         }
+
+        enforceConnectivity(25);
         
         return labels;
     }
@@ -215,7 +313,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Run SLIC
-    SLIC slic(pixels, 100);  // Create 100 superpixels
+    SLIC slic(pixels, 40, 20);  // Create 100 superpixels
     auto labels = slic.compute(10);  // Run for 10 iterations
     
     // Output results
