@@ -46,12 +46,16 @@ async function handleApplyClassifier() {
 }
 
 async function handleApplySlic() {
-    console.log("HEY SLICK!")
-    console.log("IMAGES: ", images)
+    console.log("Running SLIC")
+
+    if (!images || Object.keys(images).length === 0) {
+        console.error('No images loaded');
+        return;
+    }
+
     //TODO: This is for testing, we likely don't simply want the first image a user dragged in!
     const firstImage = Object.values(images)[0];
     const imageData = firstImage.data;
-
 
     try {
         // Extract dimensions
@@ -77,7 +81,34 @@ async function handleApplySlic() {
             pixelData: rgbOnly.join(' ')
         });
 
-        console.log("RESULT: " + result);
+        console.log('SLIC algorithm completed - drawing segments')
+
+        // Parse result string
+        const lines = result.trim().split('\n');
+        const [resultHeight, resultWidth] = lines[0].split(' ').map(Number);
+        
+        // Create a color map for segments
+        const segmentColors = new Map();
+        
+        // Draw segments on canvas
+        draw_ctx.clearRect(0, 0, width, height);
+        
+        for(let y = 0; y < height; y++) {
+            const segments = lines[y + 1].split(' ').map(Number);
+            for(let x = 0; x < width; x++) {
+                const segmentId = segments[x];
+                
+                // Generate a color for this segment if we haven't yet
+                if (!segmentColors.has(segmentId)) {
+                    segmentColors.set(segmentId, `hsl(${Math.random() * 360}, 70%, 70%)`);
+                }
+                
+                // Draw pixel
+                draw_ctx.fillStyle = segmentColors.get(segmentId);
+                draw_ctx.fillRect(x, y, 1, 1);
+            }
+        }
+
         return result;
 
     } catch (error) {
