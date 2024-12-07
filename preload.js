@@ -1,5 +1,5 @@
 const { contextBridge, ipcRenderer } = require("electron");
-const { execFile } = require('child_process')
+const { spawn } = require('child_process')
 const path = require('path')
 
 // Helper function to get the correct SLIC executable path
@@ -37,20 +37,46 @@ contextBridge.exposeInMainWorld(
             }
         },
         applyClassifier: (images) => ipcRenderer.invoke('apply-classifier', images),
-        runSlic: async (data) => {
-            // currently, 'data' is just a string
+        runSlic: async ({ dimensions, pixelData }) => {
+            // The stdout of slic.cpp is what this promsie ends up returning on success
             return new Promise((resolve, reject) => {
                 const slicPath = getSlicPath();
                 
-                execFile(slicPath, [data], (error, stdout, stderr) => {
-                    if (error) {
-                        console.error('SLIC PATH: ' + slicPath+ "| ERROR: "+error);
-                        reject(error);
-                        return;
-                    }
-                    resolve(stdout);
+                // Spawn process with just dimensions as argument
+                const process = spawn(slicPath, [dimensions]);
+                
+                let stdout = '';
+                let stderr = '';
+
+                // Handle stdout data
+                process.stdout.on('data', (data) => {
+                    stdout += data;
                 });
+
+                // Handle stderr data
+                process.stderr.on('data', (data) => {
+                    stderr += data;
+                });
+
+                // Handle errors
+                process.on('error', (error) => {
+                    console.error('Failed to start SLIC process:', error);
+                    reject(error);
+                });
+
+                // Handle process completion
+                process.on('close', (code) => {
+                    if (code === 0) {
+                        resolve(stdout);
+                    } else {
+                        reject(new Error(`SLIC process exited with code ${code}: ${stderr}`));
+                    }
+                });
+
+                // Write pixel data to stdin
+                process.stdin.write(pixelData);
+                process.stdin.end();
             });
         }
-    },
+    }
 );
