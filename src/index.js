@@ -650,6 +650,14 @@ function toggleZoomLevel() {
 
 }
 
+async function openAnalysisWindow() {
+    try {
+        const result = await window.api.invoke('open-analysis');
+    } catch (error) {
+        console.error('Failed to open analysis window:', error);
+    }
+}
+
 //------------------------------------------------------ LOAD DROPPED IMAGES ------------------------------------------------------//
 
 function catchDrag(event) {

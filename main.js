@@ -373,3 +373,29 @@ ipcMain.handle('apply-classifier', async (event, images) => {
     return { success: false, error: error.message };
   }
 });
+
+let analysisWindow = null;
+
+ipcMain.handle('open-analysis', () => {
+    if (analysisWindow) {
+        analysisWindow.focus();
+        return;
+    }
+
+    analysisWindow = new BrowserWindow({
+        width: 800,
+        height: 600,
+        webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
+            contextIsolation: true
+        }
+    });
+
+    analysisWindow.loadFile('src/analysis.html');
+
+    analysisWindow.on('closed', () => {
+        analysisWindow = null;
+    });
+
+    return 'Analysis window opened';
+});
