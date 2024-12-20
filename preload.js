@@ -37,7 +37,8 @@ contextBridge.exposeInMainWorld(
                 "set_loadout",
                 "open-analysis",
                 "send-image-data",
-                "request-image-data"
+                "request-image-data",
+                'get-label-colours',
             ]; // list of ipcMain.handle channels you want access in frontend to
             if (validChannels.includes(channel)) {
                 // ipcRenderer.invoke accesses ipcMain.handle channels like 'download_pdf'
