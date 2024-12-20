@@ -17,7 +17,9 @@ log.transports.console.level = 'debug';
 log.info('App starting...');
 // log.error('Something failed:', error);
 
-
+// Variables for constructing & transmiting data to Analysis window
+let analysisWindow = null;
+let storedImageData = null;
 
 // ENABLE TFJS-NODE
 let tf;
@@ -374,8 +376,6 @@ ipcMain.handle('apply-classifier', async (event, images) => {
   }
 });
 
-let analysisWindow = null;
-
 ipcMain.handle('open-analysis', () => {
     if (analysisWindow) {
         analysisWindow.focus();
@@ -385,17 +385,32 @@ ipcMain.handle('open-analysis', () => {
     analysisWindow = new BrowserWindow({
         width: 800,
         height: 600,
+        titleBarStyle: 'hidden',
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
-            contextIsolation: true
+            nodeIntegration: false,
+            contextIsolation: true,
+            sandbox: false,
         }
     });
 
     analysisWindow.loadFile('src/analysis.html');
+    analysisWindow.webContents.openDevTools()
 
     analysisWindow.on('closed', () => {
         analysisWindow = null;
     });
 
     return 'Analysis window opened';
+});
+
+ipcMain.handle('send-image-data', async (event, data) => {
+  storedImageData = data;
+  console.log('Received and stored image data in main process');
+});
+
+ipcMain.handle('request-image-data', async () => {
+  const data = storedImageData;
+  storedImageData = null; // Clear stored data after sending
+  return data;
 });

@@ -651,6 +651,18 @@ function toggleZoomLevel() {
 }
 
 async function openAnalysisWindow() {
+    // Send image data to main process for temporary storage
+    // Right now, if we want to update the draw canvas data, we need to close and re-open the window.
+    // Not ideal, but works for now.
+    const imageData = draw_ctx.getImageData(0, 0, draw_canvas.width, draw_canvas.height);
+    const imageDataToSend = {
+        data: imageData.data,
+        width: draw_canvas.width,
+        height: draw_canvas.height
+    };
+    window.api.invoke('send-image-data', imageDataToSend)
+
+    // Open analysis window
     try {
         const result = await window.api.invoke('open-analysis');
     } catch (error) {
