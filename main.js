@@ -398,8 +398,8 @@ ipcMain.handle('open-analysis', () => {
         }
     });
 
-    analysisWindow.loadFile('src/analysis.html');
     analysisWindow.webContents.openDevTools()
+    analysisWindow.loadFile('src/analysis.html');
 
     analysisWindow.on('closed', () => {
         analysisWindow = null;

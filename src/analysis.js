@@ -10,6 +10,8 @@ window.addEventListener('load', async () => {
         ]);
 
         if (receivedData) {
+            analysisCanvas.width = receivedData.width;
+            analysisCanvas.height = receivedData.height;
             const imageData = new ImageData(
                 new Uint8ClampedArray(receivedData.data),
                 receivedData.width,
