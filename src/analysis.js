@@ -2,6 +2,7 @@ let analysisCanvas = document.getElementById('analysis-canvas');
 let ctx = analysisCanvas.getContext('2d');
 
 let pixelLabels;
+let proportions;
 
 function rgbToHex(r, g, b) {
     return '#' + [r, g, b].map(x => {
@@ -10,6 +11,7 @@ function rgbToHex(r, g, b) {
     }).join('');
 }
 
+// Populates labelColours with the corresponding mineral names for each color
 function populatePixelLabels(imageData, labelColours) {
     pixelLabels = new Array(imageData.height)
     for (let y = 0; y < imageData.height; y++) {
@@ -23,6 +25,26 @@ function populatePixelLabels(imageData, labelColours) {
             );
             pixelLabels[y][x] = labelColours[hex];
         }
+    }
+}
+
+// Calculates a percentage proportion for each mineral in pixelLabels
+// Updates proportions with these percents
+function findMineralProportions(pixelLabels) {
+    proportions = {}
+    const totalPixels = pixelLabels.length * pixelLabels[0].length;
+    
+    // Count occurrences
+    for (let y = 0; y < pixelLabels.length; y++) {
+        for (let x = 0; x < pixelLabels[y].length; x++) {
+            const mineral = pixelLabels[y][x];
+            proportions[mineral] = (proportions[mineral] || 0) + 1;
+        }
+    }
+
+    // Convert to percentages
+    for (const mineral in proportions) {
+        proportions[mineral] = (proportions[mineral] / totalPixels * 100).toFixed(2);
     }
 }
 
@@ -44,6 +66,9 @@ window.addEventListener('load', async () => {
             );
 
             populatePixelLabels(imageData, labelColours);
+            findMineralProportions(pixelLabels);
+            console.log("Mineral proportions:", proportions);
+
             // Debug - Put image data on canvas 
             // Unecessary, later on we'll add proper histogram data here
             ctx.putImageData(imageData, 0, 0);
