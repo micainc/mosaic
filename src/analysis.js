@@ -48,6 +48,100 @@ function findMineralProportions(pixelLabels) {
     }
 }
 
+/* ---------------- Find Grains ----------------*/
+
+// Store visited pixels to avoid re-processing
+const visited = new Set();
+
+// Helper to generate unique key for pixel coordinates
+const getPixelKey = (x, y) => `${x},${y}`;
+
+// Check if a pixel is within bounds
+function isValidPixel(x, y, width, height) {
+    return x >= 0 && x < width && y >= 0 && y < height;
+}
+
+// Get neighboring pixels (8-connected neighborhood)
+function getNeighbors(x, y, width, height) {
+    const neighbors = [];
+    for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+            if (dx === 0 && dy === 0) continue;
+            const newX = x + dx;
+            const newY = y + dy;
+            if (isValidPixel(newX, newY, width, height)) {
+                neighbors.push([newX, newY]);
+            }
+        }
+    }
+    return neighbors;
+}
+
+// Find a single grain starting from a pixel
+function findGrain(startX, startY, pixelLabels) {
+    const width = pixelLabels[0].length;
+    const height = pixelLabels.length;
+    const label = pixelLabels[startY][startX];
+    const queue = [[startX, startY]];
+    const pixels = new Set();
+    
+    // Add start pixel to visited and grain
+    const startKey = getPixelKey(startX, startY);
+    visited.add(startKey);
+    pixels.add(startKey);
+
+    while (queue.length > 0) {
+        const [x, y] = queue.shift();
+        
+        // Check all neighbors
+        for (const [newX, newY] of getNeighbors(x, y, width, height)) {
+            const key = getPixelKey(newX, newY);
+            if (!visited.has(key) && pixelLabels[newY][newX] === label) {
+                visited.add(key);
+                pixels.add(key);
+                queue.push([newX, newY]);
+            }
+        }
+    }
+
+    return {
+        label,
+        pixels  // Set of pixel coordinates in this grain
+    };
+}
+
+// Find all grains in the image
+function findAllGrains(pixelLabels) {
+    const width = pixelLabels[0].length;
+    const height = pixelLabels.length;
+    const grains = {};
+    
+    // Clear visited set for new analysis
+    visited.clear();
+
+    // Scan through all pixels
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const key = getPixelKey(x, y);
+            if (!visited.has(key) && pixelLabels[y][x] !== undefined) {
+                const grain = findGrain(x, y, pixelLabels);
+                
+                // Initialize array for this label if it doesn't exist
+                if (!grains[grain.label]) {
+                    grains[grain.label] = [];
+                }
+                
+                // Add grain to appropriate label group
+                grains[grain.label].push({
+                    pixels: grain.pixels
+                });
+            }
+        }
+    }
+
+    return grains;
+}
+
 // Request image data when window loads
 window.addEventListener('load', async () => {
     try {
@@ -66,8 +160,12 @@ window.addEventListener('load', async () => {
             );
 
             populatePixelLabels(imageData, labelColours);
+
             findMineralProportions(pixelLabels);
             console.log("Mineral proportions:", proportions);
+
+            grains = findAllGrains(pixelLabels);
+            console.log("Grains: ", grains);
 
             // Debug - Put image data on canvas 
             // Unecessary, later on we'll add proper histogram data here
