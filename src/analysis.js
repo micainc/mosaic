@@ -142,6 +142,66 @@ function findAllGrains(pixelLabels) {
     return grains;
 }
 
+function createHistogram(grainClusters, title, bucketSize = 2000) {
+    // Create a new canvas element for this histogram
+    const canvas = document.createElement('canvas');
+    document.body.appendChild(canvas);
+
+    const ctx = canvas.getContext('2d');
+
+    // Get array of sizes from the grain pixels
+    const sizes = grainClusters.map(grain => grain.pixels.size);
+    
+    // Find the range of sizes
+    const maxSize = Math.max(...sizes);
+    const numBuckets = Math.ceil(maxSize / bucketSize);
+    
+    // Initialize buckets
+    const buckets = Array(numBuckets).fill(0);
+    
+    // Fill buckets
+    sizes.forEach(size => {
+        const bucketIndex = Math.floor(size / bucketSize);
+        buckets[bucketIndex]++;
+    });
+
+    // Generate labels for each bucket
+    const labels = buckets.map((_, i) => `${i * bucketSize}-${(i + 1) * bucketSize}`);
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: `${title} Grain Size Distribution`,
+                data: buckets,
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            barThickness: 40,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Number of Grains'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Grain Size (pixels)'
+                    }
+                }
+            }
+        }
+    });
+}
+
 // Request image data when window loads
 window.addEventListener('load', async () => {
     try {
@@ -166,6 +226,11 @@ window.addEventListener('load', async () => {
 
             grains = findAllGrains(pixelLabels);
             console.log("Grains: ", grains);
+
+            // Todo - Figure out a way to make bucketSize more generic, not just hardcoded
+            for (const [mineral, grainClusters] of Object.entries(grains)) {
+                createHistogram(grainClusters, mineral, 2000);
+            }
 
             // Debug - Put image data on canvas 
             // Unecessary, later on we'll add proper histogram data here
