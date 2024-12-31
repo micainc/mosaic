@@ -44,7 +44,7 @@ function findMineralProportions(pixelLabels) {
 
     // Convert to percentages
     for (const mineral in proportions) {
-        proportions[mineral] = (proportions[mineral] / totalPixels * 100).toFixed(2);
+        proportions[mineral] = (proportions[mineral] / totalPixels * 100);
     }
 }
 
@@ -142,65 +142,64 @@ function findAllGrains(pixelLabels) {
     return grains;
 }
 
-function createHistogram(grainClusters, title, bucketSize = 2000) {
-    // Create a new canvas element for this histogram
-    const canvas = document.createElement('canvas');
-    document.body.appendChild(canvas);
-
-    const ctx = canvas.getContext('2d');
-
-    // Get array of sizes from the grain pixels
-    const sizes = grainClusters.map(grain => grain.pixels.size);
-    
-    // Find the range of sizes
-    const maxSize = Math.max(...sizes);
-    const numBuckets = Math.ceil(maxSize / bucketSize);
-    
-    // Initialize buckets
-    const buckets = Array(numBuckets).fill(0);
-    
-    // Fill buckets
-    sizes.forEach(size => {
-        const bucketIndex = Math.floor(size / bucketSize);
-        buckets[bucketIndex]++;
+function createScatterPlot(grains, proportions, labelColours) {
+    const ctx = document.getElementById('scatterPlot').getContext('2d');
+ 
+    // Create datasets for each mineral type
+    const datasets = Object.entries(grains).map(([mineral, grainClusters]) => {
+        // Get all grain sizes for this mineral
+        const sizes = grainClusters.map(grain => grain.pixels.size);
+        
+        // Create data points - each point has same y value (proportion) but different x values (sizes)
+        const data = sizes.map(size => ({
+            x: size,
+            y: proportions[mineral]
+        }));
+ 
+        return {
+            label: mineral,
+            data: data,
+            backgroundColor: labelColours[mineral],
+            pointStyle: 'circle',
+            pointRadius: 5
+        };
     });
-
-    // Generate labels for each bucket
-    const labels = buckets.map((_, i) => `${i * bucketSize}-${(i + 1) * bucketSize}`);
-
+ 
     new Chart(ctx, {
-        type: 'bar',
+        type: 'scatter',
         data: {
-            labels: labels,
-            datasets: [{
-                label: `${title} Grain Size Distribution`,
-                data: buckets,
-                backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 1
-            }]
+            datasets: datasets
         },
         options: {
             responsive: true,
-            barThickness: 40,
             scales: {
+                x: {
+                    type: 'linear',
+                    position: 'bottom',
+                    title: {
+                        display: true,
+                        text: 'Grain Size (pixels)'
+                    }
+                },
                 y: {
                     beginAtZero: true,
                     title: {
                         display: true,
-                        text: 'Number of Grains'
+                        text: 'Proportion of Thin Section (%)'
                     }
-                },
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Grain Size (pixels)'
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        usePointStyle: true
                     }
                 }
             }
         }
     });
-}
+ }
 
 // Request image data when window loads
 window.addEventListener('load', async () => {
@@ -228,16 +227,14 @@ window.addEventListener('load', async () => {
             console.log("Grains: ", grains);
 
             // Todo - Figure out a way to make bucketSize more generic, not just hardcoded
-            for (const [mineral, grainClusters] of Object.entries(grains)) {
-                createHistogram(grainClusters, mineral, 2000);
-            }
+            createScatterPlot(grains, proportions, labelColours);
 
             // Debug - Put image data on canvas 
             // Unecessary, later on we'll add proper histogram data here
-            ctx.putImageData(imageData, 0, 0);
-            console.log(pixelLabels)
-            console.log(imageData);
-            console.log(labelColours);
+            // ctx.putImageData(imageData, 0, 0);
+            // console.log(pixelLabels)
+            // console.log(imageData);
+            // console.log(labelColours);
         } else {
             console.error('No image data received');
         }
