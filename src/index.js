@@ -83,18 +83,19 @@ function init() {
             saveState();
         } else if (e.button === 2 && !leftClicked) {
             rightClicked = true;
+            
         }
     });
 
     draw_canvas.addEventListener('mouseup', function(e) {
         // doesn't matter what the draw path looks like, a drawn pixel will be without the boundaries returned by this function
         if(leftClicked) {
-            switch (selectedTool) {
-                case Tools.fill:
+            switch (mode) {
+                case "fill":
                     var points = goOutFromDrawPointsToFill(drawPath, draw_ctx)
                     fillPointsWithActiveColor(points)
                     break;
-                case Tools.pencil:
+                case "pencil":
                     if( drawPath.length < 2 ) { // if user just clicked, check if user wants to flood a shape
 
                         // clear the draw area first
@@ -126,15 +127,15 @@ function init() {
 
     draw_canvas.addEventListener("mouseleave", function(e) {
         document.getElementById('cursor').style.display = "none";
-        switch (selectedTool) {
-            case Tools.pencil:
+        switch (mode) {
+            case "pencil":
                 if(leftClicked) {
                     drawPath.push({x: mouseX, y: mouseY}); // finish drawPath
                     drawPath = fillGaps(drawPath); // algorithmically fills gaps in the draw path to create a solid continuous line 
                     
                 }
                 break;
-            case Tools.fill:
+            case "fill":
                 var points = goOutFromDrawPointsToFill(drawPath, draw_ctx)
                 fillPointsWithActiveColor(points)
                 break;
@@ -145,6 +146,167 @@ function init() {
         leftClicked = false;
         rightClicked = false;
     })
+
+    // draw_canvas.addEventListener('wheel', function(e) {
+    //     e.preventDefault(); // Prevent default scrolling behavior
+        
+    //     // Get the scroll deltas
+    //     const deltaX = e.deltaX;
+    //     const deltaY = e.deltaY;
+        
+    //     // Update scroll position
+    //     window.scrollBy({
+    //         left: deltaX,
+    //         top: deltaY,
+    //         behavior: 'auto' // Use 'smooth' for smooth scrolling, 'auto' for immediate
+    //     });
+    // }, { passive: false });
+
+
+
+
+    let scale = 1;
+    let isGesturing = false;
+    
+    // For trackpad scrolling 
+    draw_canvas.addEventListener('wheel', function(e) {
+        console.log('wheel event:', e);
+        if (e.ctrlKey || e.metaKey) {
+            // Pinch zoom gesture
+            e.preventDefault();
+            const delta = e.deltaY;
+            const scaleChange = 1 + (delta * -0.01); // Adjust the multiplier to tune sensitivity
+            
+            scale *= scaleChange;
+            scale = Math.min(Math.max(1, scale), 10);
+            zoomAround(scale, e.clientX, e.clientY);
+
+            // zoomAround(scale);
+        } else if (!isGesturing) {
+            // Regular scrolling
+            window.scrollBy({
+                left: e.deltaX,
+                top: e.deltaY,
+                behavior: 'auto'
+            });
+        }
+    }, { passive: false });
+
+
+
+        // For Mac trackpad gestures
+    draw_canvas.addEventListener('gesturestart', function(e) {
+        console.log('gesture start:', e);
+        e.preventDefault();
+        isGesturing = true;
+    });
+
+    draw_canvas.addEventListener('gesturechange', function(e) {
+        console.log('gesture change:', e);
+        e.preventDefault();
+        if (isGesturing) {
+            scale *= e.scale;
+            scale = Math.min(Math.max(0.5, scale), 16);
+            // zoomAround(scale, e.clientX, e.clientY);
+            zoomAround(scale, mouseX, mouseY);
+
+        }
+    });
+
+    draw_canvas.addEventListener('gestureend', function(e) {
+        console.log('gesture end:', e);
+        e.preventDefault();
+        isGesturing = false;
+    });
+
+    function zoomAround(scale, cursorX, cursorY) {
+        // Get current scroll position
+        const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        
+        // Calculate cursor position relative to the document (not just the viewport)
+        const cursorDocX = cursorX + scrollLeft;
+        const cursorDocY = cursorY + scrollTop;
+        
+        // Get current dimensions and apply new scale
+        const beforeWidth = $(".mosaic-canvas").width();
+        $(".mosaic-canvas").css("width", Math.max(100, (100 * scale)) + "%");
+        const afterWidth = $(".mosaic-canvas").width();
+        
+        // Calculate scaling factor
+        const scaleFactor = afterWidth / beforeWidth;
+        
+        // Calculate new position of the cursor point after scaling
+        const newCursorDocX = cursorDocX * scaleFactor;
+        const newCursorDocY = cursorDocY * scaleFactor;
+        
+        // Calculate how far we need to scroll to keep the cursor over the same point
+        const newScrollLeft = newCursorDocX - cursorX;
+        const newScrollTop = newCursorDocY - cursorY;
+        
+        // Apply the new scroll position
+        window.scrollTo({
+            left: newScrollLeft,
+            top: newScrollTop,
+            behavior: 'auto'
+        });
+    }
+
+    // function zoomAround(scale) {
+    //     // Get current scroll position and viewport dimensions
+    //     const viewportWidth = window.innerWidth;
+    //     const viewportHeight = window.innerHeight;
+        
+    //     // Get the current scroll position
+    //     const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+    //     const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        
+    //     // Calculate the center point of the viewport in terms of the document
+    //     const centerX = scrollLeft + (viewportWidth / 2);
+    //     const centerY = scrollTop + (viewportHeight / 2);
+        
+    //     // Get the current and new dimensions
+    //     const beforeWidth = $(".mosaic-canvas").width();
+    //     $(".mosaic-canvas").css("width", Math.max(100, (100 * scale)) + "%");
+    //     const afterWidth = $(".mosaic-canvas").width();
+        
+    //     // Calculate the scaling factor
+    //     const scaleFactor = afterWidth / beforeWidth;
+        
+    //     // Calculate new scroll position to maintain the same center point
+    //     const newScrollLeft = (centerX * scaleFactor) - (viewportWidth / 2);
+    //     const newScrollTop = (centerY * scaleFactor) - (viewportHeight / 2);
+        
+    //     // Apply the new scroll position
+    //     window.scrollTo({
+    //         left: newScrollLeft,
+    //         top: newScrollTop,
+    //         behavior: 'auto'
+    //     });
+    // }
+
+
+
+    // function zoomAround(scale, cursorX, cursorY) {
+    //     const beforeWidth = $(".mosaic-canvas").width();
+    //     $(".mosaic-canvas").css("width", Math.max(100, (100 * scale)) + "%");
+    //     const afterWidth = $(".mosaic-canvas").width();
+        
+    //     const widthDiff = afterWidth - beforeWidth;
+    //     const heightDiff = (afterWidth / beforeWidth - 1) * $(".mosaic-canvas").height();
+        
+    //     // Calculate percentages based on cursor position
+    //     const percentX = cursorX / window.innerWidth;
+    //     const percentY = cursorY / window.innerHeight;
+        
+    //     window.scrollBy({
+    //         left: widthDiff * percentX,
+    //         top: heightDiff * percentY,
+    //         behavior: 'auto'
+    //     });
+    // }
+
+
 
     draw_canvas.addEventListener("mouseenter", function(e) {
         document.getElementById('cursor').style.display = "block";
@@ -162,7 +324,6 @@ function init() {
     draw_canvas.addEventListener("dragover", catchDrag);
     draw_canvas.addEventListener("drop", dropFiles);
 
-    let zoomActivated = false;
     document.addEventListener('keydown', function(event) {
         console.log("KEY: ", event.key)
 
@@ -180,11 +341,7 @@ function init() {
         // ctrl z: undo
         if (event.ctrlKey && event.key === 'z') {
             undo();
-        } else if(event.key === 'z' && !zoomActivated) { // zoom
-            zoomActivated = true;
-            toggleZoomLevel();
-            ;
-        }
+        } 
 
         var searchBox = document.getElementsByClassName('search-box')[0]
         console.log(searchBox.style.display)
@@ -211,10 +368,7 @@ function init() {
 
         if (event.code === 'Space' || event.key === 's') {
             draw_canvas.style.opacity = '0.5';
-        } else if (!event.ctrlKey && event.key === 'z' && zoomActivated) { // ZOOM
-            toggleZoomLevel();
-            zoomActivated= false;
-        }
+        } 
     });
 
     function updateCursor(event) {
@@ -241,6 +395,7 @@ function init() {
 
         // Update coordinates text.
         $('#coords').text(mouseX + ", " + mouseY);
+        $('#ecoords').text(event.clientX + ", " + event.clientY);
 
         // Function to compare the current point with the last point
         function isDistinct(p1, p0) {
@@ -586,68 +741,26 @@ function fillRegion(canvas, x, y) {
 
 //------------------------------------------------------ PARAM LISTENER FUNCTIONALITY ------------------------------------------------------//
 
-// document.getElementById('cursor-size-slider').addEventListener('input', function(e) {
-//     //console.log("sliding: ", e.target.value)
-//     drawDiameter = Number(e.target.value);
-//     cursor.style.width = drawDiameter+"px";
-//     cursor.style.height = drawDiameter+"px";
-// })
 
-// document.getElementById('cursor-size-slider').addEventListener('input', function(e) {
-//     //console.log("sliding: ", e.target.value)
-//     drawDiameter = Number(e.target.value);
-//     cursor.style.width = drawDiameter+"px";
-//     cursor.style.height = drawDiameter+"px";
-// })
 
-let savedScrollStateX = 0
-let savedScrollStateY = 0
+async function openAnalysisWindow() {
+    // Send image data to main process for temporary storage
+    // Right now, if we want to update the draw canvas data, we need to close and re-open the window.
+    // Not ideal, but works for now.
+    const imageData = draw_ctx.getImageData(0, 0, draw_canvas.width, draw_canvas.height);
+    const imageDataToSend = {
+        data: imageData.data,
+        width: draw_canvas.width,
+        height: draw_canvas.height
+    };
+    window.api.invoke('send-image-data', imageDataToSend)
 
-function setZoomLevel(z) {
-    if (z === zoom) return; // Exit if no change in zoom state
-
-    console.log("SET ZOOM LEVEL");
-
-    // Calculate relative positions of the cursor
-    let posX = mouseX / image_canvas.width;
-    let posY = mouseY / image_canvas.height;
-    console.log("UPDATED CURSOR POS: " + Math.round(1000 * posX) / 10 + ", " + Math.round(1000 * posY) / 10);
-
-    if (z === 1) {
-        $(".mosaic-canvas").css({"width":"max-content"}); // Set width to max content
-        zoom = 1;
-
-        // Calculate new absolute positions based on the current size of the canvas
-        const newWidth = $(".mosaic-canvas").width();
-        const newHeight = $(".mosaic-canvas").height();
-
-        savedScrollStateX = scrollX
-        savedScrollStateY = scrollY
-
-        const scrollToX = posX * newWidth - window.innerWidth / 2;
-        const scrollToY = posY * newHeight - window.innerHeight / 2;
-
-        window.scrollTo({
-            top: scrollToY,
-            left: scrollToX,
-        });
-        $("#zoom-img").attr("src","./public/img/zoom_2.png");
-
-    } else if (z === 0) { // Zoom out
-        $(".mosaic-canvas").css({"width":"100%"}); // Reset width
-        window.scrollTo(savedScrollStateX, savedScrollStateY); // Scroll back to top
-        zoom = 0;
-        $("#zoom-img").attr("src","./public/img/zoom_1.png");
+    // Open analysis window
+    try {
+        const result = await window.api.invoke('open-analysis');
+    } catch (error) {
+        console.error('Failed to open analysis window:', error);
     }
-}
-
-function toggleZoomLevel() {
-    if(zoom === 1){
-        setZoomLevel(0)
-    } else {
-        setZoomLevel(1)
-    }
-
 }
 
 //------------------------------------------------------ LOAD DROPPED IMAGES ------------------------------------------------------//
@@ -835,8 +948,8 @@ function draw() {
     //ctx.globalCompositeOperation = "copy";
 
     //draw_ctx.globalCompositeOperation = 'source-over';
-    switch (selectedTool) {
-        case Tools.pencil:
+    switch (mode) {
+        case "pencil":
             if(leftClicked) {
                 draw_ctx.globalCompositeOperation = 'source-over'
                 draw_ctx.fillStyle = active.colour; 
@@ -847,7 +960,7 @@ function draw() {
                 fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(image_canvas.width / image_canvas.clientWidth))/2)-1)
             }
             break;
-        case Tools.fill:
+        case "fill":
             break
         default:
             break;

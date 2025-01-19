@@ -6,7 +6,7 @@ import 'jquery-ui/ui/widgets/slider'; // Import specific jQuery UI components if
 import './index.js';
 import './selector.js';
 import './rgb-utils.js';
-import './tools.js';
+import './modes.js';
 import './classifier.js';
 
 // Optionally, import your CSS

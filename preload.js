@@ -29,7 +29,17 @@ window.addEventListener('DOMContentLoaded', () => {
 contextBridge.exposeInMainWorld(
     "api", {
         invoke: (channel, data) => {
-            let validChannels = ["save_segment", "save_label_colours", "set_file_path", "get_loadouts", "set_loadout"]; // list of ipcMain.handle channels you want access in frontend to
+            let validChannels = [
+                "save_segment",
+                "save_label_colours", 
+                "set_file_path",
+                "get_loadouts",
+                "set_loadout",
+                "open-analysis",
+                "send-image-data",
+                "request-image-data",
+                'get-label-colours',
+            ]; // list of ipcMain.handle channels you want access in frontend to
             if (validChannels.includes(channel)) {
                 // ipcRenderer.invoke accesses ipcMain.handle channels like 'download_pdf'
                 // make sure to include this return statement or you won't get your Promise back
@@ -77,6 +87,7 @@ contextBridge.exposeInMainWorld(
                 process.stdin.write(pixelData);
                 process.stdin.end();
             });
-        }
+        },
+        openAnalysisWindow: () => ipcRenderer.invoke('open-analysis')
     }
 );

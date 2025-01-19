@@ -1,34 +1,14 @@
-const Tools = {
-    pencil: "pencil",
-    fill: "fill",
-    wand: "wand",
-};
+var mode = "pencil";
 
-var selectedTool = Tools.pencil;
-
-function selectPencil(button) {
-    selectedTool = Tools.pencil;
-    updateButtonStyles(button);
-}
-
-function selectFill(button) {
-    selectedTool = Tools.fill;
-    updateButtonStyles(button);
-}
-
-function selectWand(button) {
-    selectedTool = Tools.wand;
-    updateButtonStyles(button);
-}
-
-function updateButtonStyles(selectedButton) {
+function setMode(m, b) {
+    mode = m;
     // Get all buttons with the 'tool' class and remove 'selected-tool' from each
     document.querySelectorAll('.tool').forEach(button => {
         button.classList.remove('selected-tool');
     });
 
     // Add the 'selected-tool' class to the selected button
-    selectedButton.classList.add('selected-tool');
+    b.classList.add('selected-tool');
 }
 
 var array2dToKeepTrackOfPixelsToFill = null

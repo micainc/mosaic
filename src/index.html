@@ -23,12 +23,14 @@
                 try {
                     await loadScript('../node_modules/jquery/dist/jquery.min.js');
                     await loadScript('../node_modules/jquery-ui/dist/jquery-ui.min.js');
+                    await loadScript('../node_modules/chart.js/dist/chart.js');
+
                     console.log('jQuery and jQuery UI loaded');
 
                     // Now load your app scripts
                     await loadScript('./selector.js');
                     await loadScript('./rgb-utils.js');
-                    await loadScript('./tools.js');
+                    await loadScript('./modes.js');
                     await loadScript('./classifier.js');
                     await loadScript('./segmentation.js');   
                     await loadScript('./index.js');  // Load this last!!! as it has your init code
@@ -58,15 +60,16 @@
                 <button onclick="cycleImage(-1)"><img src="./public/img/left-arrow.png" width="10px"/></button><span id="toolbar-filename">Drag image set below...</span><button onclick="cycleImage(1)"><img src="./public/img/right-arrow.png" width="10px"/></button>
             </div>
             <div id="toolbar-right">
-                <!-- <div id="coords"></div> -->
-                <button id="undo-button" class="toolbar-button" onclick="undo()"><img id="undo-img" width="20px" src="./public/img/undo.png"></button></button>
-                <button id="pencil-button" class="toolbar-button tool selected-tool" onclick="selectPencil(this)"><img id="pencil-img" width="20px" src="./public/img/pencil.png"></button>
-                <button id="fill-button" class="toolbar-button tool" onclick="selectFill(this)"><img id="fill-img" width="20px" src="./public/img/bucket.png"></button>
-                <button id="segment-button" class="toolbar-button tool" onclick="handleApplySlic()"><img id="splash-img" width="20px" src="./public/img/splash.png"></button>
-                <button id="wand-button" class="toolbar-button tool" onclick="selectWand(this)"><img id="wand-img" width="20px" src="./public/img/wand.png"></button>
-                <button id="ai-button" class="toolbar-button" onclick="handleApplyClassifier()"><img id="ai-img" width="20px" src="./public/img/ai.png"></button>
+                <div id="coords"></div> |&nbsp;<div id="ecoords"></div>
 
-                <button class="toolbar-button" onclick="toggleZoomLevel()"><img id="zoom-img" width="20px" src="./public/img/zoom_1.png"></button> 
+                <button class="toolbar-button" onclick="undo()"><img width="20px" src="./public/img/undo.png"/></button>
+                <button class="toolbar-button" onclick="setMode('pan', this)"><img width="20px" src="./public/img/pan.png"/></button>
+                <button class="toolbar-button tool selected-tool" onclick="setMode('pencil', this)"><img width="20px" src="./public/img/pencil.png"/></button>
+                <button class="toolbar-button tool" onclick="setMode('fill', this)"><img width="20px" src="./public/img/bucket.png"/></button>
+                <button class="toolbar-button tool" onclick="handleApplySlic()"><img width="20px" src="./public/img/splash.png"/></button>
+                <button class="toolbar-button tool" onclick="setMode('wand', this)"><img  width="20px" src="./public/img/wand.png"/></button>
+                <button class="toolbar-button" onclick="handleApplyClassifier()"><img  width="20px" src="./public/img/ai.png"/></button>
+                <button class="toolbar-button" onclick="openAnalysisWindow()"><img width="20px" src="./public/img/analysis.png"/></button>
 
                 <input class="slider" id="cursor-size-slider" type="range" min="5" max="100" value="10">
 
