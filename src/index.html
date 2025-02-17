@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 
 <html>
+    
     <head>
         <meta charset="UTF-8" />
         <link rel="stylesheet" href="index.css">
@@ -23,8 +24,6 @@
                 try {
                     await loadScript('../node_modules/jquery/dist/jquery.min.js');
                     await loadScript('../node_modules/jquery-ui/dist/jquery-ui.min.js');
-                    await loadScript('../node_modules/chart.js/dist/chart.js');
-
                     console.log('jQuery and jQuery UI loaded');
 
                     // Now load your app scripts
@@ -54,22 +53,21 @@
         <div id="toolbar">
             
             <div id="toolbar-paths">
-                <button class="toolbar-button" onclick="findRegions()"><img width="20px" src="./public/img/save_folder.png" ><span class="path" id="save-path">&nbsp; Save...</span></button> 
+                <button class="toolbar-button" onclick="saveGrains()"><img width="20px" src="./public/img/save_folder.png" ><span class="path" id="save-path">&nbsp; Save...</span></button> 
             </div>
             <div id="toolbar-file">
                 <button onclick="cycleImage(-1)"><img src="./public/img/left-arrow.png" width="10px"/></button><span id="toolbar-filename">Drag image set below...</span><button onclick="cycleImage(1)"><img src="./public/img/right-arrow.png" width="10px"/></button>
             </div>
             <div id="toolbar-right">
-                <div id="coords"></div> |&nbsp;<div id="ecoords"></div>
+                <!-- <div id="coords"></div> |&nbsp;<div id="ecoords"></div> -->
 
                 <button class="toolbar-button" onclick="undo()"><img width="20px" src="./public/img/undo.png"/></button>
-                <button class="toolbar-button" onclick="setMode('pan', this)"><img width="20px" src="./public/img/pan.png"/></button>
+                <button class="toolbar-button" onclick="openAnalysisWindow()"><img width="20px" src="./public/img/bar-chart.png"/></button>
                 <button class="toolbar-button tool selected-tool" onclick="setMode('pencil', this)"><img width="20px" src="./public/img/pencil.png"/></button>
                 <button class="toolbar-button tool" onclick="setMode('fill', this)"><img width="20px" src="./public/img/bucket.png"/></button>
                 <button class="toolbar-button tool" onclick="handleApplySlic()"><img width="20px" src="./public/img/splash.png"/></button>
                 <button class="toolbar-button tool" onclick="setMode('wand', this)"><img  width="20px" src="./public/img/wand.png"/></button>
                 <button class="toolbar-button" onclick="handleApplyClassifier()"><img  width="20px" src="./public/img/ai.png"/></button>
-                <button class="toolbar-button" onclick="openAnalysisWindow()"><img width="20px" src="./public/img/analysis.png"/></button>
 
                 <input class="slider" id="cursor-size-slider" type="range" min="5" max="100" value="10">
 
@@ -84,8 +82,7 @@
             </div>
         </div>
 
-        <canvas class= "mosaic-canvas" id="image-canvas"></canvas>
-        <canvas class= "mosaic-canvas" id="second-shot-canvas"></canvas>
+        <img class="mosaic-canvas" id="base-image" style="position: absolute;">
         <canvas class= "mosaic-canvas" id="draw-canvas"></canvas>
         <canvas class= "mosaic-canvas" id="save-canvas"></canvas>
 

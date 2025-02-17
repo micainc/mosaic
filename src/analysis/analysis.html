@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Analysis</title>
+    <link rel="stylesheet" href="./analysis.css">
+
+    <script src="../../node_modules/chart.js/dist/chart.umd.js"></script>
+
+    
+    <!-- <script type="importmap">
+        {
+            "imports": {
+                "three": "../../node_modules/three/build/three.module.min.js",
+                "three/addons/": "../../node_modules/three/examples/jsm/",
+            }
+        }
+    </script> -->
+
+
+    <!-- "imports": {
+        "three": "../../../three/build/three.module.min.js",
+        "three/addons/": "../../../three/examples/jsm/"
+    } -->
+
+
+
+    <style>
+        .chart-container {
+            width: 100%;
+            height: 400px;
+            margin: 20px auto;
+        }
+    </style>
+</head>
+<body>
+    <div id="toolbar"></div>
+    <div id= "plot-container">
+        <canvas id="scatterPlot"></canvas>
+        <canvas id="feretPlot"></canvas>
+        <div id="histogramPlot"></div>
+    </div>
+    <!-- <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        window.THREE = THREE;
+        window.OrbitControls = OrbitControls;
+        
+        console.log('THREE object:', THREE);
+        console.log('OrbitControls:', OrbitControls);
+
+    </script>
+    <script src="analysis.js"></script> -->
+
+    <script>
+        async function setupImportMap() {
+            // Get isPackaged status from electron
+            const isPackaged = await window.api.isPackaged();
+            
+            // Define the import map based on environment
+            const importMap = {
+                imports: {
+                    "three": isPackaged 
+                        ? "../../../three/build/three.module.min.js"
+                        : "../../node_modules/three/build/three.module.min.js",
+                    "three/addons/": isPackaged
+                        ? "../../../three/examples/jsm/"
+                        : "../../node_modules/three/examples/jsm/"
+                }
+            };
+    
+            // Create and insert the import map
+            const script = document.createElement('script');
+            script.type = 'importmap';
+            script.textContent = JSON.stringify(importMap);
+            document.head.appendChild(script);
+        }
+    
+        // Run setup before any imports
+        setupImportMap().then(() => {
+            // Now you can add your module script
+            const moduleScript = document.createElement('script');
+            moduleScript.type = 'module';
+            moduleScript.textContent = `
+                import * as THREE from 'three';
+                import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    
+                window.THREE = THREE;
+                window.OrbitControls = OrbitControls;
+                
+                console.log('THREE object:', THREE);
+                console.log('OrbitControls:', OrbitControls);
+            `;
+            document.body.appendChild(moduleScript);
+    
+            // Load the analysis.js script after Three.js is ready
+            // const analysisScript = document.createElement('script');
+            // analysisScript.src = 'analysis.js';
+            // document.body.appendChild(analysisScript);
+        });
+        </script>
+        <script src="analysis.js"></script>
+
+</body>
+</html>

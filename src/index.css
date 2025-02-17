@@ -140,7 +140,7 @@ button:hover, select:hover {
 
 #cursor-size-slider::-webkit-slider-runnable-track {
     border-radius: 20px;
-    border: solid 1px #000000; 
+    border: solid 1px #C4C4C4; 
 }
 
 #cursor-size-slider::-webkit-slider-thumb {
@@ -190,7 +190,7 @@ button:hover, select:hover {
     display: none; 
 }
 
-#image-canvas {
+#base-image {
     z-index: 0 !important;
 }
 

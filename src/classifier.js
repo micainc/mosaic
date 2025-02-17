@@ -2,32 +2,32 @@ async function applyClassifier(images, model, tf) {
     // console.log("APPLY CLASSIFIER IMAGES: ", images)
     // 1. Sort and prepare the images
     console.log("IMAGES: ", images)
-    const { lin, composite, beauty, width, height } = sortImages(images);
-    if (!lin || !composite || !beauty) {
+    const { lin, composite, texture, width, height } = sortImages(images);
+    if (!lin || !composite || !texture) {
         console.error("Could not find all required image types.");
         return;
     }
 
-    return applySlideWindow({ lin, composite, beauty, width, height }, model, tf);
+    return applySlideWindow({ lin, composite, texture, width, height }, model, tf);
 
 }
 
 function sortImages(images) {
-    let lin, composite, beauty, width, height;
+    let lin, composite, texture, width, height;
     for (let [filename, imageData] of Object.entries(images)) {
         if (filename.includes('lin')) lin = imageData.data.data;
         else if (filename.includes('composite')) composite = imageData.data.data;
-        else if (filename.includes('beauty')) beauty = imageData.data.data;
+        else if (filename.includes('texture')) texture = imageData.data.data;
         width = imageData.width;
         height = imageData.height;
     }
-    return (lin && composite && beauty) ? { lin, composite, beauty, width, height } : null;
+    return (lin && composite && texture) ? { lin, composite, texture, width, height } : null;
 }
 
 async function applySlideWindow(input, model, tf) {
     const windowSize = 256;
     const stride = 256;
-    const { lin, composite, beauty, width, height } = input;
+    const { lin, composite, texture, width, height } = input;
     console.log("WIDTH/HEIGHT: " + width + ", "+ height)
     // Initialize predictions and counts arrays to match the original image size
     const predictions = new Uint16Array(width * height * 86) // instead of float32, use uInt8 to store percent predictions: normalize predition values from range (0,1) to 0 to 255
@@ -38,8 +38,8 @@ async function applySlideWindow(input, model, tf) {
     
     for (let y = 0; y < height; y += stride) {
         for (let x = 0; x < width; x += stride) {
-            const windowTensor = extractWindow({ lin, composite, beauty }, x, y, windowSize, width, height, tf);
-            console.log("CLASSIFYING " + windowTensor.shape + " (" + windowTensor.dtype+ ") REGION AT "+ x + ", " + y + "... ");
+            const windowTensor = extractWindow({ lin, composite, texture }, x, y, windowSize, width, height, tf);
+            console.log("CLASSIFYING " + windowTensor.shape + " (" + windowTensor.dtype+ ") WINDOW AT "+ x + ", " + y + "... ");
             const predictionTensor = model.predict(windowTensor);
             const prediction = await predictionTensor.array();
 
@@ -110,9 +110,9 @@ function extractWindow(images, x, y, windowSize, fullWidth, fullHeight, tf) {
                 r2 = images.composite[fullIndex] / 255;
                 g2 = images.composite[fullIndex + 1] / 255;
                 b2 = images.composite[fullIndex + 2] / 255;
-                r3 = images.beauty[fullIndex] / 255;
-                g3 = images.beauty[fullIndex + 1] / 255;
-                b3 = images.beauty[fullIndex + 2] / 255;
+                r3 = images.texture[fullIndex] / 255;
+                g3 = images.texture[fullIndex + 1] / 255;
+                b3 = images.texture[fullIndex + 2] / 255;
             } else {
                 r1 = g1 = b1 = r2 = g2 = b2 = r3 = g3 = b3 = 0;
             }
