@@ -184,10 +184,17 @@ button:hover, select:hover {
     opacity:0.5;
 }
 
-#save-canvas {
-    z-index: 1 !important;
-    opacity: 0.5;
-    display: none; 
+#svg-canvas {
+    /* position:absolute; */
+    position:fixed;
+    top: 0px;
+    left:0px;
+    width:100%;
+    height:100%;
+    pointer-events: none; /* Prevent it from intercepting mouse events */
+    outline: 3px solid #FF0000; 
+
+    /* overflow:hidden !important; */
 }
 
 #base-image {

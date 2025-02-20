@@ -1,6 +1,7 @@
 var originX = 0;
 var originY = 0;
-var zoom = 0;
+let scale = 1;
+let isGesturing = false;
 
 var offsetX = 0;
 var offsetY = 0;
@@ -15,18 +16,19 @@ var drawPath = []
 var loadouts = {}
 
 const draw_canvas = document.getElementById('draw-canvas')
-const save_canvas = document.getElementById('save-canvas')
 
 draw_canvas.width = window.innerWidth;
 draw_canvas.height = window.innerHeight;
-save_canvas.width = window.innerWidth;
-save_canvas.height = window.innerHeight;
 
 var draw_ctx = draw_canvas.getContext('2d');
-var save_ctx = save_canvas.getContext('2d');
 
-//draw_ctx.imageSmoothingEnabled= false
-//save_ctx.imageSmoothingEnabled= false
+const svg_canvas = document.getElementById('svg-canvas')
+
+const svgScaleGroup = document.getElementById('svg-scale-group');
+
+// Keep track of the current preview path
+let svgPath = null;
+
 
 var cursor = document.getElementById('cursor');
 cursor.style.width = drawDiameter+"px";
@@ -69,52 +71,97 @@ function init() {
     })
 
     draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height);
-    save_ctx.fillStyle = "#000000"; // flood with black
-
-    //save_ctx.globalCompositeOperation = 'source-over'
 
     draw_canvas.addEventListener('mousedown', function(e) {
         $('#cursor-text').css("display", "none")
+        saveState(); // should move this: save state after 'mouseup' and save initial draw state once on load
+
         if (e.button === 0) {
             leftClicked = true;
+
             // push starting point of draw path
             drawPath.push({x: mouseX, y: mouseY});
-            var imageData = draw_ctx.getImageData(mouseX, mouseY, 1, 1);
-            firstPixelForFill = imageData.data;
 
-            saveState();
+            if(mode === 'pencil') {
+
+                scrollX = document.documentElement.scrollLeft;
+                scrollY = document.documentElement.scrollTop;
+                console.log("SCROLL X: ", scrollX)
+                console.log("SCROLL Y: ", scrollY)
+
+                // Create new SVG path
+                svgPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                svgPath.setAttribute("stroke", active.colour);
+                svgPath.setAttribute("stroke-width", drawDiameter);
+                svgPath.setAttribute("fill", "none");
+                svgPath.setAttribute("stroke-linecap", "round");
+                svgPath.setAttribute("stroke-linejoin", "round");
+
+                // Scale coordinates to match canvas
+                const scale = draw_canvas.width / draw_canvas.clientWidth;
+                const d = `M ${(mouseX/scale)-scrollX} ${(mouseY/scale)-scrollY}`;
+                svgPath.setAttribute("d", d);
+                
+                svgScaleGroup.appendChild(svgPath);
+
+                // draw_ctx.fillStyle = active.colour;
+                // drawCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(draw_canvas.width / draw_canvas.clientWidth))/2)-1)
+            }
+
         } else if (e.button === 2 && !leftClicked) {
             rightClicked = true;
             
         }
     });
 
+
     draw_canvas.addEventListener('mouseup', function(e) {
         // doesn't matter what the draw path looks like, a drawn pixel will be without the boundaries returned by this function
         if(leftClicked) {
             switch (mode) {
                 case "fill":
+                    console.log("FILLING")
                     var points = goOutFromDrawPointsToFill(drawPath, draw_ctx)
                     fillPointsWithActiveColor(points)
                     break;
                 case "pencil":
-                    if( drawPath.length < 2 ) { // if user just clicked, check if user wants to flood a shape
 
-                        // clear the draw area first
-                        draw_ctx.globalCompositeOperation = 'destination-out' // this clear the point first
-                        fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(draw_canvas.width / draw_canvas.clientWidth))/2)-1)
+                    // Remove the preview path
+                    if (svgPath) {
+                        svgScaleGroup.removeChild(svgPath);
+                        svgPath = null;
+                    }
+
+
+
+                    if( drawPath.length < 2 ) { // if user clicked once: check if user wants to flood a closed-loop path of the same colour
+
+                        // !IMPORTANT! clear the draw area where clicked first to ensure uniform
+                        // draw_ctx.globalCompositeOperation = 'destination-out' // this clear the point first
+                        // drawCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(draw_canvas.width / draw_canvas.clientWidth))/2)-1)
         
                         // then: either flood the area, or draw that erased point back
                         draw_ctx.globalCompositeOperation = 'source-over'
                         if(flood(mouseX, mouseY)) {
                             flood(mouseX, mouseY, active.colour)
                         } else {
-                            fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(draw_canvas.width / draw_canvas.clientWidth))/2)-1)
+                            // if not a floodable area, just draw a circle
+                            drawCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(draw_canvas.width / draw_canvas.clientWidth))/2)-1)
                         }
         
                     } else {
+                        // user is finishing a path
                         drawPath.push({x: mouseX, y: mouseY}); // finish drawPath
-                        drawPath = fillGaps(drawPath); // fills gaps in the drawing of a loop due to lag
+                        // drawPath = fillGaps(drawPath); // RESOLVE: fill in the gaps between the drawn points of the line/loop path
+                            // Draw the final path to canvas
+                        if (drawPath.length > 1) {
+                            drawPath = fillGaps(drawPath);
+                            draw_ctx.fillStyle = active.colour;
+                            drawPath.forEach(point => {
+                                drawCircle(draw_ctx, point.x, point.y, 
+                                    Math.floor((drawDiameter*(draw_canvas.width / draw_canvas.clientWidth))/2)-1);
+                            });
+                        }                    
                     }
                     break;
                 default:
@@ -125,6 +172,8 @@ function init() {
         }
         leftClicked = false;
         rightClicked =false;
+        
+
     })
 
     draw_canvas.addEventListener("mouseleave", function(e) {
@@ -132,9 +181,19 @@ function init() {
         switch (mode) {
             case "pencil":
                 if(leftClicked) {
+                    // Remove the preview path
+                    if (svgPath) {
+                        svgScaleGroup.removeChild(svgPath);
+                        svgPath = null;
+                    }
+
                     drawPath.push({x: mouseX, y: mouseY}); // finish drawPath
                     drawPath = fillGaps(drawPath); // algorithmically fills gaps in the draw path to create a solid continuous line 
-                    
+                    draw_ctx.fillStyle = active.colour;
+                    drawPath.forEach(point => {
+                        drawCircle(draw_ctx, point.x, point.y, 
+                            Math.floor((drawDiameter*(draw_canvas.width / draw_canvas.clientWidth))/2)-1);
+                    });
                 }
                 break;
             case "fill":
@@ -150,8 +209,7 @@ function init() {
     })
 
 
-    let scale = 1;
-    let isGesturing = false;
+
     
     // For trackpad scrolling 
     draw_canvas.addEventListener('wheel', function(e) {
@@ -174,6 +232,7 @@ function init() {
                 top: e.deltaY,
                 behavior: 'auto'
             });
+
         }
     }, { passive: false });
 
@@ -235,6 +294,7 @@ function init() {
             top: newScrollTop,
             behavior: 'auto'
         });
+
     }
 
 
@@ -477,7 +537,7 @@ function fillGaps(path) {
             const roundedY = Math.round(y);
 
             // Draw the circle at this point
-            fillPixelatedCircle(draw_ctx, roundedX, roundedY, lineWidth / 2);
+            drawCircle(draw_ctx, roundedX, roundedY, lineWidth / 2);
 
             // Record the point in the array
             points.push({ x: roundedX, y: roundedY });
@@ -489,70 +549,25 @@ function fillGaps(path) {
     return points;
 }
 
-// function fillPixelatedCircle(ctx, cx, cy, r){
-//     r |= 0; // floor radius
-//     ctx.setTransform(1,0,0,1,0,0); // ensure default transform
-//     var x = r, y = 0, dx = 1, dy = 1;
-//     var err = dx - (r << 1);
-//     var x0 = cx - 1| 0, y0 = cy | 0;
-//     var lx = x,ly = y;
-//     ctx.beginPath();
-//     while (x >= y) {
-//         ctx.rect(x0 - x, y0 + y, x * 2 + 2, 1);
-//         ctx.rect(x0 - x, y0 - y, x * 2 + 2, 1);
-//         if (x !== lx){
-//             ctx.rect(x0 - ly, y0 - lx, ly * 2 + 2, 1);
-//             ctx.rect(x0 - ly, y0 + lx, ly * 2 + 2, 1);
-//         }
-//         lx = x;
-//         ly = y;
-//         y++;
-//         err += dy;
-//         dy += 2;
-//         if (err > 0) {
-//             x--;
-//             dx += 2;
-//             err += (-r << 1) + dx;
-//         }
-//     }
-//     if (x !== lx) {
-//         ctx.rect(x0 - ly, y0 - lx, ly * 2 + 1, 1);
-//         ctx.rect(x0 - ly, y0 + lx, ly * 2 + 1, 1);
-//     }    
-//     ctx.fill();
-// }
+//batched implementation
+function drawCircle(ctx, cx, cy, r) {
+    r |= 0;
+    if (r <= 0) return;
 
-function fillPixelatedCircle(ctx, cx, cy, r) {
-    r |= 0; // floor radius
-    if (r <= 0) return; // early exit for invalid radius
+    ctx.beginPath(); // Start a single path for all rectangles
     
-    // Pre-calculate values and use const where possible
-    const x0 = cx - 1 | 0;
-    const y0 = cy | 0;
-    
-    // Use a single path for better performance
-    ctx.beginPath();
-    
-    // Modified Bresenham's circle algorithm
     let x = r;
     let y = 0;
     let err = 0;
     
-    // Pre-calculate constants
-    const twoX = x * 2;
-    let width = twoX + 2;
-    
     while (x >= y) {
-        // Draw horizontal lines in pairs
-        // Top and bottom sections
-        ctx.rect(x0 - x, y0 + y, width, 1);
-        ctx.rect(x0 - x, y0 - y, width, 1);
+        // Batch rectangle operations into a single path
+        ctx.rect(cx - x - 1, cy + y - 1, x * 2 + 2, 2);
+        ctx.rect(cx - x - 1, cy - y - 1, x * 2 + 2, 2);
         
-        // Left and right sections
         if (y > 0) {
-            const innerWidth = y * 2 + 2;
-            ctx.rect(x0 - y, y0 + x, innerWidth, 1);
-            ctx.rect(x0 - y, y0 - x, innerWidth, 1);
+            ctx.rect(cx - y - 1, cy + x - 1, y * 2 + 2, 2);
+            ctx.rect(cx - y - 1, cy - x - 1, y * 2 + 2, 2);
         }
         
         y++;
@@ -560,65 +575,13 @@ function fillPixelatedCircle(ctx, cx, cy, r) {
         
         if (err > x) {
             x--;
-            width = x * 2 + 2;
             err -= 2 * x + 1;
         }
     }
     
-    // Single fill call
-    ctx.fill();
+    ctx.fill(); // Single fill operation for all rectangles
 }
 
-// //------------------------------------------------------ LOOP FINDING + FILLING FUNCTIONALITY ------------------------------------------------------//
-// function findLoopsInPath(path, margin) {
-
-//     // Helper function to check if two points collide considering line width
-//     function pointsCollide(p1, p2, diameter) {
-//         let dx = p1.x - p2.x;
-//         let dy = p1.y - p2.y;
-//         let distance = Math.sqrt(dx * dx + dy * dy);
-//         return Math.floor(distance) <= diameter+2; // Check within double the radius for overlapping
-//     }
-
-//     // Helper function to get points in a loop from start to end index
-//     function getLoopPoints(startIndex, endIndex, path) {
-//         let loopPoints = [];
-//         for (let i = startIndex; i <= endIndex; i++) {
-//             loopPoints.push(path[i]);
-//         }
-//         return loopPoints;
-//     }
-
-//     let loops = []; // Store all the loops found
-    
-//     // Iterate over each point in the path except the last one
-//     for (let i = 0; i < path.length - 1; i++) {
-//         // if a point goes from touching, to not touching, to touching, we are in business
-//         var neighbours = true; // assume next point in path will be neighbour
-
-//         var i0 = 0; 
-        
-//         // FIRST get away from the reference point
-//         for (let j = i + 1; j < path.length; j++) {
-//             //... base case: points collide and neighbors == 1... just continue
-//             if(pointsCollide(path[i], path[j], margin)) {
-//                 if(!neighbours) {
-//                     loops.push(getLoopPoints(i, j, path));
-//                     i = i0;
-//                     j = i0 + 1;
-//                     break;
-//                 }
-//             } else if(neighbours) {  // if points DIDNT collide and neighbours is still set to true
-//                 neighbours = false;
-//                 i0 = j; // set point at which we will continue out algorithm from should we complete a loop
-//             }
-
-//         }
-
-//     }
-
-//     return loops; // Return all loops found
-// }
 
 function getBoundingBox(path) {
     var drawRadius = Math.ceil(drawDiameter / 2);
@@ -882,9 +845,7 @@ function processImageFile(file) {
             if(!dimensions_set) {
                 draw_canvas.width = tempImg.naturalWidth;
                 draw_canvas.height = tempImg.naturalHeight;
-                save_canvas.width = tempImg.naturalWidth;
-                save_canvas.height = tempImg.naturalHeight;
-                
+
                 const baseImg = document.getElementById('base-image');
                 baseImg.src = displayUrl;
                 baseImg.style.width = '100%';
@@ -968,13 +929,22 @@ function draw() {
     switch (mode) {
         case "pencil":
             if(leftClicked) {
-                draw_ctx.globalCompositeOperation = 'source-over'
-                draw_ctx.fillStyle = active.colour; 
-                fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(draw_canvas.width / draw_canvas.clientWidth))/2)-1)
+
+                if(svgPath) {
+                    scrollX = document.documentElement.scrollLeft;
+                    scrollY = document.documentElement.scrollTop;
+                    const scale = draw_canvas.width / draw_canvas.clientWidth;
+                    const currentPath = svgPath.getAttribute("d");
+                    svgPath.setAttribute("d", `${currentPath} L ${(mouseX/scale)-scrollX} ${(mouseY/scale)-scrollY}`);
+                    // drawPath.push({x: mouseX, y: mouseY});
+                }
+                // draw_ctx.globalCompositeOperation = 'source-over'
+                // draw_ctx.fillStyle = active.colour; 
+                // drawCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(draw_canvas.width / draw_canvas.clientWidth))/2)-1)
 
             } else if(rightClicked) {
                 draw_ctx.globalCompositeOperation = 'destination-out' // this clears the canvas
-                fillPixelatedCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(draw_canvas.width / draw_canvas.clientWidth))/2)-1)
+                drawCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(draw_canvas.width / draw_canvas.clientWidth))/2)-1)
             }
             break;
         case "fill":
@@ -1316,7 +1286,7 @@ async function saveGrains() {
             //         filename,
             //         identifier,
             //         type: images[filename].type,
-            //         idx: '-1',
+            //         idx: '',
                     
             //     });
             // }));

@@ -7,37 +7,12 @@ function rgbToHex(r, g, b) {
     }).join('');
 }
 
-/* 
-classes = { 
-    quartz: {
-        size: 3680, // total number of pixels globally 
-        colour: 1249986310124, // numeric colour value that can be transferred into hexadecimal
-        hex: #FF0000,
-        grains: ['quartz-0': { 
-            size: // size in pixels 
-            eccentricity: // DONT WORRY ABOUT FOR NOW: some way to measure sharpness/roundness of grain edge?
-            direction:  // DONT WORRY ABOUT FOR NOW: direction in which grain is being elongated?
-            confidence: // DONT WORRY ABOUT FOR NOW: assurance that grain is of a certain class
-            x: // leftmost coordinate
-            y: // topmost coordinate
-            w: // width of grain mask
-            h: // height of grain mask
-            mask: [0 0 0 1 1 1 0 ....] 1D array? 2D array? whichever is faster given we save width, height
-        },
-        ]
-    }, 
-    plagioclase: {
-        ...
-    }
-}
-*/
-
-
 function analyzeGrains(imageData, labelColours) {
     const width = imageData.width;
     const height = imageData.height;
+    const pixels = width * height;
     const data = imageData.data;
-    
+
     // Create classes object to store mineral statistics
     let grains = {};
     
@@ -147,17 +122,46 @@ function analyzeGrains(imageData, labelColours) {
         }
     }
 
-    console.log("GRAINS: ", grains)
-    Object.entries(grains).forEach((key, value) => {
-        console.log("KEY/VAL: "+ key+ ", "+ JSON.stringify(grains[value]))
+    // Calculate proportions and add to grains object
+    Object.entries(grains).forEach(([mineral, data]) => {
+        data.proportion = data.size / pixels;
+        // console.log(`${mineral}: ${(data.proportion * 100).toFixed(2)}% (${data.size} pixels)`);
     });
 
     return grains;
 }
 
+/*
+grains = {
+    "mineralName": {             // e.g., "quartz", "feldspar", etc.
+        size: 5000,             // total pixels for this mineral type
+        proportion: 0,          // proportion of total image (not currently calculated)
+        colour: 4294967295,     // 32-bit color value (ARGB)
+        hex: "#FFFFFF",         // hex color string
+        grains: {
+            "mineralName-0": {   // individual grain objects
+                size: 150,      // grain size in pixels
+                x: 10,          // leftmost coordinate
+                y: 20,          // topmost coordinate
+                w: 15,          // width of bounding box
+                h: 12,          // height of bounding box
+                minX: 10,       // minimum x coordinate
+                minY: 20,       // minimum y coordinate
+                maxX: 25,       // maximum x coordinate
+                maxY: 32        // maximum y coordinate
+            },
+            "mineralName-1": {
+                // next grain...
+            }
+        }
+    },
+    // Additional mineral types...
+}
+*/
+
 
 function createFeretDiameterPlot(grains, labelColours) {
-    const ctx = document.getElementById('feretPlot').getContext('2d');
+    const ctx = document.getElementById('feret-plot').getContext('2d');
     const datasets = [];
 
     // Process data for each mineral type
@@ -215,8 +219,9 @@ function createFeretDiameterPlot(grains, labelColours) {
     });
 }
 
+
 function createScatterPlot(grains, labelColours) {
-    const ctx = document.getElementById('scatterPlot').getContext('2d');
+    const ctx = document.getElementById('scatter-plot').getContext('2d');
  
     // Create datasets for each mineral type
     const datasets = Object.entries(grains).map(([mineral, mineralData]) => {
@@ -278,8 +283,10 @@ function createScatterPlot(grains, labelColours) {
 }
 
 
-function createHistogramPlot(grains, containerId) {
+function createHistogramPlot(grains) {
     // Scene setup
+    const canvas = document.getElementById('histogram-plot');
+
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
     const renderer = new THREE.WebGLRenderer({
@@ -287,81 +294,152 @@ function createHistogramPlot(grains, containerId) {
         alpha: true,
         powerPreference: "high-performance",
         failIfMajorPerformanceCaveat: false,
-        canvas: document.createElement('canvas')
+        canvas: canvas
     });
-    renderer.setSize(800, 400);
-    document.getElementById(containerId).appendChild(renderer.domElement);
+    renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+
+    // THIS INCREASES RESOLUTION of 3js model on window size change
+    window.addEventListener('resize', () => {
+        camera.aspect = canvas.clientWidth / canvas.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    });
+
 
     // Add orbit controls for pivoting
     const controls = new OrbitControls(camera, renderer.domElement);
     camera.position.set(50, 50, 50);
     controls.update();
 
-    // Process grain data
-    function createHistogramData(mineralData, numBins = 64) {
-        const sizes = Object.values(mineralData.grains).map(grain => grain.size);
-        const min = Math.min(...sizes);
-        const max = Math.max(...sizes);
-        const binWidth = (max - min) / numBins;
+
+    // First compute global min/max grain sizes and create standardized bins
+    function createGlobalBinning(grains, numBins = 32) {
+        // Collect and sort all grain sizes
+        const allSizes = Object.values(grains)
+            .flatMap(mineralData => 
+                Object.values(mineralData.grains).map(grain => grain.size)
+            )
+            .sort((a, b) => a - b);
         
-        const bins = new Array(numBins).fill(0);
+        const globalMin = allSizes[0];
+        const globalMax = allSizes[allSizes.length - 1];
         
-        sizes.forEach(size => {
-            const binIndex = Math.min(
-                Math.floor((size - min) / binWidth),
-                numBins - 1
-            );
-            bins[binIndex]++;
-        });
+        // Calculate grains per bin (approximately equal count in each bin)
+        const grainsPerBin = Math.ceil(allSizes.length / numBins);
         
+        // Create bins with dynamic widths
+        const bins = [];
+        for (let i = 0; i < numBins; i++) {
+            const startIdx = i * grainsPerBin;
+            const endIdx = Math.min((i + 1) * grainsPerBin, allSizes.length);
+            
+            if (startIdx >= allSizes.length) break;
+            
+            let binSize = 0;
+            for(let j = startIdx; j< endIdx-1; j++) {
+                binSize += allSizes[j];
+            }
+            binSize /= (endIdx - startIdx);
+            const binMin = allSizes[startIdx];
+            const binMax = allSizes[endIdx - 1];
+            // const binWidth = binMax - binMin;
+            
+            bins.push({
+                min: binMin,
+                max: binMax,
+                base: binSize/1000,  // Still using sqrt for visual scaling
+                count: endIdx - startIdx  // Number of grains in this bin
+            });
+        }
+    
         return {
             bins,
-            min,
-            max,
-            binWidth
+            globalMin,
+            globalMax,
+            totalGrains: allSizes.length
         };
     }
 
-    // Create histogram bars for each mineral
-    Object.entries(grains).forEach(([mineral, mineralData], mineralIndex) => {
-        const histData = createHistogramData(mineralData);
-        const maxCount = Math.max(...histData.bins);
+    // Count grains per bin for a specific mineral
+    function binMineralGrains(mineralData, globalBinning) {
+        const counts = new Array(globalBinning.bins.length).fill(0);
         
-        histData.bins.forEach((count, binIndex) => {
+        Object.values(mineralData.grains).forEach(grain => {
+            const binIndex = globalBinning.bins.findIndex(bin => 
+                grain.size >= bin.min && grain.size < bin.max
+            );
+            if (binIndex !== -1) {
+                counts[binIndex]++;
+            }
+        });
+
+        return counts;
+    }
+
+    // Create global binning
+    const globalBinning = createGlobalBinning(grains);
+
+    // Sort minerals by proportion
+    const sortedMinerals = Object.entries(grains)
+        .sort(([,a], [,b]) => b.proportion - a.proportion);
+
+    let zPosition = 0;
+
+    // Create bars for each mineral
+    sortedMinerals.forEach(([mineral, mineralData], mineralIdx) => {
+        console.log("MIDX: ", mineralIdx)
+        const counts = binMineralGrains(mineralData, globalBinning);
+        let xPosition = 0;
+        // Update z position for next mineral row
+        // Create bars for each bin
+
+        globalBinning.bins.forEach((bin, binIndex) => {
+            const count = counts[binIndex];
             if (count > 0) {
-                const heightScale = 2;
-                const baseSize = Math.sqrt(histData.binWidth);
-                
                 const geometry = new THREE.BoxGeometry(
-                    baseSize,
-                    count * heightScale,
-                    baseSize
+                    bin.base,
+                    count*bin.base,
+                    bin.base
                 );
                 
-                // Use the mineral's hex color instead of HSL
                 const color = new THREE.Color(mineralData.hex);
                 const material = new THREE.MeshPhongMaterial({
                     color: color,
                     transparent: false,
                     opacity: 1
                 });
-                
                 const bar = new THREE.Mesh(geometry, material);
                 
-                bar.position.x = binIndex * (baseSize + 0.5);
-                bar.position.y = count * heightScale / 2;
-                bar.position.z = mineralIndex * (baseSize + 2);
+                // Create edges
+                const edges = new THREE.EdgesGeometry(geometry);
+                const edgeMaterial = new THREE.LineBasicMaterial({ 
+                    color: 0xFFFFFF,
+                    linewidth: 1
+                });
+                const edgesMesh = new THREE.LineSegments(edges, edgeMaterial);
+                
+                // Position bars
+                bar.position.x = xPosition + bin.base/2; // Add spacing between bars
+                bar.position.y = count*bin.base / 2;
+                bar.position.z = zPosition;
+                
+                edgesMesh.position.copy(bar.position);
                 
                 scene.add(bar);
+                scene.add(edgesMesh);
             }
+            xPosition += bin.base;
         });
+        zPosition += globalBinning.bins[globalBinning.bins.length-1].base + globalBinning.bins[0].base/2; // Add spacing between mineral rows
+
+
     });
 
     // Add lighting
     const light = new THREE.DirectionalLight(0xffffff, 1);
     light.position.set(1, 1, 1);
     scene.add(light);
-    scene.add(new THREE.AmbientLight(0x404040));
+    scene.add(new THREE.AmbientLight(0xFFFFFF));
 
     // Animation loop
     function animate() {
@@ -398,7 +476,7 @@ window.addEventListener('load', async () => {
 
             createScatterPlot(grains, labelColours);
             createFeretDiameterPlot(grains, labelColours)
-            createHistogramPlot(grains, 'histogramPlot');
+            createHistogramPlot(grains);
 
 
         } else {

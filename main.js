@@ -279,6 +279,12 @@ ipcMain.handle('set_loadout', async (event, args) => {
 ipcMain.handle('save_img', async (event, args) => {
   var identifier = args['identifier']
 
+  // Create overlays directory if it doesn't exist
+  const overlaysDir = path.join(saveDirectory, 'overlays');
+  if (!fs.existsSync(overlaysDir)) {
+    fs.mkdirSync(overlaysDir, { recursive: true });
+  }
+  
   fs.readdir(saveDirectory, (err, items) => {
     if (err) {
       console.error("Error reading directory:", err);
@@ -286,36 +292,39 @@ ipcMain.handle('save_img', async (event, args) => {
     }
 
     var file = ''
-
     let base64Data;
 
-
-     if(args['idx'] === '-1')  { // if there is no supplied index, it is not a grain: handle overlay
-      file = identifier+"_"+args['type']+'_overlay.jpg'
-      base64Data = args['data'].replace(/^data:image\/jpeg;base64,/, "");
+    if(args['idx'] === '')  { // if there is no supplied index, it is not a grain: handle overlay / seg map
+      if(args['type'] === 'segmentation_map' ) {
+        file = path.join('overlays', identifier + "_" + args['type'] + '.png');
+        base64Data = args['data'].replace(/^data:image\/png;base64,/, "");
+  
+      } else {
+        file = path.join('overlays', identifier + "_" + args['type'] + '_overlay.jpg');
+        base64Data = args['data'].replace(/^data:image\/jpeg;base64,/, "");
+  
+      }
 
     } else if(args['type'] === 'map') {
         file = identifier+"_"+args['type']+'_'+args['idx']+'.png'
         base64Data = args['data'].replace(/^data:image\/png;base64,/, "");
         
-    } else if(args['idx'] !== '') {
+    } else {
       file = identifier+"_"+args['type']+'_'+args['idx']+'.jpg'
       base64Data = args['data'].replace(/^data:image\/jpeg;base64,/, "");
-
-    } else { // if there is no supplied index, it is not a grain: handle segmentation map
-      file = identifier+"_"+args['type']+'.png'
-      base64Data = args['data'].replace(/^data:image\/png;base64,/, "");
     }
 
+    const fullPath = path.join(saveDirectory, file);
+
     // create folder for identifier
-    fs.writeFile(saveDirectory+"/"+file, base64Data, 'base64', function (err) {
+    fs.writeFile(fullPath, base64Data, 'base64', function (err) {
 
       if (err) {
         console.log("ERROR WRITING "+ file + ": "+ err)
         return "Segmentations could not be saved: "+err
       } else {
         console.log(file + " saved. ")
-        return file
+        return file;
       }
     });
   });
@@ -430,8 +439,8 @@ ipcMain.handle('open_analysis', () => {
     }
 
     analysisWindow = new BrowserWindow({
-        width: 800,
-        height: 600,
+        width: 1200,
+        height: 800,
         titleBarStyle: 'hidden',
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
