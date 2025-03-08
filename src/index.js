@@ -23,12 +23,8 @@ draw_canvas.height = window.innerHeight;
 var draw_ctx = draw_canvas.getContext('2d');
 
 const svg_canvas = document.getElementById('svg-canvas')
-
 const svgScaleGroup = document.getElementById('svg-scale-group');
-
-// Keep track of the current preview path
 let svgPath = null;
-
 
 var cursor = document.getElementById('cursor');
 cursor.style.width = drawDiameter+"px";
@@ -89,7 +85,7 @@ function init() {
                 console.log("SCROLL X: ", scrollX)
                 console.log("SCROLL Y: ", scrollY)
 
-                // Create new SVG path
+                // Create new SVG PREVIEW path
                 svgPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
                 svgPath.setAttribute("stroke", active.colour);
                 svgPath.setAttribute("stroke-width", drawDiameter);
@@ -106,6 +102,8 @@ function init() {
 
                 // draw_ctx.fillStyle = active.colour;
                 // drawCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(draw_canvas.width / draw_canvas.clientWidth))/2)-1)
+            } else if(mode === 'select') {
+                
             }
 
         } else if (e.button === 2 && !leftClicked) {
