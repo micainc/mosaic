@@ -1,7 +1,7 @@
 {
   "name": "mosaic",
   "productName": "mosaic",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Generate pixel maps for machine learning projects! Do segmentation and classification FAST!",
   "main": "main.js",
   "scripts": {

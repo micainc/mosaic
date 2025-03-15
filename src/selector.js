@@ -158,7 +158,7 @@ function initLabelList(labels) {
     // lbl.addEventListener('blur', onBlur) // if user clicks on canvas/ outside list, close list
     lbl.style.backgroundColor = drawColors[idx]
     lbl.style.color = invertHex(drawColors[idx])
-    changeActive({'colour': drawColors[idx], 'label': idx})
+    changeActiveColour({'colour': drawColors[idx], 'label': idx})
     activeCursor = true;
 
     // when add is clicked, move selected item into item-list. 
@@ -193,7 +193,7 @@ function initLabelList(labels) {
 
   initialSelected.classList.toggle("selected")
   items.parentNode.prepend(initialSelected)
-  changeActive({'colour': rgbStringToHex(initialSelected.style.backgroundColor), 'label': initialSelected.innerHTML})
+  changeActiveColour({'colour': rgbStringToHex(initialSelected.style.backgroundColor), 'label': initialSelected.innerHTML})
 
   // every time a label list is changed, ensure that if the user clicks anywhere outside the select box, then close all select boxes
   // document.addEventListener("click", closeList);
@@ -242,7 +242,7 @@ function onSelectItem(e) {
       searchBox.classList.toggle("hidden"); // hide search box
 
       // propogate the colour of the selected item to the frontend
-      changeActive({'colour': rgbStringToHex(this.style.backgroundColor), 'label': this.innerHTML})
+      changeActiveColour({'colour': rgbStringToHex(this.style.backgroundColor), 'label': this.innerHTML})
     }
 
     // get item with class 'selected' but NOT 'search-box'
