@@ -279,12 +279,6 @@ ipcMain.handle('set_loadout', async (event, args) => {
 ipcMain.handle('save_img', async (event, args) => {
   var identifier = args['identifier']
 
-  // Create overlays directory if it doesn't exist
-  const overlaysDir = path.join(saveDirectory, 'overlays');
-  if (!fs.existsSync(overlaysDir)) {
-    fs.mkdirSync(overlaysDir, { recursive: true });
-  }
-  
   fs.readdir(saveDirectory, (err, items) => {
     if (err) {
       console.error("Error reading directory:", err);
@@ -295,8 +289,15 @@ ipcMain.handle('save_img', async (event, args) => {
     let base64Data;
 
     if(args['idx'] === '')  { // if there is no supplied index, it is not a grain: handle overlay / seg map
+      
+        // Create overlays directory if it doesn't exist
+      const overlaysDir = path.join(saveDirectory, 'overlays');
+      if (!fs.existsSync(overlaysDir)) {
+        fs.mkdirSync(overlaysDir, { recursive: true });
+      }
+
       if(args['type'] === 'segmentation_map' ) {
-        file = path.join('overlays', identifier + "_" + args['type'] + '.png');
+        file = identifier + "_" + args['type'] + '.png';
         base64Data = args['data'].replace(/^data:image\/png;base64,/, "");
   
       } else {
@@ -371,9 +372,11 @@ ipcMain.handle('set_save_dir', async (event, args) => {
           }
         });
         saveDirectory = result['filePaths'][0] + "/"+ identifier
+        let seg_code = `document.getElementById("save-segmentation-map").title = "&nbsp; Save tiles to: ${saveDirectory}"`;
+        let tile_code = `document.getElementById("save-tiles").title = "&nbsp; Save tiles to: ${saveDirectory}"`;
+        win.webContents.executeJavaScript(seg_code);
+        win.webContents.executeJavaScript(tile_code);
 
-        // let code = `document.getElementById("save-path").innerHTML = "&nbsp; ${saveDirectory}"`;
-        // win.webContents.executeJavaScript(code);
       }
     });
   } 

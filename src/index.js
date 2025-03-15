@@ -15,14 +15,14 @@ var drawDiameter = 10; // diameter
 var drawPath = []
 var loadouts = {}
 
-const draw_canvas = document.getElementById('draw-canvas')
+const drawCanvas = document.getElementById('draw-canvas')
 
-draw_canvas.width = window.innerWidth;
-draw_canvas.height = window.innerHeight;
+drawCanvas.width = window.innerWidth;
+drawCanvas.height = window.innerHeight;
 
-var draw_ctx = draw_canvas.getContext('2d');
+var drawCtx = drawCanvas.getContext('2d');
 
-const svg_canvas = document.getElementById('svg-canvas')
+const svgCanvas = document.getElementById('svg-canvas')
 const svgScaleGroup = document.getElementById('svg-scale-group');
 let svgPath = null;
 
@@ -30,13 +30,12 @@ var cursor = document.getElementById('cursor');
 cursor.style.width = drawDiameter+"px";
 cursor.style.height = drawDiameter+"px";
 
-var active = {'colour': "#000000", 'label': ""}
+var activeColour = {'colour': "#000000", 'label': ""}
 var hoveredColour = "#000000"
 var floodStack = []
 
 var images = {} // image layers used by MOSAIC
 var currentImage = '';
-var image_track_filled = new Set()
 var undoHistory = [];
 const MAX_HISTORY_SIZE = 10;
 const origin = { x: 0, y: 0 };
@@ -66,9 +65,9 @@ function init() {
         cursor.style.height = drawDiameter+"px";
     })
 
-    draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height);
+    drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
 
-    draw_canvas.addEventListener('mousedown', function(e) {
+    drawCanvas.addEventListener('mousedown', function(e) {
         $('#cursor-text').css("display", "none")
         saveState(); // should move this: save state after 'mouseup' and save initial draw state once on load
 
@@ -76,6 +75,7 @@ function init() {
             leftClicked = true;
 
             // push starting point of draw path
+            console.log("ADDING TO DRAW PATH...")
             drawPath.push({x: mouseX, y: mouseY});
 
             if(mode === 'pencil') {
@@ -87,23 +87,32 @@ function init() {
 
                 // Create new SVG PREVIEW path
                 svgPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                svgPath.setAttribute("stroke", active.colour);
+                svgPath.setAttribute("stroke", activeColour.colour);
                 svgPath.setAttribute("stroke-width", drawDiameter);
                 svgPath.setAttribute("fill", "none");
                 svgPath.setAttribute("stroke-linecap", "round");
                 svgPath.setAttribute("stroke-linejoin", "round");
 
                 // Scale coordinates to match canvas
-                const scale = draw_canvas.width / draw_canvas.clientWidth;
+                const scale = drawCanvas.width / drawCanvas.clientWidth;
                 const d = `M ${(mouseX/scale)-scrollX} ${(mouseY/scale)-scrollY}`;
                 svgPath.setAttribute("d", d);
                 
                 svgScaleGroup.appendChild(svgPath);
 
-                // draw_ctx.fillStyle = active.colour;
-                // drawCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(draw_canvas.width / draw_canvas.clientWidth))/2)-1)
             } else if(mode === 'select') {
+                // Get color at click point
+                const imageData = drawCtx.getImageData(mouseX, mouseY, 1, 1);
+                const pixel = imageData.data;
+                const clickedColor = rgbToHex(pixel[0], pixel[1], pixel[2]);
                 
+                // Create selection mask and SVG outline
+                selectedMask = createColorMask(clickedColor);
+                outlineSelectedComponents(selectedMask);
+                
+                // Show some UI feedback
+                $('#cursor-text').text(`Selected ${clickedColor}`);
+                $('#cursor-text').css("display", "block");
             }
 
         } else if (e.button === 2 && !leftClicked) {
@@ -113,14 +122,16 @@ function init() {
     });
 
 
-    draw_canvas.addEventListener('mouseup', function(e) {
+    drawCanvas.addEventListener('mouseup', function(e) {
         // doesn't matter what the draw path looks like, a drawn pixel will be without the boundaries returned by this function
         if(leftClicked) {
             switch (mode) {
                 case "fill":
+                    // if user was in fill mode and drew a line, we need to check all points on that line for loops to fill
                     console.log("FILLING")
-                    var points = goOutFromDrawPointsToFill(drawPath, draw_ctx)
-                    fillPointsWithActiveColor(points)
+                    drawPath.forEach(point => {
+                        flood(point.x, point.y, 'replace')
+                    })
                     break;
                 case "pencil":
 
@@ -130,34 +141,33 @@ function init() {
                         svgPath = null;
                     }
 
-
-
                     if( drawPath.length < 2 ) { // if user clicked once: check if user wants to flood a closed-loop path of the same colour
 
                         // !IMPORTANT! clear the draw area where clicked first to ensure uniform
-                        // draw_ctx.globalCompositeOperation = 'destination-out' // this clear the point first
-                        // drawCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(draw_canvas.width / draw_canvas.clientWidth))/2)-1)
+                        // drawCtx.globalCompositeOperation = 'destination-out' // this clear the point first
+                        // drawCircle(drawCtx, mouseX, mouseY, Math.floor((drawDiameter*(drawCanvas.width / drawCanvas.clientWidth))/2)-1)
         
                         // then: either flood the area, or draw that erased point back
-                        draw_ctx.globalCompositeOperation = 'source-over'
-                        if(flood(mouseX, mouseY)) {
-                            flood(mouseX, mouseY, active.colour)
+                        drawCtx.globalCompositeOperation = 'source-over'
+                        if(flood(mouseX, mouseY)) { // do an initial check
+                            console.log("INFILLING")
+                            flood(mouseX, mouseY, 'infill')
                         } else {
                             // if not a floodable area, just draw a circle
-                            drawCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(draw_canvas.width / draw_canvas.clientWidth))/2)-1)
+                            drawCircle(drawCtx, mouseX, mouseY, Math.floor((drawDiameter*(drawCanvas.width / drawCanvas.clientWidth))/2)-1)
                         }
         
                     } else {
                         // user is finishing a path
                         drawPath.push({x: mouseX, y: mouseY}); // finish drawPath
-                        // drawPath = fillGaps(drawPath); // RESOLVE: fill in the gaps between the drawn points of the line/loop path
+                        // drawPath = solidifyPath(drawPath); // RESOLVE: fill in the gaps between the drawn points of the line/loop path
                             // Draw the final path to canvas
                         if (drawPath.length > 1) {
-                            drawPath = fillGaps(drawPath);
-                            draw_ctx.fillStyle = active.colour;
+                            drawPath = solidifyPath(drawPath);
+                            drawCtx.fillStyle = activeColour.colour;
                             drawPath.forEach(point => {
-                                drawCircle(draw_ctx, point.x, point.y, 
-                                    Math.floor((drawDiameter*(draw_canvas.width / draw_canvas.clientWidth))/2)-1);
+                                drawCircle(drawCtx, point.x, point.y, 
+                                    Math.floor((drawDiameter*(drawCanvas.width / drawCanvas.clientWidth))/2)-1);
                             });
                         }                    
                     }
@@ -174,7 +184,7 @@ function init() {
 
     })
 
-    draw_canvas.addEventListener("mouseleave", function(e) {
+    drawCanvas.addEventListener("mouseleave", function(e) {
         document.getElementById('cursor').style.display = "none";
         switch (mode) {
             case "pencil":
@@ -186,17 +196,18 @@ function init() {
                     }
 
                     drawPath.push({x: mouseX, y: mouseY}); // finish drawPath
-                    drawPath = fillGaps(drawPath); // algorithmically fills gaps in the draw path to create a solid continuous line 
-                    draw_ctx.fillStyle = active.colour;
+                    drawPath = solidifyPath(drawPath); // algorithmically fills gaps in the draw path to create a solid continuous line 
+                    drawCtx.fillStyle = activeColour.colour;
                     drawPath.forEach(point => {
-                        drawCircle(draw_ctx, point.x, point.y, 
-                            Math.floor((drawDiameter*(draw_canvas.width / draw_canvas.clientWidth))/2)-1);
+                        drawCircle(drawCtx, point.x, point.y, 
+                            Math.floor((drawDiameter*(drawCanvas.width / drawCanvas.clientWidth))/2)-1);
                     });
                 }
                 break;
             case "fill":
-                var points = goOutFromDrawPointsToFill(drawPath, draw_ctx)
-                fillPointsWithActiveColor(points)
+                drawPath.forEach(point => {
+                    flood(point.x, point.y, 'replace')
+                })
                 break;
             default:
                 break;
@@ -210,7 +221,7 @@ function init() {
 
     
     // For trackpad scrolling 
-    draw_canvas.addEventListener('wheel', function(e) {
+    drawCanvas.addEventListener('wheel', function(e) {
         // console.log('wheel event:', e);
         if (e.ctrlKey || e.metaKey) {
             // Pinch zoom gesture
@@ -237,13 +248,13 @@ function init() {
 
 
         // For Mac trackpad gestures
-    draw_canvas.addEventListener('gesturestart', function(e) {
+    drawCanvas.addEventListener('gesturestart', function(e) {
         console.log('gesture start:', e);
         e.preventDefault();
         isGesturing = true;
     });
 
-    draw_canvas.addEventListener('gesturechange', function(e) {
+    drawCanvas.addEventListener('gesturechange', function(e) {
         console.log('gesture change:', e);
         e.preventDefault();
         if (isGesturing) {
@@ -255,7 +266,7 @@ function init() {
         }
     });
 
-    draw_canvas.addEventListener('gestureend', function(e) {
+    drawCanvas.addEventListener('gestureend', function(e) {
         console.log('gesture end:', e);
         e.preventDefault();
         isGesturing = false;
@@ -296,7 +307,7 @@ function init() {
     }
 
 
-    draw_canvas.addEventListener("mouseenter", function(e) {
+    drawCanvas.addEventListener("mouseenter", function(e) {
         document.getElementById('cursor').style.display = "block";
     })
 
@@ -308,22 +319,22 @@ function init() {
         document.getElementById('cursor').style.display = "none";
     })
 
-    draw_canvas.addEventListener("dragenter", catchDrag);
-    draw_canvas.addEventListener("dragover", catchDrag);
-    draw_canvas.addEventListener("drop", dropFiles);
+    drawCanvas.addEventListener("dragenter", catchDrag);
+    drawCanvas.addEventListener("dragover", catchDrag);
+    drawCanvas.addEventListener("drop", dropFiles);
 
     document.addEventListener('keydown', function(event) {
         console.log("KEY: ", event.key)
 
         if (event.code === 'Space') {
             event.preventDefault()
-            draw_canvas.style.opacity = '0';
+            drawCanvas.style.opacity = '0';
         }
 
         // s for 'see segmentation'
         if (event.key === 's') {
             event.preventDefault()
-            draw_canvas.style.opacity = '1';
+            drawCanvas.style.opacity = '1';
         }
 
         // ctrl z: undo
@@ -355,12 +366,12 @@ function init() {
         event.preventDefault()
 
         if (event.code === 'Space' || event.key === 's') {
-            draw_canvas.style.opacity = '0.5';
+            drawCanvas.style.opacity = '0.5';
         } 
     });
 
     function updateCursor(event) {
-        const rect = draw_canvas.getBoundingClientRect();
+        const rect = drawCanvas.getBoundingClientRect();
         
         if(event.type === 'scroll') {
             // console.log(event)
@@ -375,8 +386,8 @@ function init() {
             offsetY = event.clientY;
             //console.log("OFFSET X/Y: ", offsetX+ ", " +offsetY)
             // Calculate the adjusted mouseX and mouseY with respect to the canvas's position and scale.
-            mouseX = Math.round((event.clientX - rect.left) * draw_canvas.width / draw_canvas.clientWidth);
-            mouseY = Math.round((event.clientY - rect.top) * draw_canvas.height / draw_canvas.clientHeight);
+            mouseX = Math.round((event.clientX - rect.left) * drawCanvas.width / drawCanvas.clientWidth);
+            mouseY = Math.round((event.clientY - rect.top) * drawCanvas.height / drawCanvas.clientHeight);
             cursor.style.transform = `translate(${event.clientX + scrollX - drawDiameter/2}px, ${event.clientY + scrollY - drawDiameter/2}px)`;
 
         }
@@ -398,23 +409,21 @@ function init() {
         }
 
         // get colour of drawCanvas at mouse position
-        var imageData = draw_ctx.getImageData(mouseX, mouseY, 1, 1);
+        var imageData = drawCtx.getImageData(mouseX, mouseY, 1, 1);
         var pixel = imageData.data;
         var inverted = rgbToHex(255-pixel[0], 255-pixel[1], 255-pixel[2])
         var pixelHex = rgbToHex(pixel[0], pixel[1], pixel[2]); // get colour as hex string
 
-        if(active.colour === pixelHex) {
+        if(activeColour.colour === pixelHex) {
             // invert the colour of the cursor itself
             $('#cursor').css("border-color", inverted)
         } else {
-            $('#cursor').css("border-color", active.colour)
+            $('#cursor').css("border-color", activeColour.colour)
 
         }
         
 
         var pixelHex = rgbToHex(pixel[0], pixel[1], pixel[2]);
-        // console.log("HEX: ", hex)
-        // console.log("ACTIVE: ", active.colour)
 
         // if we have traversed onto a NEW COLOUR on the segmentation map:
         if(leftClicked) {
@@ -422,7 +431,7 @@ function init() {
         } else if(hoveredColour !== pixelHex) {
             if(pixelHex === "#000000" || pixelHex === "#7F7F7F") {
                 $('#cursor-text').css("display", "none")
-            } else if(active.colour !== pixelHex) {
+            } else if(activeColour.colour !== pixelHex) {
                 var label = colourLabelMap[pixelHex]
                 
                 drawColors.find((h, idx) => {
@@ -433,13 +442,13 @@ function init() {
                     }
                 })
     
-            } else if(active.colour === pixelHex){
+            } else if(activeColour.colour === pixelHex){
                 $('#cursor-text').css("display", "none")
             }
             hoveredColour = pixelHex
         }
-        // let posX = mouseX / draw_canvas.width;
-        // let posY = mouseY / draw_canvas.height;
+        // let posX = mouseX / drawCanvas.width;
+        // let posY = mouseY / drawCanvas.height;
         // console.log("UPDATED CURSOR POS: " + Math.round(1000*posX)/10 + ", " + Math.round(1000*posY)/10)
     }
     
@@ -466,8 +475,8 @@ function init() {
         for (const [label, label_data] of Object.entries(Object.values(loadouts)[0]['labels'])) {
             $("#labels > select").append('<option value='+label+'>'+label_data['name']+'</option>');
         }
-        initializeItemList(changeActive, document.getElementById('loadouts'));
-        initializeItemList(changeActive, document.getElementById('labels'));
+        initializeItemList(changeActiveColour, document.getElementById('loadouts'));
+        initializeItemList(changeActiveColour, document.getElementById('labels'));
         */
 
     }).catch(function(err) {
@@ -481,29 +490,12 @@ function init() {
     window.requestAnimationFrame(draw); // start animating cursor movements
 }
 
-function drawLoopCenters(loops) {
-    for(var l = 0; l< loops.length; l++) {
-        var loop = loops[l]
-        var x = 0;
-        var y = 0;
-        for(var p = 0; p < loop.length; p++) {
-            x += loop[p].x
-            y += loop[p].y
-        }
-        x /= loop.length;
-        y /= loop.length;
-        draw_ctx.fillStyle = "#00FF00"
-        fillGrain(draw_ctx, x, y)
-        draw_ctx.fillStyle = active.colour
-    }
-}
-
-function fillGaps(path) {
-    draw_ctx.fillStyle = active.colour;
-    draw_ctx.imageSmoothingEnabled = false; // Disable anti-aliasing to draw sharp circles
+function solidifyPath(path) {
+    drawCtx.fillStyle = activeColour.colour;
+    drawCtx.imageSmoothingEnabled = false; // Disable anti-aliasing to draw sharp circles
 
     // Calculate line width based on draw size and scaling factor, ensure it's not anti-aliased
-    const lineWidth = Math.ceil(drawDiameter * (draw_canvas.width / draw_canvas.clientWidth));
+    const lineWidth = Math.ceil(drawDiameter * (drawCanvas.width / drawCanvas.clientWidth));
 
     let points = []; // Initialize an array to store points where circles are drawn
 
@@ -535,7 +527,7 @@ function fillGaps(path) {
             const roundedY = Math.round(y);
 
             // Draw the circle at this point
-            drawCircle(draw_ctx, roundedX, roundedY, lineWidth / 2);
+            drawCircle(drawCtx, roundedX, roundedY, lineWidth / 2);
 
             // Record the point in the array
             points.push({ x: roundedX, y: roundedY });
@@ -601,84 +593,117 @@ function getBoundingBox(path) {
     return {
         'top': Math.max(top, 0),
         'left': Math.max(left, 0),
-        'right': Math.min(right, draw_canvas.width - 1),
-        'bottom': Math.min(bottom, draw_canvas.height - 1)
+        'right': Math.min(right, drawCanvas.width - 1),
+        'bottom': Math.min(bottom, drawCanvas.height - 1)
     };
 }
 
-function flood(x1, y1, col=null) {
-    const visited = new Set();
-    const floodStack = [{ x: x1, y: y1 }];
-    const getKey = (x, y) => `${x},${y}`;
-    let interior = true;
-    let width = draw_canvas.width;
-    let height = draw_canvas.height;
-
-    let activeColourValue = active.colour.startsWith("#") ? active.colour.slice(1) : active.colour;
-    activeColourValue = parseInt(activeColourValue, 16);
-    let red = (activeColourValue >> 16) & 0xFF;
-    let green = (activeColourValue >> 8) & 0xFF;
-    let blue = (activeColourValue >> 0) & 0xFF;
-    activeColourValue = (0xFF << 24) | (blue << 16) | (green << 8) | (red << 0);
+// modes: null, 'infill', 'replace'
+// null: check from starting point x1, y1 if we started in a closed loop
+// 'infill': fill pixels that are non active colour
+// 'replace': fill pixels that are non-transparent
+function flood(x1, y1, mode=null) {
+    const width = drawCanvas.width;
+    const height = drawCanvas.height;
     
-    // Use the unsigned right shift to convert to a 32-bit unsigned integer
-    activeColourValue >>>= 0; // Correctly converts to unsigned for comparison
+    // Create bit array (1 bit per pixel instead of 8 bits)
+    const bitArraySize = Math.ceil((width * height) / 32); // 32 bits per element
+    const visited = new Uint32Array(bitArraySize);
+    
+    // Bit operations helper functions (inline for performance)
+    const floodStack = [{ x: x1, y: y1 }];
+    let isClosedShape = true;
 
-    // Retrieve the full image data just once
-    const imageData = draw_ctx.getImageData(0, 0, width, height);
-    const buffer32 = new Uint32Array(imageData.data.buffer); // Use a 32-bit buffer for performance
-    // BUFFER IS IN ABGR FORMAT!!
+    // Get image data
+    const imageData = drawCtx.getImageData(0, 0, width, height);
+    const buffer32 = new Uint32Array(imageData.data.buffer);
+    
+    // Get starting pixel value for 'replace' mode
+    const startIndex = y1 * width + x1;
+    const startPixelValue = buffer32[startIndex];
+    console.log("FLOOD MODE: ", mode)
+    console.log("STARTING PIXEL VALUE: ", startPixelValue >> 24)
 
-    if(col !== null) {
-        draw_ctx.fillStyle = col;
+    // Check if starting pixel is transparent for 'replace' mode
+    // if (mode === 'replace' && (startPixelValue >> 24) & 0xFF === 0) {
+    //     console.log("STARTING PIXEL WAS TRANSP 1")
+    //     return false;
+    // }
+
+    // Color conversion for active color
+    let col = activeColour.colour.startsWith("#") ? activeColour.colour.slice(1) : activeColour.colour;
+    col = parseInt(col, 16);
+    let red = (col >> 16) & 0xFF;
+    let green = (col >> 8) & 0xFF;
+    let blue = (col >> 0) & 0xFF;
+    col = (0xFF << 24) | (blue << 16) | (green << 8) | (red << 0);
+    col >>>= 0;
+
+    // For 'replace' mode: bail if starting pixel is already the active color, or if starting pixel is transparent for 'replace' mode
+    if (mode === 'replace' && (startPixelValue === col || (startPixelValue >> 24) & 0xFF === 0)) {
+        console.log("STARTING PIXEL WAS TRANSP 2")
+        return false;
+    }
+    
+    if(mode !== null) {
+        drawCtx.fillStyle = activeColour.colour;
     }
 
     while (floodStack.length > 0) {
         const p = floodStack.pop();
         const { x, y } = p;
-    
-        if (visited.has(getKey(x, y))) continue;
-    
-        visited.add(getKey(x, y));
-
-        //if flood hits edge of canvas and we are CHECKING if interior point in loop
+        
         if (x < 0 || x >= width || y < 0 || y >= height) {
-            interior = false;
+            isClosedShape = false;
             break;
-        } 
+        }
+        
+        const pixelIndex = y * width + x;
+        const arrayIndex = pixelIndex >>> 5;  // Divide by 32, faster than Math.floor(pixelIndex/32)
+        const bitMask = 1 << (pixelIndex & 31); // Same as pixelIndex % 32
+        
+        // If already visited, skip
+        if (visited[arrayIndex] & bitMask) continue;
+        
+        // Mark as visited
+        visited[arrayIndex] |= bitMask;
+        
+        const pixelValue = buffer32[pixelIndex];
 
-        const index = y * width + x;
-        const pixelValue = buffer32[index];
-
-        if (pixelValue !== activeColourValue) {
-            floodStack.push({ x: x - 2, y: y });
-            floodStack.push({ x: x + 2, y: y });
-            floodStack.push({ x: x, y: y - 2 });
-            floodStack.push({ x: x, y: y + 2 });
-        } 
-        if(col !== null) {
-            fillGrain(draw_ctx, x, y);
+        // For replace mode, only continue if pixel matches starting color
+        if (mode === 'replace') {
+            if (pixelValue === startPixelValue ) {
+                // Fill pixel with active color
+                drawCtx.beginPath();
+                drawCtx.fillRect(x-1, y-1, 3, 3);
+                drawCtx.fill();
+                
+                // Continue flood in all directions
+                floodStack.push({ x: x - 2, y: y });
+                floodStack.push({ x: x + 2, y: y });
+                floodStack.push({ x: x, y: y - 2 });
+                floodStack.push({ x: x, y: y + 2 });
+            }
+        } else {
+            // Original behavior for null and infill modes
+            if (pixelValue !== col) {
+                floodStack.push({ x: x - 2, y: y });
+                floodStack.push({ x: x + 2, y: y });
+                floodStack.push({ x: x, y: y - 2 });
+                floodStack.push({ x: x, y: y + 2 });
+            } 
+            
+            if(mode === 'infill') {
+                drawCtx.beginPath();
+                drawCtx.fillRect(x-1, y-1, 3, 3);
+                drawCtx.fill();
+            }
         }
     }
 
-    return interior;
+    return isClosedShape;
 }
 
-function fillLoops(loops) {
-    for(l in loops) { // fill areas
-        const start = Date.now();
-        flood(loops[l]['x'], loops[l]['y'], active.colour)
-
-        const end = Date.now();
-        console.log(`LOOP FLOOD EXECUTION TIME: ${end - start} ms`);
-    }
-}
-
-function fillGrain(canvas, x, y) {
-    canvas.beginPath();
-    canvas.fillRect(x-1, y-1, 3, 3);
-    canvas.fill();
-}
 
 //------------------------------------------------------ PARAM LISTENER FUNCTIONALITY ------------------------------------------------------//
 
@@ -688,11 +713,11 @@ async function openAnalysisWindow() {
     // Send image data to main process for temporary storage
     // Right now, if we want to update the draw canvas data, we need to close and re-open the window.
     // Not ideal, but works for now.
-    const imageData = draw_ctx.getImageData(0, 0, draw_canvas.width, draw_canvas.height);
+    const imageData = drawCtx.getImageData(0, 0, drawCanvas.width, drawCanvas.height);
     const imageDataToSend = {
         data: imageData.data,
-        width: draw_canvas.width,
-        height: draw_canvas.height
+        width: drawCanvas.width,
+        height: drawCanvas.height
     };
     window.api.invoke('set_draw_data', imageDataToSend)
 
@@ -711,13 +736,13 @@ function catchDrag(event) {
 	event.preventDefault();
 }
 
-var should_erase_draw_layer = true
-var dimensions_set = false;
+var shouldEraseDrawLayer = true
+var dimensionsSet = false;
 
 function dropFiles(event) {
     // revokeImageUrls(); // Clear old URLs before processing new files
-    should_erase_draw_layer = true
-    dimensions_set = false;
+    shouldEraseDrawLayer = true
+    dimensionsSet = false;
     event.preventDefault();
     if (event.dataTransfer && event.dataTransfer.files) {
         const files = Array.from(event.dataTransfer.files);
@@ -726,7 +751,7 @@ function dropFiles(event) {
         files.forEach(file => {
             console.log("file.name: ", file.name)
             if (file.name.includes("edge_map") || file.name.includes("segmentation_map")) {
-                should_erase_draw_layer = false
+                shouldEraseDrawLayer = false
             }
         })
 
@@ -744,7 +769,7 @@ function dropFiles(event) {
             if(segmentationLayer !== null) {
                 processEdgeOrSegmentationMap(segmentationLayer);
             }
-            console.log("SHOULD ERASE DRAW LAYER? ", should_erase_draw_layer)
+            console.log("SHOULD ERASE DRAW LAYER? ", shouldEraseDrawLayer)
             updateCurrentImage();
         });
     }
@@ -759,11 +784,11 @@ function processEdgeOrSegmentationMap(file) {
             const img = new Image();
 
             img.onload = function() {
-                if(!dimensions_set) {
+                if(!dimensionsSet) {
                     console.log("SETTING DIMENSIONS...")
-                    draw_canvas.width = img.width;
-                    draw_canvas.height = img.height;
-                    dimensions_set = true;
+                    drawCanvas.width = img.width;
+                    drawCanvas.height = img.height;
+                    dimensionsSet = true;
                 }
 
                 if (file.name.includes("edge_map")) {
@@ -771,7 +796,7 @@ function processEdgeOrSegmentationMap(file) {
                     processEdgeMap(img);
                 } else {
                     console.log("IMPORTING SEGMENTATION MAP...")
-                    draw_ctx.drawImage(img, 0, 0);
+                    drawCtx.drawImage(img, 0, 0);
                 }
                 // resolve();
             };
@@ -784,26 +809,26 @@ function processEdgeOrSegmentationMap(file) {
 }
 
 function processEdgeMap(img) {
-    const temp_canvas = document.createElement('canvas');
-    temp_canvas.width = img.width;
-    temp_canvas.height = img.height;
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = img.width;
+    tempCanvas.height = img.height;
 
-    const temp_ctx = temp_canvas.getContext('2d');
-    temp_ctx.drawImage(img, 0, 0);
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(img, 0, 0);
 
-    const imageData = temp_ctx.getImageData(0, 0, temp_canvas.width, temp_canvas.height);
+    const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
     const data = imageData.data;
 
     for (let i = 0; i < data.length; i += 4) {
         if (data[i] === 255 && data[i + 1] === 255 && data[i + 2] === 255) {
-            setTransparentNeighbors(i, data, temp_canvas.width);
+            setTransparentNeighbors(i, data, tempCanvas.width);
         } else if (data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 0) {
             data[i] = data[i + 1] = data[i + 2] = 127;
         }
     }
 
-    temp_ctx.putImageData(imageData, 0, 0);
-    draw_ctx.drawImage(temp_canvas, 0, 0);
+    tempCtx.putImageData(imageData, 0, 0);
+    drawCtx.drawImage(tempCanvas, 0, 0);
 }
 
 
@@ -840,15 +865,15 @@ function processImageFile(file) {
                 tempImg.src = displayUrl;
             });
 
-            if(!dimensions_set) {
-                draw_canvas.width = tempImg.naturalWidth;
-                draw_canvas.height = tempImg.naturalHeight;
+            if(!dimensionsSet) {
+                drawCanvas.width = tempImg.naturalWidth;
+                drawCanvas.height = tempImg.naturalHeight;
 
                 const baseImg = document.getElementById('base-image');
                 baseImg.src = displayUrl;
                 baseImg.style.width = '100%';
                 baseImg.style.height = 'auto';
-                dimensions_set = true;
+                dimensionsSet = true;
             }
 
             // Determine the type based on filename
@@ -898,8 +923,8 @@ function updateCurrentImage() {
         document.getElementById('toolbar-filename').textContent = 'Drag image set below...';
         currentImage = '';
         base.src = ''; // Clear the image
-        console.log("UPDATING IMAGE: ERASING DRAW LAYER? " + should_erase_draw_layer)
-        should_erase_draw_layer ? draw_ctx.clearRect(0, 0, draw_canvas.width, draw_canvas.height) : null;
+        console.log("UPDATING IMAGE: ERASING DRAW LAYER? " + shouldEraseDrawLayer)
+        shouldEraseDrawLayer ? drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height) : null;
     }
 }
 
@@ -923,7 +948,7 @@ function draw() {
     //https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/globalCompositeOperation
     //ctx.globalCompositeOperation = "copy";
 
-    //draw_ctx.globalCompositeOperation = 'source-over';
+    //drawCtx.globalCompositeOperation = 'source-over';
     switch (mode) {
         case "pencil":
             if(leftClicked) {
@@ -931,18 +956,18 @@ function draw() {
                 if(svgPath) {
                     scrollX = document.documentElement.scrollLeft;
                     scrollY = document.documentElement.scrollTop;
-                    const scale = draw_canvas.width / draw_canvas.clientWidth;
+                    const scale = drawCanvas.width / drawCanvas.clientWidth;
                     const currentPath = svgPath.getAttribute("d");
                     svgPath.setAttribute("d", `${currentPath} L ${(mouseX/scale)-scrollX} ${(mouseY/scale)-scrollY}`);
                     // drawPath.push({x: mouseX, y: mouseY});
                 }
-                // draw_ctx.globalCompositeOperation = 'source-over'
-                // draw_ctx.fillStyle = active.colour; 
-                // drawCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(draw_canvas.width / draw_canvas.clientWidth))/2)-1)
+                // drawCtx.globalCompositeOperation = 'source-over'
+                // drawCtx.fillStyle = active.colour; 
+                // drawCircle(drawCtx, mouseX, mouseY, Math.floor((drawDiameter*(drawCanvas.width / drawCanvas.clientWidth))/2)-1)
 
             } else if(rightClicked) {
-                draw_ctx.globalCompositeOperation = 'destination-out' // this clears the canvas
-                drawCircle(draw_ctx, mouseX, mouseY, Math.floor((drawDiameter*(draw_canvas.width / draw_canvas.clientWidth))/2)-1)
+                drawCtx.globalCompositeOperation = 'destination-out' // this clears the canvas
+                drawCircle(drawCtx, mouseX, mouseY, Math.floor((drawDiameter*(drawCanvas.width / drawCanvas.clientWidth))/2)-1)
             }
             break;
         case "fill":
@@ -957,25 +982,24 @@ init();
 
 
 
-function cropGrains() {
+function cropTiles() {
     const CHUNK_SIZE = 256;
     const MAX_OVERLAP_AREA = 0.5 * CHUNK_SIZE * CHUNK_SIZE; // 32768 pixels
   
-    const width = draw_canvas.width;
-    const height = draw_canvas.height;
+    const width = drawCanvas.width;
+    const height = drawCanvas.height;
   
     // 1. Get the image data and build a binary mask.
-    // Foreground pixels are those with a nonzero alpha and not pure grey (128,128,128).
-    const imageData = draw_ctx.getImageData(0, 0, width, height);
-    const data = imageData.data;
-    const mask = new Uint8Array(width * height);
+    // Foreground pixels are those with a nonzero alpha and not rgb(127, 127, 127) (not the transparent 'undefined' or grey 'unknown' reserved classes )
+    const segmentationData = drawCtx.getImageData(0, 0, width, height).data;
+    const foreground = new Uint8Array(width * height);
     for (let i = 0; i < width * height; i++) {
-      const r = data[4 * i],
-            g = data[4 * i + 1],
-            b = data[4 * i + 2],
-            a = data[4 * i + 3];
+      const r = segmentationData[4 * i],
+            g = segmentationData[4 * i + 1],
+            b = segmentationData[4 * i + 2],
+            a = segmentationData[4 * i + 3];
       // If pixel is non-transparent and not grey, mark as foreground.
-      mask[i] = (a !== 0 && !(r === 127 && g === 127 && b === 127)) ? 1 : 0;
+      foreground[i] = (a !== 0 && !(r === 127 && g === 127 && b === 127)) ? 1 : 0;
     }
   
     // 2. Build an integral image (summed-area table) for fast area-sum queries.
@@ -984,7 +1008,7 @@ function cropGrains() {
       let rowSum = 0;
       for (let x = 0; x < width; x++) {
         const idx = y * width + x;
-        rowSum += mask[idx];
+        rowSum += foreground[idx];
         if (y === 0) {
           integral[idx] = rowSum;
         } else {
@@ -992,25 +1016,15 @@ function cropGrains() {
         }
       }
     }
-    // Helper: return the sum of mask values in the rectangle [x1,y1]–[x2,y2] (inclusive)
-    function getGrainSum(x1, y1, x2, y2) {
-      x1 = Math.max(0, x1); y1 = Math.max(0, y1);
-      x2 = Math.min(width - 1, x2); y2 = Math.min(height - 1, y2);
-      const A = (x1 > 0 && y1 > 0) ? integral[(y1 - 1) * width + (x1 - 1)] : 0;
-      const B = (y1 > 0) ? integral[(y1 - 1) * width + x2] : 0;
-      const C = (x1 > 0) ? integral[y2 * width + (x1 - 1)] : 0;
-      const D = integral[y2 * width + x2];
-      return D - B - C + A;
-    }
-  
+
     // 3. Find connected components of foreground pixels via flood fill.
     // (This will allow us to “tile” only over areas where foreground exists.)
     const visited = new Uint8Array(width * height);
-    const components = [];
+    const grainBoundingBoxes = [];
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const idx = y * width + x;
-        if (mask[idx] === 1 && visited[idx] === 0) {
+        if (foreground[idx] === 1 && visited[idx] === 0) { // found a new unvisited component
           const comp = { minX: x, maxX: x, minY: y, maxY: y };
           const stack = [[x, y]];
           visited[idx] = 1;
@@ -1025,26 +1039,40 @@ function cropGrains() {
             for (const [nx, ny] of neighbors) {
               if (nx >= 0 && ny >= 0 && nx < width && ny < height) {
                 const nIdx = ny * width + nx;
-                if (mask[nIdx] === 1 && visited[nIdx] === 0) {
+                if (foreground[nIdx] === 1 && visited[nIdx] === 0) {
                   visited[nIdx] = 1;
                   stack.push([nx, ny]);
                 }
               }
             }
           }
-          components.push(comp);
+          grainBoundingBoxes.push(comp);
         }
       }
     }
-    if (components.length === 0) {
+    if (grainBoundingBoxes.length === 0) {
       console.log("No foreground found.");
       return [];
     }
+
+    // return the sum of mask values in the rectangle [x1,y1]–[x2,y2] (inclusive)
+    function getGrainSum(x1, y1, x2, y2) {
+        x1 = Math.max(0, x1); y1 = Math.max(0, y1);
+        x2 = Math.min(width - 1, x2); y2 = Math.min(height - 1, y2);
+        const A = (x1 > 0 && y1 > 0) ? integral[(y1 - 1) * width + (x1 - 1)] : 0;
+        const B = (y1 > 0) ? integral[(y1 - 1) * width + x2] : 0;
+        const C = (x1 > 0) ? integral[y2 * width + (x1 - 1)] : 0;
+        const D = integral[y2 * width + x2];
+        return D - B - C + A;
+    }
+
+          
   
     // 4. For each component, tile its bounding box with 256×256 windows.
     // We “tile” such that the tiles cover the box and the step between adjacent tiles is never less than 128 (max 50% overlap).
     let candidateTiles = [];
-    function tileBoundingBox(comp) {
+
+    function boundingBoxToTiles(comp) {
       // Use the component’s bounding box.
       let x0 = comp.minX, y0 = comp.minY;
       let x1 = comp.maxX, y1 = comp.maxY;
@@ -1106,8 +1134,9 @@ function cropGrains() {
         }
       }
     }
-    for (const comp of components) {
-      tileBoundingBox(comp);
+
+    for (const grainBoundingBox of grainBoundingBoxes) {
+      boundingBoxToTiles(grainBoundingBox);
     }
   
     // 5. Run a simple non-maximum suppression to discard redundant tiles.
@@ -1198,8 +1227,8 @@ function getFilename(path) {
 }
 
 
-async function saveGrains() {
-    const tiles = cropGrains();
+async function saveTiles() {
+    const tiles = cropTiles();
     console.log("SAVING TILES...")
 
     // Get identifier same as before
@@ -1214,11 +1243,11 @@ async function saveGrains() {
 
 
         // // Get draw layer data once
-        // const drawLayerData = draw_ctx.getImageData(0, 0, draw_canvas.width, draw_canvas.height);
+        // const drawLayerData = drawCtx.getImageData(0, 0, drawCanvas.width, drawCanvas.height);
         // const drawBuffer = new Uint32Array(drawLayerData.data.buffer);
 
         // Create off-screen buffer once
-        // const _offscreenCanvas = new OffscreenCanvas(draw_canvas.width, draw_canvas.height);
+        // const _offscreenCanvas = new OffscreenCanvas(drawCanvas.width, drawCanvas.height);
         // const _offscreenCtx = _offscreenCanvas.getContext('2d');
 
         try {
@@ -1235,7 +1264,7 @@ async function saveGrains() {
 
                 // Save segmentation map crop
                 cropCtx.putImageData(
-                    draw_ctx.getImageData(left, top, width, height),
+                    drawCtx.getImageData(left, top, width, height),
                     0, 0
                 );
                 const mapBlob = await cropCanvas.convertToBlob({type: 'image/png'});
@@ -1266,16 +1295,42 @@ async function saveGrains() {
             }));
 
              //... then we save the entire draw layer for a save file:
-            var draw_data = draw_canvas.toDataURL("image/png");
+            var draw_data = drawCanvas.toDataURL("image/png");
+            window.api.invoke('save_img', {'data': draw_data, 'filename': '', 'identifier':identifier, 'type': 'segmentation_map', 'idx': ''})
+
+
+
+            await window.api.invoke('save_label_colours', {dict: colourLabelMap});
+
+        } catch (error) {
+            console.error('Error in saveTiles:', error);
+            throw error;
+        }
+    });
+}
+
+async function saveMap() {
+    console.log("SAVING SEG MAP...")
+
+    // Get identifier same as before
+    const filenames = Object.keys(images);
+    const identifier = getCommonSubstring(filenames.map(filename => 
+        getFilename(filename).trim().toLowerCase()
+    )).replace(/^_+|_+$/g, '') || Date.now().toString();
+
+    window.api.invoke('set_save_dir', {'path': '', 'type': 'save', identifier}).then(async () => {
+        try {
+
+            var draw_data = drawCanvas.toDataURL("image/png");
             window.api.invoke('save_img', {'data': draw_data, 'filename': '', 'identifier':identifier, 'type': 'segmentation_map', 'idx': ''})
 
             // ... then we create all overlays in parallel
             // await Promise.all(Object.entries(images).map(async ([filename, image]) => {
 
-            //     _offscreenCtx.clearRect(0, 0, draw_canvas.width, draw_canvas.height);
+            //     _offscreenCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
             //     _offscreenCtx.drawImage(image.bitmap, 0, 0);
             //     _offscreenCtx.globalAlpha = 0.5;
-            //     _offscreenCtx.drawImage(draw_canvas, 0, 0);
+            //     _offscreenCtx.drawImage(drawCanvas, 0, 0);
             //     _offscreenCtx.globalAlpha = 1.0;
 
             //     const overlayBlob = await _offscreenCanvas.convertToBlob({type: 'image/jpeg', quality: 1});
@@ -1289,10 +1344,8 @@ async function saveGrains() {
             //     });
             // }));
 
-            await window.api.invoke('save_label_colours', {dict: colourLabelMap});
-
         } catch (error) {
-            console.error('Error in saveGrains:', error);
+            console.error('Error in saveTiles:', error);
             throw error;
         }
     });
@@ -1308,32 +1361,69 @@ function blobToBase64(blob) {
     });
 }
 
-function changeActive(selection) {
-    active = selection
+function changeActiveColour(selection) {
+    activeColour = selection
+    drawCtx.fillStyle = activeColour.colour;
     console.log("NEW ACTIVE: ", selection)
-    cursor.style.borderColor= active.colour;
-    document.getElementById("cursor-size-slider").style.setProperty('--color', active.colour);
+    cursor.style.borderColor= activeColour.colour;
+    document.getElementById("cursor-size-slider").style.setProperty('--color', activeColour.colour);
+    if(selectedMask) {
+        applyActiveColourToSelection()
+    }
 }
 
-function fillPointsWithActiveColor(points) {
-    draw_ctx.fillStyle = active.colour
-    points.forEach(point => {
-        draw_ctx.fillRect(point.x, point.y, 1, 1);
-    });
-}
+// function changeActiveColour(selection) {
+//     // Guard against invalid input
+//     if (!selection || typeof selection !== 'object' || !selection.colour) {
+//         console.error("Invalid colour selection:", selection);
+//         return;
+//     }
+
+//     // Create a fresh object rather than just assigning a reference
+//     // This ensures we're not affected by any later modifications to the selection object
+//     activeColour = {
+//         colour: selection.colour,
+//         label: selection.label || ""
+//     };
+    
+//     console.log("ACTIVE COLOUR CHANGED:", activeColour);
+    
+//     // Update UI elements
+//     cursor.style.borderColor = activeColour.colour;
+//     document.getElementById("cursor-size-slider").style.setProperty('--color', activeColour.colour);
+    
+//     // Apply to selection if one exists
+//     if (selectedMask) {
+//         applyActiveColourToSelection();
+//     }
+    
+//     // Dispatch a custom event that other components can listen for
+//     // This helps ensure synchronization across the application
+//     document.dispatchEvent(new CustomEvent('activeColourChanged', { 
+//         detail: { colour: activeColour.colour, label: activeColour.label }
+//     }));
+    
+//     // Force a redraw of any paths/previews that might be using the old colour
+//     if (svgPath) {
+//         svgPath.setAttribute("stroke", activeColour.colour);
+//     }
+    
+//     // Return the new active colour for chaining or confirmation
+//     return activeColour;
+// }
 
 function saveState() {
     if (undoHistory.length >= MAX_HISTORY_SIZE) {
         undoHistory.shift();
     }
-    undoHistory.push(draw_ctx.getImageData(0, 0, draw_canvas.width, draw_canvas.height));
+    undoHistory.push(drawCtx.getImageData(0, 0, drawCanvas.width, drawCanvas.height));
 }
 
 function undo() {
     if (undoHistory.length > 0) {
         // Pop the last state from the history and restore it
         const lastState = undoHistory.pop();
-        draw_ctx.putImageData(lastState, 0, 0);
+        drawCtx.putImageData(lastState, 0, 0);
     } else {
         console.log("No more undo steps available.");
     }
