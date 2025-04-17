@@ -35,7 +35,7 @@ var activeColour = {'colour': "#000000", 'label': ""}
 var hoveredColour = "#000000"
 var floodStack = []
 
-var images = {} // image layers used by MOSAIC
+var layers = {} // image layers used by MOSAIC
 var currentImage = '';
 var undoHistory = [];
 const MAX_HISTORY_SIZE = 10;
@@ -44,7 +44,7 @@ const origin = { x: 0, y: 0 };
 
 // Add this function to clean up when image URLS
 function revokeImageUrls() {
-    Object.values(images).forEach(img => {
+    Object.values(layers).forEach(img => {
         URL.revokeObjectURL(img.src);
     });
 }
@@ -72,7 +72,7 @@ function init() {
         $('#cursor-text').css("display", "none")
         saveState(); // should move this: save state after 'mouseup' and save initial draw state once on load
 
-        if (e.button === 0) {
+        if (e.button === 0) { 
             leftClicked = true;
 
             // push starting point of draw path
@@ -358,11 +358,11 @@ function init() {
         console.log(searchBox.style.display)
         if (searchBox.style.display !== 'block') {
             if (event.key === 'ArrowRight' || event.key === 'd') {
-                cycleImage(1);
+                changeActiveLayer(1);
             }
 
             if (event.key === 'ArrowLeft' || event.key === 'a') {
-                cycleImage(-1);
+                changeActiveLayer(-1);
             }
         } else {
             if(event.key === 'Escape') {
@@ -784,10 +784,25 @@ function dropFiles(event) {
                 processSegmentationLayer(segmentationLayer);
             }
             console.log("SHOULD ERASE DRAW LAYER? ", shouldEraseDrawLayer)
-            updateCurrentImage();
+
+            // finally, set active image layer
+            const keys = Object.keys(layers);
+            const base = document.getElementById('base-image');
+            
+            if (keys.length > 0) {
+                currentImage = keys[0];
+                document.getElementById('toolbar-filename').textContent = currentImage;
+                base.src = layers[currentImage].src;
+            } else {
+                document.getElementById('toolbar-filename').textContent = 'Drag image set below...';
+                currentImage = '';
+                base.src = ''; // Clear the image
+                console.log("UPDATING IMAGE: ERASING DRAW LAYER? " + shouldEraseDrawLayer)
+                shouldEraseDrawLayer ? drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height) : null;
+            }
         });
     }
-    console.log("IMAGES: ", images)
+    console.log("IMAGE LAYERS: ", layers)
 }
 
 
@@ -822,46 +837,6 @@ function processSegmentationLayer(file) {
     });
 }
 
-// function processEdgeMap(img) {
-//     const tempCanvas = document.createElement('canvas');
-//     tempCanvas.width = img.width;
-//     tempCanvas.height = img.height;
-
-//     const tempCtx = tempCanvas.getContext('2d');
-//     tempCtx.drawImage(img, 0, 0);
-
-//     const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-//     const data = imageData.data;
-
-//     for (let i = 0; i < data.length; i += 4) {
-//         if (data[i] === 255 && data[i + 1] === 255 && data[i + 2] === 255) {
-//             setTransparentNeighbors(i, data, tempCanvas.width);
-//         } else if (data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 0) {
-//             data[i] = data[i + 1] = data[i + 2] = 127;
-//         }
-//     }
-
-//     tempCtx.putImageData(imageData, 0, 0);
-//     drawCtx.drawImage(tempCanvas, 0, 0);
-// }
-
-
-// function setTransparentNeighbors(index, data, width) {
-//     const x = (index / 4) % width;
-//     const y = Math.floor((index / 4) / width);
-
-//     for (let dx = -1; dx <= 1; dx++) {
-//         for (let dy = -1; dy <= 1; dy++) {
-//             const nx = x + dx;
-//             const ny = y + dy;
-//             if (nx >= 0 && nx < width && ny >= 0 && ny < data.length / (4 * width)) {
-//                 const nIdx = (ny * width + nx) * 4;
-//                 data[nIdx + 3] = 0;
-//             }
-//         }
-//     }
-// }
-
 function processImageLayer(file) {
     return new Promise(async (resolve, reject) => {
         try {
@@ -879,6 +854,30 @@ function processImageLayer(file) {
                 tempImg.src = displayUrl;
             });
 
+            // Generate icon with max dimension of 256px
+            const iconCanvas = document.createElement('canvas');
+            const iconCtx = iconCanvas.getContext('2d');
+            
+            // Calculate scaled dimensions maintaining aspect ratio
+            let iconWidth, iconHeight;
+            if (tempImg.naturalWidth >= tempImg.naturalHeight) {
+                // Width is the longer side
+                iconWidth = 256;
+                iconHeight = Math.round((tempImg.naturalHeight / tempImg.naturalWidth) * 256);
+            } else {
+                // Height is the longer side
+                iconHeight = 256;
+                iconWidth = Math.round((tempImg.naturalWidth / tempImg.naturalHeight) * 256);
+            }
+            
+            // Set canvas dimensions and draw the scaled image
+            iconCanvas.width = iconWidth;
+            iconCanvas.height = iconHeight;
+            iconCtx.drawImage(tempImg, 0, 0, iconWidth, iconHeight);
+            
+            // Convert canvas to data URL for the icon
+            const iconUrl = iconCanvas.toDataURL('image/jpeg', 1); // 1 === quality
+
             if(!dimensionsSet) {
                 drawCanvas.width = tempImg.naturalWidth;
                 drawCanvas.height = tempImg.naturalHeight;
@@ -893,7 +892,9 @@ function processImageLayer(file) {
             // Determine the type based on filename
             let type;
             const filename = file.name.toLowerCase();
-            const typeKeywords = ['xpol_texture', 'xpol',  'ppol_texture', 'ppol',  'lin', 'ref', 'texture', 'composite'];
+
+            // existing default supported layer types
+            const typeKeywords = ['xpol_texture', 'xpol', 'ppol_texture', 'ppol', 'lin', 'ref', 'texture', 'composite'];
             
             // Check if filename contains any of the keywords
             const matchedType = typeKeywords.find(keyword => filename.includes(keyword));
@@ -902,15 +903,12 @@ function processImageLayer(file) {
                 type = matchedType;
             } else {
                 // Count existing 'layer_x' types to determine the next number
-                const layerCount = Object.values(images).filter(img => 
-                    img.type && img.type.startsWith('layer_')
-                ).length;
+                const layerCount = Object.values(layers).filter(img => img.type && img.type.startsWith('layer_')).length;
                 type = `layer_${layerCount + 1}`;
             }
 
-
-            // Store both formats
-            images[file.name] = {
+            layers[file.name] = {
+                icon: iconUrl,             // New icon URL
                 src: displayUrl,           // For display
                 bitmap: bitmap,            // For computations
                 width: tempImg.naturalWidth,
@@ -925,32 +923,80 @@ function processImageLayer(file) {
     });
 }
 
-function updateCurrentImage() {
-    const keys = Object.keys(images);
-    const base = document.getElementById('base-image');
-    
-    if (keys.length > 0) {
-        currentImage = keys[0];
-        document.getElementById('toolbar-filename').textContent = currentImage;
-        base.src = images[currentImage].src;
-    } else {
-        document.getElementById('toolbar-filename').textContent = 'Drag image set below...';
-        currentImage = '';
-        base.src = ''; // Clear the image
-        console.log("UPDATING IMAGE: ERASING DRAW LAYER? " + shouldEraseDrawLayer)
-        shouldEraseDrawLayer ? drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height) : null;
-    }
-}
+// function processImageLayer(file) {
+//     return new Promise(async (resolve, reject) => {
+//         try {
+//             // Create URL for display
+//             const displayUrl = URL.createObjectURL(file);
+            
+//             // Create and store ImageBitmap for computations
+//             const blob = new Blob([await file.arrayBuffer()]);
+//             const bitmap = await createImageBitmap(blob);
+            
+//             // Load image for dimension checking
+//             const tempImg = new Image();
+//             await new Promise(imgResolve => {
+//                 tempImg.onload = imgResolve;
+//                 tempImg.src = displayUrl;
+//             });
 
-function cycleImage(dir) {
-    const keys = Object.keys(images);
+//             if(!dimensionsSet) {
+//                 drawCanvas.width = tempImg.naturalWidth;
+//                 drawCanvas.height = tempImg.naturalHeight;
+
+//                 const baseImg = document.getElementById('base-image');
+//                 baseImg.src = displayUrl;
+//                 baseImg.style.width = '100%';
+//                 baseImg.style.height = 'auto';
+//                 dimensionsSet = true;
+//             }
+
+//             // Determine the type based on filename
+//             let type;
+//             const filename = file.name.toLowerCase();
+
+//             // existing default supported layer types
+//             const typeKeywords = ['xpol_texture', 'xpol',  'ppol_texture', 'ppol',  'lin', 'ref', 'texture', 'composite'];
+            
+//             // Check if filename contains any of the keywords
+//             const matchedType = typeKeywords.find(keyword => filename.includes(keyword));
+            
+//             if (matchedType) {
+//                 type = matchedType;
+//             } else {
+//                 // Count existing 'layer_x' types to determine the next number
+//                 const layerCount = Object.values(layers).filter(img => img.type && img.type.startsWith('layer_')).length;
+//                 type = `layer_${layerCount + 1}`;
+//             }
+
+
+
+//             // Store both formats
+//             layers[file.name] = {
+//                 icon: 
+//                 src: displayUrl,           // For display
+//                 bitmap: bitmap,            // For computations
+//                 width: tempImg.naturalWidth,
+//                 height: tempImg.naturalHeight,
+//                 type: type
+//             };
+
+//             resolve();
+//         } catch(err) {
+//             reject(err);
+//         }
+//     });
+// }
+
+function changeActiveLayer(dir) {
+    const keys = Object.keys(layers);
     if(keys.length < 2) return;
     const idx = keys.indexOf(currentImage);
     const newIdx = (idx + dir + keys.length) % keys.length;
     currentImage = keys[newIdx];
 
     const img = document.getElementById('base-image');
-    img.src = images[currentImage].src;
+    img.src = layers[currentImage].src;
     document.getElementById('toolbar-filename').textContent = currentImage;
 }
 
@@ -982,6 +1028,8 @@ function draw() {
             } else if(rightClicked) {
                 drawCtx.globalCompositeOperation = 'destination-out' // this clears the canvas
                 drawCircle(drawCtx, mouseX, mouseY, Math.floor((drawDiameter*(drawCanvas.width / drawCanvas.clientWidth))/2)-1)
+                drawCtx.globalCompositeOperation = 'source-over';
+
             }
             break;
         case "fill":
@@ -1246,7 +1294,7 @@ async function saveTiles() {
     console.log("SAVING TILES...")
 
     // Get identifier same as before
-    const filenames = Object.keys(images);
+    const filenames = Object.keys(layers);
     const identifier = getCommonSubstring(filenames.map(filename => 
         getFilename(filename).trim().toLowerCase()
     )).replace(/^_+|_+$/g, '') || Date.now().toString();
@@ -1291,7 +1339,7 @@ async function saveTiles() {
                 });
 
                 // Process each image layer in parallel, using the stored bitmaps
-                await Promise.all(Object.entries(images).map(async ([filename, image]) => {
+                await Promise.all(Object.entries(layers).map(async ([filename, image]) => {
                     cropCtx.clearRect(0, 0, width, height);
                     cropCtx.drawImage(image.bitmap, left, top, width, height, 0, 0, width, height);
                     
@@ -1327,7 +1375,7 @@ async function saveMap() {
     console.log("SAVING SEG MAP...")
 
     // Get identifier same as before
-    const filenames = Object.keys(images);
+    const filenames = Object.keys(layers);
     const identifier = getCommonSubstring(filenames.map(filename => 
         getFilename(filename).trim().toLowerCase()
     )).replace(/^_+|_+$/g, '') || Date.now().toString();

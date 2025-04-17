@@ -59,7 +59,7 @@ button:hover, select:hover {
     justify-content: right;
 }
 
-#toolbar-file {
+#toolbar-layers {
     display: flex;
     margin-left: auto;   
     margin-right: auto;
@@ -70,7 +70,7 @@ button:hover, select:hover {
 }
 
 
-#toolbar-file button {
+#toolbar-layers button {
     display:flex !important;
     margin: 0px 5px;
     padding:0px 10px !important;
