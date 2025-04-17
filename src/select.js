@@ -1,10 +1,26 @@
-// Global variables to track selection
 let selectedMask = null;
 
+// Helper functions for bit-packed array operations
+function getBit(array, index) {
+    const arrayIndex = Math.floor(index / 32);
+    const bitPosition = index % 32;
+    return (array[arrayIndex] & (1 << bitPosition)) !== 0 ? 1 : 0;
+}
+
+function setBit(array, index) {
+    const arrayIndex = Math.floor(index / 32);
+    const bitPosition = index % 32;
+    array[arrayIndex] |= (1 << bitPosition);
+}
+
 function createColorMask(targetColor) {
+    console.log("CREATING COLOUR MASK...")
     const width = drawCanvas.width;
     const height = drawCanvas.height;
-    const mask = new Uint8Array(width * height);
+    
+    // Create a bit-packed array (1 bit per pixel instead of 8)
+    const bitArraySize = Math.ceil((width * height) / 32);
+    const mask = new Uint32Array(bitArraySize);
     
     // Get image data once for efficiency
     const imageData = drawCtx.getImageData(0, 0, width, height);
@@ -19,10 +35,10 @@ function createColorMask(targetColor) {
     colorValue = (0xFF << 24) | (blue << 16) | (green << 8) | (red << 0);
     colorValue >>>= 0;
     
-    // Mark matching pixels
+    // Mark matching pixels using bit operations
     for (let i = 0; i < buffer32.length; i++) {
         if (buffer32[i] === colorValue) {
-            mask[i] = 1;
+            setBit(mask, i);
         }
     }
     
@@ -31,6 +47,8 @@ function createColorMask(targetColor) {
 
 function outlineSelectedComponents(mask, downscaleFactor = 4) {
     // Clear previous outlines
+    console.log("OUTLINING SELECTED COMPONENTS...")
+
     const svgGroup = document.getElementById('svg-scale-group');
     while (svgGroup.firstChild) {
         svgGroup.removeChild(svgGroup.firstChild);
@@ -39,15 +57,17 @@ function outlineSelectedComponents(mask, downscaleFactor = 4) {
     const width = drawCanvas.width;
     const height = drawCanvas.height;
     
-    // Find and outline each connected component in the mask
-    const visited = new Uint8Array(mask.length);
+    // Use bit-packed array for visited tracking
+    const bitArraySize = Math.ceil((width * height) / 32);
+    const visited = new Uint32Array(bitArraySize);
     
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
+    for (let y = 0; y < height; y += downscaleFactor) {
+        for (let x = 0; x < width; x += downscaleFactor) {
             const idx = y * width + x;
-            if (mask[idx] === 1 && visited[idx] === 0) {
-                // Found a new component - create a mask for it
-                const componentMask = new Uint8Array(mask.length);
+            
+            if (getBit(mask, idx) === 1 && getBit(visited, idx) === 0) {
+                // Found a new component - create a bit-packed mask for it
+                const componentMask = new Uint32Array(bitArraySize);
                 const stack = [{x, y}];
                 
                 while (stack.length > 0) {
@@ -55,13 +75,13 @@ function outlineSelectedComponents(mask, downscaleFactor = 4) {
                     const cidx = cy * width + cx;
                     
                     if (cx < 0 || cx >= width || cy < 0 || cy >= height || 
-                        visited[cidx] === 1 || mask[cidx] === 0) {
+                        getBit(visited, cidx) === 1 || getBit(mask, cidx) === 0) {
                         continue;
                     }
                     
                     // Mark as visited and part of this component
-                    visited[cidx] = 1;
-                    componentMask[cidx] = 1;
+                    setBit(visited, cidx);
+                    setBit(componentMask, cidx);
                     
                     // Check 4-connected neighbors
                     stack.push({x: cx+1, y: cy});
@@ -70,19 +90,18 @@ function outlineSelectedComponents(mask, downscaleFactor = 4) {
                     stack.push({x: cx, y: cy-1});
                 }
                 
-                // Now outline this component
                 // Find boundary pixels of the component
                 let points = [];
                 for (let py = 0; py < height; py += downscaleFactor) {
                     for (let px = 0; px < width; px += downscaleFactor) {
                         const pidx = py * width + px;
-                        if (componentMask[pidx] === 1) {
+                        if (getBit(componentMask, pidx) === 1) {
                             // Check if this is an edge pixel
                             const isEdge = 
-                                (px === 0 || componentMask[pidx - 1] === 0) ||
-                                (px >= width-1 || componentMask[pidx + 1] === 0) ||
-                                (py === 0 || componentMask[pidx - width] === 0) ||
-                                (py >= height-1 || componentMask[pidx + width] === 0);
+                                (px === 0 || getBit(componentMask, pidx - 1) === 0) ||
+                                (px >= width-1 || getBit(componentMask, pidx + 1) === 0) ||
+                                (py === 0 || getBit(componentMask, pidx - width) === 0) ||
+                                (py >= height-1 || getBit(componentMask, pidx + width) === 0);
                             
                             if (isEdge) {
                                 points.push({x: px, y: py});
@@ -132,11 +151,10 @@ function outlineSelectedComponents(mask, downscaleFactor = 4) {
             }
         }
     }
-    
+    console.log("OUTLINING SELECTED COMPONENTS... COMPLETE")
+
     return mask;
 }
-
-
 
 function applyActiveColourToSelection() {
     if (!selectedMask) return;
@@ -155,19 +173,10 @@ function applyActiveColourToSelection() {
     let red = (col >> 16) & 0xFF;
     let green = (col >> 8) & 0xFF;
     let blue = (col >> 0) & 0xFF;
-    // col = (0xFF << 24) | (blue << 16) | (green << 8) | (red << 0);
-    // col >>>= 0;
-
-    // Parse the new color
-    // let newColorValue = newColor.startsWith("#") ? newColor.slice(1) : newColor;
-    // newColorValue = parseInt(newColorValue, 16);
-    // const newRed = (newColorValue >> 16) & 0xFF;
-    // const newGreen = (newColorValue >> 8) & 0xFF;
-    // const newBlue = newColorValue & 0xFF;
     
     // Replace colors in the selected areas
     for (let i = 0; i < width * height; i++) {
-        if (selectedMask[i] === 1) {
+        if (getBit(selectedMask, i) === 1) {
             const idx = i * 4;
             imageData.data[idx] = red;
             imageData.data[idx + 1] = green;

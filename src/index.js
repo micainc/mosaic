@@ -23,6 +23,7 @@ drawCanvas.height = window.innerHeight;
 var drawCtx = drawCanvas.getContext('2d');
 
 const svgCanvas = document.getElementById('svg-canvas')
+
 const svgScaleGroup = document.getElementById('svg-scale-group');
 let svgPath = null;
 
@@ -82,8 +83,8 @@ function init() {
 
                 scrollX = document.documentElement.scrollLeft;
                 scrollY = document.documentElement.scrollTop;
-                console.log("SCROLL X: ", scrollX)
-                console.log("SCROLL Y: ", scrollY)
+                // console.log("SCROLL X: ", scrollX)
+                // console.log("SCROLL Y: ", scrollY)
 
                 // Create new SVG PREVIEW path
                 svgPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -104,15 +105,21 @@ function init() {
                 // Get color at click point
                 const imageData = drawCtx.getImageData(mouseX, mouseY, 1, 1);
                 const pixel = imageData.data;
-                const clickedColor = rgbToHex(pixel[0], pixel[1], pixel[2]);
+
+                const selectedColour = rgbToHex(pixel[0], pixel[1], pixel[2]);
                 
                 // Create selection mask and SVG outline
-                selectedMask = createColorMask(clickedColor);
-                outlineSelectedComponents(selectedMask);
+                selectedMask = createColorMask(selectedColour);
+                // outlineSelectedComponents(selectedMask);
+                var label = colourLabelMap[selectedColour] + " selected ."
+
+                drawColors.find((h, idx) => {
+                    if(h === selectedColour) {
+                        $('#toolbar-note').text(label);
+                    }
+                })
                 
-                // Show some UI feedback
-                $('#cursor-text').text(`Selected ${clickedColor}`);
-                $('#cursor-text').css("display", "block");
+
             }
 
         } else if (e.button === 2 && !leftClicked) {
@@ -120,6 +127,14 @@ function init() {
             
         }
     });
+    
+
+
+
+
+
+
+
 
 
     drawCanvas.addEventListener('mouseup', function(e) {
@@ -130,7 +145,7 @@ function init() {
                     // if user was in fill mode and drew a line, we need to check all points on that line for loops to fill
                     console.log("FILLING")
                     drawPath.forEach(point => {
-                        flood(point.x, point.y, 'replace')
+                        flood(point.x, point.y, 'replace') // replace 
                     })
                     break;
                 case "pencil":
@@ -141,35 +156,34 @@ function init() {
                         svgPath = null;
                     }
 
-                    if( drawPath.length < 2 ) { // if user clicked once: check if user wants to flood a closed-loop path of the same colour
+                    if( drawPath.length === 1 ) { // if user clicked once: check if user wants to flood a closed-loop path of the same colour
 
                         // !IMPORTANT! clear the draw area where clicked first to ensure uniform
                         // drawCtx.globalCompositeOperation = 'destination-out' // this clear the point first
                         // drawCircle(drawCtx, mouseX, mouseY, Math.floor((drawDiameter*(drawCanvas.width / drawCanvas.clientWidth))/2)-1)
-        
                         // then: either flood the area, or draw that erased point back
                         drawCtx.globalCompositeOperation = 'source-over'
                         if(flood(mouseX, mouseY)) { // do an initial check
                             console.log("INFILLING")
-                            flood(mouseX, mouseY, 'infill')
-                        } else {
-                            // if not a floodable area, just draw a circle
-                            drawCircle(drawCtx, mouseX, mouseY, Math.floor((drawDiameter*(drawCanvas.width / drawCanvas.clientWidth))/2)-1)
-                        }
-        
+                            flood(mouseX, mouseY, 'infill') // flood the white area...
+
+                        } 
+                        // !IMPORTANT! draw a circle: if user didnt mean to flood, still meant to draw small region 
+                        drawCircle(drawCtx, mouseX, mouseY, Math.floor((drawDiameter*(drawCanvas.width / drawCanvas.clientWidth))/2)-1); 
+
                     } else {
                         // user is finishing a path
                         drawPath.push({x: mouseX, y: mouseY}); // finish drawPath
                         // drawPath = solidifyPath(drawPath); // RESOLVE: fill in the gaps between the drawn points of the line/loop path
                             // Draw the final path to canvas
-                        if (drawPath.length > 1) {
+                        //if (drawPath.length > 1) {
+
                             drawPath = solidifyPath(drawPath);
                             drawCtx.fillStyle = activeColour.colour;
                             drawPath.forEach(point => {
-                                drawCircle(drawCtx, point.x, point.y, 
-                                    Math.floor((drawDiameter*(drawCanvas.width / drawCanvas.clientWidth))/2)-1);
+                                drawCircle(drawCtx, point.x, point.y, Math.floor((drawDiameter*(drawCanvas.width / drawCanvas.clientWidth))/2)-1);
                             });
-                        }                    
+                        //}                    
                     }
                     break;
                 default:
@@ -198,10 +212,7 @@ function init() {
                     drawPath.push({x: mouseX, y: mouseY}); // finish drawPath
                     drawPath = solidifyPath(drawPath); // algorithmically fills gaps in the draw path to create a solid continuous line 
                     drawCtx.fillStyle = activeColour.colour;
-                    drawPath.forEach(point => {
-                        drawCircle(drawCtx, point.x, point.y, 
-                            Math.floor((drawDiameter*(drawCanvas.width / drawCanvas.clientWidth))/2)-1);
-                    });
+                    drawPath.forEach(point => { drawCircle(drawCtx, point.x, point.y, Math.floor((drawDiameter*(drawCanvas.width / drawCanvas.clientWidth))/2)-1) });
                 }
                 break;
             case "fill":
@@ -284,6 +295,7 @@ function init() {
         // Get current dimensions and apply new scale
         const beforeWidth = $(".mosaic-canvas").width();
         $(".mosaic-canvas").css("width", Math.max(100, (100 * scale)) + "%");
+        
         const afterWidth = $(".mosaic-canvas").width();
         
         // Calculate scaling factor
@@ -622,7 +634,6 @@ function flood(x1, y1, mode=null) {
     const startIndex = y1 * width + x1;
     const startPixelValue = buffer32[startIndex];
     console.log("FLOOD MODE: ", mode)
-    console.log("STARTING PIXEL VALUE: ", startPixelValue >> 24)
 
     // Check if starting pixel is transparent for 'replace' mode
     // if (mode === 'replace' && (startPixelValue >> 24) & 0xFF === 0) {
@@ -640,11 +651,14 @@ function flood(x1, y1, mode=null) {
     col >>>= 0;
 
     // For 'replace' mode: bail if starting pixel is already the active color, or if starting pixel is transparent for 'replace' mode
-    if (mode === 'replace' && (startPixelValue === col || (startPixelValue >> 24) & 0xFF === 0)) {
-        console.log("STARTING PIXEL WAS TRANSP 2")
+    // if (mode === 'replace' && (startPixelValue === col || (startPixelValue >> 24) & 0xFF === 0)) {
+    if (mode === 'replace' && (startPixelValue === col || (startPixelValue >> 24) === 0)) {
+        console.log("STARTING PIXEL WAS TRANSP 2: startPixelValue")
         return false;
     }
-    
+
+    console.log(`STARTING PIXEL: ${x1}, ${y1}: ${startPixelValue >> 24}`)
+
     if(mode !== null) {
         drawCtx.fillStyle = activeColour.colour;
     }
@@ -747,27 +761,27 @@ function dropFiles(event) {
     if (event.dataTransfer && event.dataTransfer.files) {
         const files = Array.from(event.dataTransfer.files);
 
-        // check if any of the file names include edge_map or segmentation_map
+        // precheck if any of the files are .png
         files.forEach(file => {
             console.log("file.name: ", file.name)
-            if (file.name.includes("edge_map") || file.name.includes("segmentation_map")) {
+            if (file.name.endsWith(".png")) {
                 shouldEraseDrawLayer = false
             }
         })
 
         let segmentationLayer = null
         const imagePromises = files.map(file => {
-            if (file.name.includes("edge_map") || file.name.includes("segmentation_map")) {
+            if (file.name.endsWith(".png")) {
                 //return processEdgeOrSegmentationMap(file);
                 segmentationLayer = file;
             } else {
-                return processImageFile(file);
+                return processImageLayer(file);
             }
         });
 
         Promise.all(imagePromises).then(() => {
             if(segmentationLayer !== null) {
-                processEdgeOrSegmentationMap(segmentationLayer);
+                processSegmentationLayer(segmentationLayer);
             }
             console.log("SHOULD ERASE DRAW LAYER? ", shouldEraseDrawLayer)
             updateCurrentImage();
@@ -777,7 +791,7 @@ function dropFiles(event) {
 }
 
 
-function processEdgeOrSegmentationMap(file) {
+function processSegmentationLayer(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = function(e) {
@@ -789,13 +803,13 @@ function processEdgeOrSegmentationMap(file) {
                     drawCanvas.width = img.width;
                     drawCanvas.height = img.height;
                     dimensionsSet = true;
-                }
+                // }
 
-                if (file.name.includes("edge_map")) {
-                    console.log("IMPORTING EDGE MAP...")
-                    processEdgeMap(img);
-                } else {
-                    console.log("IMPORTING SEGMENTATION MAP...")
+                // if (file.name.includes("edge_map")) {
+                //     console.log("IMPORTING EDGE MAP...")
+                //     processEdgeMap(img);
+                // } else {
+                //     console.log("IMPORTING SEGMENTATION MAP...")
                     drawCtx.drawImage(img, 0, 0);
                 }
                 // resolve();
@@ -808,47 +822,47 @@ function processEdgeOrSegmentationMap(file) {
     });
 }
 
-function processEdgeMap(img) {
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = img.width;
-    tempCanvas.height = img.height;
+// function processEdgeMap(img) {
+//     const tempCanvas = document.createElement('canvas');
+//     tempCanvas.width = img.width;
+//     tempCanvas.height = img.height;
 
-    const tempCtx = tempCanvas.getContext('2d');
-    tempCtx.drawImage(img, 0, 0);
+//     const tempCtx = tempCanvas.getContext('2d');
+//     tempCtx.drawImage(img, 0, 0);
 
-    const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-    const data = imageData.data;
+//     const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+//     const data = imageData.data;
 
-    for (let i = 0; i < data.length; i += 4) {
-        if (data[i] === 255 && data[i + 1] === 255 && data[i + 2] === 255) {
-            setTransparentNeighbors(i, data, tempCanvas.width);
-        } else if (data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 0) {
-            data[i] = data[i + 1] = data[i + 2] = 127;
-        }
-    }
+//     for (let i = 0; i < data.length; i += 4) {
+//         if (data[i] === 255 && data[i + 1] === 255 && data[i + 2] === 255) {
+//             setTransparentNeighbors(i, data, tempCanvas.width);
+//         } else if (data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 0) {
+//             data[i] = data[i + 1] = data[i + 2] = 127;
+//         }
+//     }
 
-    tempCtx.putImageData(imageData, 0, 0);
-    drawCtx.drawImage(tempCanvas, 0, 0);
-}
+//     tempCtx.putImageData(imageData, 0, 0);
+//     drawCtx.drawImage(tempCanvas, 0, 0);
+// }
 
 
-function setTransparentNeighbors(index, data, width) {
-    const x = (index / 4) % width;
-    const y = Math.floor((index / 4) / width);
+// function setTransparentNeighbors(index, data, width) {
+//     const x = (index / 4) % width;
+//     const y = Math.floor((index / 4) / width);
 
-    for (let dx = -1; dx <= 1; dx++) {
-        for (let dy = -1; dy <= 1; dy++) {
-            const nx = x + dx;
-            const ny = y + dy;
-            if (nx >= 0 && nx < width && ny >= 0 && ny < data.length / (4 * width)) {
-                const nIdx = (ny * width + nx) * 4;
-                data[nIdx + 3] = 0;
-            }
-        }
-    }
-}
+//     for (let dx = -1; dx <= 1; dx++) {
+//         for (let dy = -1; dy <= 1; dy++) {
+//             const nx = x + dx;
+//             const ny = y + dy;
+//             if (nx >= 0 && nx < width && ny >= 0 && ny < data.length / (4 * width)) {
+//                 const nIdx = (ny * width + nx) * 4;
+//                 data[nIdx + 3] = 0;
+//             }
+//         }
+//     }
+// }
 
-function processImageFile(file) {
+function processImageLayer(file) {
     return new Promise(async (resolve, reject) => {
         try {
             // Create URL for display
@@ -879,7 +893,7 @@ function processImageFile(file) {
             // Determine the type based on filename
             let type;
             const filename = file.name.toLowerCase();
-            const typeKeywords = ['lin', 'ref', 'texture', 'composite'];
+            const typeKeywords = ['xpol_texture', 'xpol',  'ppol_texture', 'ppol',  'lin', 'ref', 'texture', 'composite'];
             
             // Check if filename contains any of the keywords
             const matchedType = typeKeywords.find(keyword => filename.includes(keyword));
@@ -1294,9 +1308,9 @@ async function saveTiles() {
 
             }));
 
-             //... then we save the entire draw layer for a save file:
-            var draw_data = drawCanvas.toDataURL("image/png");
-            window.api.invoke('save_img', {'data': draw_data, 'filename': '', 'identifier':identifier, 'type': 'segmentation_map', 'idx': ''})
+            //  //... then we save the entire draw layer for a save file:
+            // var draw_data = drawCanvas.toDataURL("image/png");
+            // window.api.invoke('save_img', {'data': draw_data, 'filename': '', 'identifier':identifier, 'type': 'segmentation_map', 'idx': ''})
 
 
 
@@ -1372,45 +1386,6 @@ function changeActiveColour(selection) {
     }
 }
 
-// function changeActiveColour(selection) {
-//     // Guard against invalid input
-//     if (!selection || typeof selection !== 'object' || !selection.colour) {
-//         console.error("Invalid colour selection:", selection);
-//         return;
-//     }
-
-//     // Create a fresh object rather than just assigning a reference
-//     // This ensures we're not affected by any later modifications to the selection object
-//     activeColour = {
-//         colour: selection.colour,
-//         label: selection.label || ""
-//     };
-    
-//     console.log("ACTIVE COLOUR CHANGED:", activeColour);
-    
-//     // Update UI elements
-//     cursor.style.borderColor = activeColour.colour;
-//     document.getElementById("cursor-size-slider").style.setProperty('--color', activeColour.colour);
-    
-//     // Apply to selection if one exists
-//     if (selectedMask) {
-//         applyActiveColourToSelection();
-//     }
-    
-//     // Dispatch a custom event that other components can listen for
-//     // This helps ensure synchronization across the application
-//     document.dispatchEvent(new CustomEvent('activeColourChanged', { 
-//         detail: { colour: activeColour.colour, label: activeColour.label }
-//     }));
-    
-//     // Force a redraw of any paths/previews that might be using the old colour
-//     if (svgPath) {
-//         svgPath.setAttribute("stroke", activeColour.colour);
-//     }
-    
-//     // Return the new active colour for chaining or confirmation
-//     return activeColour;
-// }
 
 function saveState() {
     if (undoHistory.length >= MAX_HISTORY_SIZE) {
