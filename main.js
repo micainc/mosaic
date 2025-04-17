@@ -399,10 +399,10 @@ async function loadModel() {
       
       if (app.isPackaged) {
         // In production, use resourcesPath
-        modelPath = path.join(process.resourcesPath, 'models', 'lin_comp_beaut_model', 'model.json');
+        modelPath = path.join(process.resourcesPath, 'models', 'og', 'model.json');
       } else {
         // In development
-        modelPath = path.join(__dirname, 'models', 'lin_comp_beaut_model', 'model.json');
+        modelPath = path.join(__dirname, 'models', 'og', 'model.json');
       }
 
       log.info('Attempting to load model from:', modelPath);

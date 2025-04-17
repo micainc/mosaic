@@ -88,32 +88,35 @@ async function applyClassifier(images, model, tf) {
     // console.log("APPLY CLASSIFIER IMAGES: ", images)
     // 1. Sort and prepare the images
     console.log("IMAGES: ", images)
-    const { lin, composite, texture, width, height } = sortImages(images);
-    if (!lin || !composite || !texture) {
+    const { xpol, ppol, xpol_texture, ppol_texture, ref, width, height } = sortImages(images);
+    if (!xpol || !ppol || !xpol_texture || !ppol_texture || !ref) {
         console.error("Could not find all required image types.");
         return;
     }
 
-    return applySlideWindow({ lin, composite, texture, width, height }, model, tf);
+    return applySlideWindow({ xpol, ppol, xpol_texture, ppol_texture, ref, width, height }, model, tf);
 
 }
 
 function sortImages(images) {
-    let lin, composite, texture, width, height;
+    let xpol, ppol, xpol_texture, ppol_texture, ref, width, height;
     for (let [filename, imageData] of Object.entries(images)) {
-        if (filename.includes('lin')) lin = imageData.data.data;
-        else if (filename.includes('composite')) composite = imageData.data.data;
-        else if (filename.includes('texture')) texture = imageData.data.data;
+        if (filename.includes('xpol')) xpol = imageData.data.data;
+        else if (filename.includes('ppol')) ppol = imageData.data.data;
+        else if (filename.includes('xpol_texture')) xpol_texture = imageData.data.data;
+        else if (filename.includes('ppol_texture')) ppol_texture = imageData.data.data;
+        else if (filename.includes('ref')) ref = imageData.data.data;
+
         width = imageData.width;
         height = imageData.height;
     }
-    return (lin && composite && texture) ? { lin, composite, texture, width, height } : null;
+    return (xpol && ppol && xpol_texture && ppol_texture && ref) ? { xpol, ppol, xpol_texture, ppol_texture, ref, width, height } : null;
 }
 
 async function applySlideWindow(input, model, tf) {
     const windowSize = 256;
     const stride = 256;
-    const { lin, composite, texture, width, height } = input;
+    const { xpol, ppol, xpol_texture,  ppol_texture, ref, width, height } = input;
     console.log("WIDTH/HEIGHT: " + width + ", "+ height)
     // Initialize predictions and counts arrays to match the original image size
     const predictions = new Uint16Array(width * height * 86) // instead of float32, use uInt8 to store percent predictions: normalize predition values from range (0,1) to 0 to 255
@@ -124,7 +127,7 @@ async function applySlideWindow(input, model, tf) {
     
     for (let y = 0; y < height; y += stride) {
         for (let x = 0; x < width; x += stride) {
-            const windowTensor = extractWindow({ lin, composite, texture }, x, y, windowSize, width, height, tf);
+            const windowTensor = extractWindow({ xpol, ppol, xpol_texture, ppol_texture, ref }, x, y, windowSize, width, height, tf);
             console.log("CLASSIFYING " + windowTensor.shape + " (" + windowTensor.dtype+ ") WINDOW AT "+ x + ", " + y + "... ");
             const predictionTensor = model.predict(windowTensor);
             const prediction = await predictionTensor.array();
@@ -172,9 +175,8 @@ async function applySlideWindow(input, model, tf) {
 
 function extractWindow(images, x, y, windowSize, fullWidth, fullHeight, tf) {
 
-    // console.log("IMAGES LIN: ", images.lin)
     // Get a mutable buffer from the tensor to modify its values
-    const windowData = new Float32Array(windowSize * windowSize * 9);
+    const windowData = new Float32Array(windowSize * windowSize * 15);
 
     let r1, g1, b1, r2, g2, b2, r3, g3, b3;
 
@@ -189,35 +191,51 @@ function extractWindow(images, x, y, windowSize, fullWidth, fullHeight, tf) {
 
             if (imgX >= 0 && imgX < fullWidth && imgY >= 0 && imgY < fullHeight) {
                 const fullIndex = (imgY * fullWidth + imgX) * 4;
-                // console.log("r1, g1, b1: " + images.lin[fullIndex] + ", "+ images.lin[fullIndex + 1] + ", "+ images.lin[fullIndex + 2])
-                r1 = images.lin[fullIndex] / 255;
-                g1 = images.lin[fullIndex + 1] / 255;
-                b1 = images.lin[fullIndex + 2] / 255;
-                r2 = images.composite[fullIndex] / 255;
-                g2 = images.composite[fullIndex + 1] / 255;
-                b2 = images.composite[fullIndex + 2] / 255;
-                r3 = images.texture[fullIndex] / 255;
-                g3 = images.texture[fullIndex + 1] / 255;
-                b3 = images.texture[fullIndex + 2] / 255;
+                // console.log("r1, g1, b1: " + images.xpol[fullIndex] + ", "+ images.xpol[fullIndex + 1] + ", "+ images.xpol[fullIndex + 2])
+                r1 = images.xpol[fullIndex] / 255;
+                g1 = images.xpol[fullIndex + 1] / 255;
+                b1 = images.xpol[fullIndex + 2] / 255;
+                r2 = images.ppol[fullIndex] / 255;
+                g2 = images.ppol[fullIndex + 1] / 255;
+                b2 = images.ppol[fullIndex + 2] / 255;
+                r3 = images.xpol_texture[fullIndex] / 255;
+                g3 = images.xpol_texture[fullIndex + 1] / 255;
+                b3 = images.xpol_texture[fullIndex + 2] / 255;
+                r4 = images.ppol_texture[fullIndex] / 255;
+                g4 = images.ppol_texture[fullIndex + 1] / 255;
+                b4 = images.ppol_texture[fullIndex + 2] / 255;
+                r5 = images.ref[fullIndex] / 255;
+                g5 = images.ref[fullIndex + 1] / 255;
+                b5 = images.ref[fullIndex + 2] / 255;
             } else {
-                r1 = g1 = b1 = r2 = g2 = b2 = r3 = g3 = b3 = 0;
+                r1 = g1 = b1 = r2 = g2 = b2 = r3 = g3 = b3 = r4 = g4 = b4 = r5 = g5 = b5 = 0;
             }
 
-            const index = (wy * windowSize + wx) * 9;
-            windowData[index] = r1;
+            const index = (wy * windowSize + wx) * 15;
+            windowData[index + 0] = r1;
             windowData[index + 1] = g1;
             windowData[index + 2] = b1;
+
             windowData[index + 3] = r2;
             windowData[index + 4] = g2;
             windowData[index + 5] = b2;
+
             windowData[index + 6] = r3;
             windowData[index + 7] = g3;
             windowData[index + 8] = b3;
+
+            windowData[index + 9] = r4;
+            windowData[index + 10] = g4;
+            windowData[index + 11] = b4;
+
+            windowData[index + 12] = r5;
+            windowData[index + 13] = g5;
+            windowData[index + 14] = b5;
         }
     }
     // console.log("WINDOW DATA: ", windowData)
     // Update the windowTensor with the new values
-    return tf.tensor4d(windowData, [1, windowSize, windowSize, 9]);
+    return tf.tensor4d(windowData, [1, windowSize, windowSize, 15]);
 }
 
 module.exports = { applyClassifier };

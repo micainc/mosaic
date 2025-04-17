@@ -58,8 +58,16 @@
                 <button id="save-tiles" class="toolbar-button" onclick="saveTiles()"><img width="20px" src="./public/img/save_folder.png" title="Save Tiles..."></button> 
 
             </div>
-            <div id="toolbar-file">
-                <button onclick="cycleImage(-1)"><img src="./public/img/left-arrow.png" width="10px"/></button><span id="toolbar-filename">Drag image set below...</span><button onclick="cycleImage(1)"><img src="./public/img/right-arrow.png" width="10px"/></button>
+            <div id="toolbar-layers">
+                <button onclick="changeActiveLayer(-1)">
+                    <img src="./public/img/left-arrow.png" width="10px"/>
+                </button>
+                    
+                    <span id="toolbar-filename">Drag image set below...</span>
+
+                <button onclick="changeActiveLayer(1)">
+                    <img src="./public/img/right-arrow.png" width="10px"/>
+                </button>
             </div>
             <div id="toolbar-note">
                 
