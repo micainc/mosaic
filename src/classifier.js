@@ -29,7 +29,7 @@ async function prepareImagesForClassifier(images) {
     return prepared;
 }
 
-async function handleApplyClassifier() {
+async function applyClassifier() {
     const classes = ['undefined', 'unknown', 'K-feldspar', 'amphibole', 'andalusite', 'anhydrite', 'apatite', 'arsenopyrite', 'azurite', 'barite', 'beryl', 'biotite', 'bornite', 'calcite', 'cassiterite', 'celestite', 'cerussite', 'chalcedony', 'chalcocite', 'chalcopyrite', 'chlorite', 'chloritoid', 'cinnabar', 'clay minerals', 'clinopyroxene', 'columbite', 'cordierite', 'corundum', 'cummingtonite', 'diamond', 'dolomite', 'epidote', 'fluorite', 'galena', 'garnet', 'goethite', 'graphite', 'gypsum', 'halite', 'hematite', 'ilmenite', 'kyanite', 'limonite', 'magnetite', 'malachite', 'molybdenite', 'monazite', 'muscovite', 'native copper', 'native gold', 'native silver', 'native sulfur', 'nepheline', 'olivine', 'opal', 'orpiment', 'orthopyroxene', 'pentlandite', 'plagioclase feldspar', 'prehnite', 'pyrite', 'pyrrhotite', 'quartz', 'realgar', 'rhodochrosite', 'rutile', 'scapolite', 'scheelite', 'serpentine', 'siderite', 'sillimanite', 'smithsonite', 'sphalerite', 'staurolite', 'stibnite', 'sylvite', 'talc', 'tantalite', 'titanite', 'topaz', 'tourmaline', 'vesuvianite', 'wolframite', 'wollastonite', 'zeolites', 'zircon'];
     const label_colours = await window.api.invoke('get_label_colours');
 
@@ -41,8 +41,8 @@ async function handleApplyClassifier() {
 
     try {
         // Prepare images first
-        const preparedImages = await prepareImagesForClassifier(images);
-        const {success, error, predictions} = await window.api.applyClassifier(preparedImages);
+        const preparedImages = await prepareImagesForClassifier(LAYERS);
+        const {success, error, predictions} = await window.api.invoke('apply_classifier', preparedImages);
         if (success) {
             // predictions = _predictions
             for(let h = 0; h < height; h++) {
@@ -83,8 +83,7 @@ async function handleApplyClassifier() {
 
 
 
-
-async function applyClassifier(images, model, tf) {
+async function classify(images, model, tf) {
     // console.log("APPLY CLASSIFIER IMAGES: ", images)
     // 1. Sort and prepare the images
     console.log("IMAGES: ", images)
@@ -238,5 +237,5 @@ function extractWindow(images, x, y, windowSize, fullWidth, fullHeight, tf) {
     return tf.tensor4d(windowData, [1, windowSize, windowSize, 15]);
 }
 
-module.exports = { applyClassifier };
+module.exports = { classify };
 

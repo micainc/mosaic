@@ -1,4 +1,4 @@
-let selectedMask = null;
+let highlightedMask = null;
 
 // Helper functions for bit-packed array operations
 function getBit(array, index) {
@@ -13,7 +13,7 @@ function setBit(array, index) {
     array[arrayIndex] |= (1 << bitPosition);
 }
 
-function createColorMask(targetColor) {
+function createHighlightMask(targetColor) {
     console.log("CREATING COLOUR MASK...")
     const width = drawCanvas.width;
     const height = drawCanvas.height;
@@ -45,7 +45,7 @@ function createColorMask(targetColor) {
     return mask;
 }
 
-function outlineSelectedComponents(mask, downscaleFactor = 4) {
+function oulineHighlightedComponents(mask, downscaleFactor = 4) {
     // Clear previous outlines
     console.log("OUTLINING SELECTED COMPONENTS...")
 
@@ -156,8 +156,8 @@ function outlineSelectedComponents(mask, downscaleFactor = 4) {
     return mask;
 }
 
-function applyActiveColourToSelection() {
-    if (!selectedMask) return;
+function applyActiveColourToHighlighted() {
+    if (!highlightedMask) return;
     
     const width = drawCanvas.width;
     const height = drawCanvas.height;
@@ -176,7 +176,7 @@ function applyActiveColourToSelection() {
     
     // Replace colors in the selected areas
     for (let i = 0; i < width * height; i++) {
-        if (getBit(selectedMask, i) === 1) {
+        if (getBit(highlightedMask, i) === 1) {
             const idx = i * 4;
             imageData.data[idx] = red;
             imageData.data[idx + 1] = green;
@@ -189,11 +189,11 @@ function applyActiveColourToSelection() {
     drawCtx.putImageData(imageData, 0, 0);
     
     // Clear selection
-    clearSelection();
+    clearHighlights();
 }
 
-function clearSelection() {
-    selectedMask = null;
+function clearHighlights() {
+    highlightedMask = null;
     const svgGroup = document.getElementById('svg-scale-group');
     while (svgGroup.firstChild) {
         svgGroup.removeChild(svgGroup.firstChild);

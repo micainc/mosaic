@@ -9,6 +9,6 @@ function setMode(newMode, button) {
 
     // Add the 'selected-tool' class to the selected button
     button.classList.add('selected-tool');
-    clearSelection();
+    clearHighlights();
 }
 

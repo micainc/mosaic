@@ -35,7 +35,7 @@ var activeColour = {'colour': "#000000", 'label': ""}
 var hoveredColour = "#000000"
 var floodStack = []
 
-var layers = {} // image layers used by MOSAIC
+var LAYERS = {} // image layers used by MOSAIC
 var currentImage = '';
 var undoHistory = [];
 const MAX_HISTORY_SIZE = 10;
@@ -44,7 +44,7 @@ const origin = { x: 0, y: 0 };
 
 // Add this function to clean up when image URLS
 function revokeImageUrls() {
-    Object.values(layers).forEach(img => {
+    Object.values(LAYERS).forEach(img => {
         URL.revokeObjectURL(img.src);
     });
 }
@@ -109,8 +109,8 @@ function init() {
                 const selectedColour = rgbToHex(pixel[0], pixel[1], pixel[2]);
                 
                 // Create selection mask and SVG outline
-                selectedMask = createColorMask(selectedColour);
-                // outlineSelectedComponents(selectedMask);
+                highlightedMask = createHighlightMask(selectedColour);
+                // oulineHighlightedComponents(highlightedMask);
                 var label = colourLabelMap[selectedColour] + " selected ."
 
                 drawColors.find((h, idx) => {
@@ -477,19 +477,7 @@ function init() {
     // get & populate with first loadout
     window.api.invoke('get_loadouts')
     .then(function(loadouts) {
-        console.log("LOADOUTS: ", loadouts)
-        initLoadoutList(loadouts)
-        /*
-        for (var [loadout] of Object.entries(loadouts) ) {
-            $("#loadouts > select").append('<option value='+loadout+'>'+loadouts[loadout]['name']+'</option>');
-        }
-        // populate the labels list with the first loadout
-        for (const [label, label_data] of Object.entries(Object.values(loadouts)[0]['labels'])) {
-            $("#labels > select").append('<option value='+label+'>'+label_data['name']+'</option>');
-        }
-        initializeItemList(changeActiveColour, document.getElementById('loadouts'));
-        initializeItemList(changeActiveColour, document.getElementById('labels'));
-        */
+        initLoadouts(loadouts)
 
     }).catch(function(err) {
         console.error("ERROR: ", err); // will print "This didn't work!" to the browser console.
@@ -786,13 +774,13 @@ function dropFiles(event) {
             console.log("SHOULD ERASE DRAW LAYER? ", shouldEraseDrawLayer)
 
             // finally, set active image layer
-            const keys = Object.keys(layers);
+            const keys = Object.keys(LAYERS);
             const base = document.getElementById('base-image');
             
             if (keys.length > 0) {
                 currentImage = keys[0];
                 document.getElementById('toolbar-filename').textContent = currentImage;
-                base.src = layers[currentImage].src;
+                base.src = LAYERS[currentImage].src;
             } else {
                 document.getElementById('toolbar-filename').textContent = 'Drag image set below...';
                 currentImage = '';
@@ -802,7 +790,7 @@ function dropFiles(event) {
             }
         });
     }
-    console.log("IMAGE LAYERS: ", layers)
+    console.log("IMAGE LAYERS: ", LAYERS)
 }
 
 
@@ -903,11 +891,11 @@ function processImageLayer(file) {
                 type = matchedType;
             } else {
                 // Count existing 'layer_x' types to determine the next number
-                const layerCount = Object.values(layers).filter(img => img.type && img.type.startsWith('layer_')).length;
+                const layerCount = Object.values(LAYERS).filter(img => img.type && img.type.startsWith('layer_')).length;
                 type = `layer_${layerCount + 1}`;
             }
 
-            layers[file.name] = {
+            LAYERS[file.name] = {
                 icon: iconUrl,             // New icon URL
                 src: displayUrl,           // For display
                 bitmap: bitmap,            // For computations
@@ -989,14 +977,14 @@ function processImageLayer(file) {
 // }
 
 function changeActiveLayer(dir) {
-    const keys = Object.keys(layers);
+    const keys = Object.keys(LAYERS);
     if(keys.length < 2) return;
     const idx = keys.indexOf(currentImage);
     const newIdx = (idx + dir + keys.length) % keys.length;
     currentImage = keys[newIdx];
 
     const img = document.getElementById('base-image');
-    img.src = layers[currentImage].src;
+    img.src = LAYERS[currentImage].src;
     document.getElementById('toolbar-filename').textContent = currentImage;
 }
 
@@ -1294,7 +1282,7 @@ async function saveTiles() {
     console.log("SAVING TILES...")
 
     // Get identifier same as before
-    const filenames = Object.keys(layers);
+    const filenames = Object.keys(LAYERS);
     const identifier = getCommonSubstring(filenames.map(filename => 
         getFilename(filename).trim().toLowerCase()
     )).replace(/^_+|_+$/g, '') || Date.now().toString();
@@ -1339,7 +1327,7 @@ async function saveTiles() {
                 });
 
                 // Process each image layer in parallel, using the stored bitmaps
-                await Promise.all(Object.entries(layers).map(async ([filename, image]) => {
+                await Promise.all(Object.entries(LAYERS).map(async ([filename, image]) => {
                     cropCtx.clearRect(0, 0, width, height);
                     cropCtx.drawImage(image.bitmap, left, top, width, height, 0, 0, width, height);
                     
@@ -1375,7 +1363,7 @@ async function saveMap() {
     console.log("SAVING SEG MAP...")
 
     // Get identifier same as before
-    const filenames = Object.keys(layers);
+    const filenames = Object.keys(LAYERS);
     const identifier = getCommonSubstring(filenames.map(filename => 
         getFilename(filename).trim().toLowerCase()
     )).replace(/^_+|_+$/g, '') || Date.now().toString();
@@ -1429,8 +1417,8 @@ function changeActiveColour(selection) {
     console.log("NEW ACTIVE: ", selection)
     cursor.style.borderColor= activeColour.colour;
     document.getElementById("cursor-size-slider").style.setProperty('--color', activeColour.colour);
-    if(selectedMask) {
-        applyActiveColourToSelection()
+    if(highlightedMask) {
+        applyActiveColourToHighlighted()
     }
 }
 

@@ -4,6 +4,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron')
 const path = require('path');
 const fs = require('fs');
 const Store = require('electron-store');
+const { spawn } = require('child_process')
 
 
 app.commandLine.appendSwitch('in-process-gpu');
@@ -38,6 +39,14 @@ let storedImageData = null;
 // We must have this here since multiple renderer processes need it (main renderer and analysis renderer)
 
 
+// Helper function to get the correct SLIC (simple linear iterative clustering) executable path
+const getSlicPath = () => {
+  // For development, use project directory
+  const basePath = path.join(__dirname, 'resources');
+  const execName = process.platform === 'win32' ? 'slic_win.exe' : 'slic_unix';
+  
+  return path.join(basePath, execName);
+};
 
 
 
@@ -383,7 +392,7 @@ ipcMain.handle('set_save_dir', async (event, args) => {
 })
 
 
-const { applyClassifier } = require('./src/classifier');
+const { classify } = require('./src/classifier');
 
 
 let model = null;
@@ -399,10 +408,10 @@ async function loadModel() {
       
       if (app.isPackaged) {
         // In production, use resourcesPath
-        modelPath = path.join(process.resourcesPath, 'models', 'og', 'model.json');
+        modelPath = path.join(process.resourcesPath, 'models', 'deeplab_v4', 'model.json');
       } else {
         // In development
-        modelPath = path.join(__dirname, 'models', 'og', 'model.json');
+        modelPath = path.join(__dirname, 'models', 'deeplab_v4', 'model.json');
       }
 
       log.info('Attempting to load model from:', modelPath);
@@ -427,7 +436,7 @@ ipcMain.handle('apply_classifier', async (event, images) => {
           return { success: false, error: "Model failed to load" };
       }
       console.log("APPLYING CLASSIFIER");
-      const predictions = await applyClassifier(images, model, tf);
+      const predictions = await classify(images, model, tf);
       return { success: true, predictions };
   } catch (error) {
       console.error('Error applying classifier:', error);
@@ -503,5 +512,46 @@ ipcMain.handle('save_grains', async (event, {path, data}) => {
   }
 });
 
-ipcMain.handle('is-packaged', () => app.isPackaged);
+ipcMain.handle('is_packaged', () => app.isPackaged);
 
+ipcMain.handle('apply_slic', async (event, {dimensions, pixelData}) => {
+
+  return new Promise((resolve, reject) => {
+    const slicPath = getSlicPath();
+    
+    // Spawn process with just dimensions as argument
+    const process = spawn(slicPath, [dimensions]);
+    
+    let stdout = '';
+    let stderr = '';
+
+    // Handle stdout data
+    process.stdout.on('data', (data) => {
+        stdout += data;
+    });
+
+    // Handle stderr data
+    process.stderr.on('data', (data) => {
+        stderr += data;
+    });
+
+    // Handle errors
+    process.on('error', (error) => {
+        console.error('Failed to start SLIC process:', error);
+        reject(error);
+    });
+
+    // Handle process completion
+    process.on('close', (code) => {
+        if (code === 0) {
+            resolve(stdout);
+        } else {
+            reject(new Error(`SLIC process exited with code ${code}: ${stderr}`));
+        }
+    });
+
+    process.stdin.write(Buffer.from(pixelData));
+    process.stdin.end();
+  });
+
+});

@@ -303,7 +303,7 @@ button:hover, select:hover {
 }
 
 /*style items (options):*/
-.items {
+.toolbar-list-items {
     position: absolute;
     top: 100%;
     /*left: 100%;*/
