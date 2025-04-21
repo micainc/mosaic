@@ -549,8 +549,9 @@ ipcMain.handle('apply_slic', async (event, {dimensions, pixelData}) => {
             reject(new Error(`SLIC process exited with code ${code}: ${stderr}`));
         }
     });
+    console.log(`Invoking SLIC with dimensions: ${dimensions}, buffer size: ${pixelData.byteLength}`);
 
-    process.stdin.write(Buffer.from(pixelData));
+    process.stdin.write(Buffer.from(new Uint8Array(pixelData)));
     process.stdin.end();
   });
 

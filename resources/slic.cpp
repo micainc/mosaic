@@ -41,7 +41,6 @@ public:
     int height() const { return height_; }
 };
 
-// This is where the memory leak happens - when initializing this data structure
 class SLIC {
 private:
     const ImageMatrix &image; 
