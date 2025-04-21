@@ -7,6 +7,8 @@
 #include <cmath>
 #include <limits>
 #include <algorithm>
+#include <cstdio> 
+#include <fcntl.h>
 
 struct Pixel {
     uint8_t r, g, b;
@@ -290,7 +292,11 @@ int main(int argc, char* argv[]) {
         std::cerr << "Usage: " << argv[0] << " \"width height\"" << std::endl;
         return 1;
     }
-    
+
+    #ifdef _WIN32
+        freopen(NULL, "rb", stdin);
+    #endif
+        
     std::istringstream iss(argv[1]);
     int width, height;
     iss >> width >> height;
@@ -298,17 +304,13 @@ int main(int argc, char* argv[]) {
     // Initialize matrix
     ImageMatrix pixels(width, height);
     
-    // Read pixels from stdin
+    std::vector<uint8_t> buffer(width * height * 3);
+    std::cin.read(reinterpret_cast<char*>(buffer.data()), buffer.size());
+
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-            int r, g, b;
-            if (!(std::cin >> r >> g >> b)) {
-                std::cerr << "Error reading pixel data from stdin" << std::endl;
-                return 1;
-            }
-            pixels(x, y) = {static_cast<uint8_t>(r), 
-                           static_cast<uint8_t>(g), 
-                           static_cast<uint8_t>(b)};
+            size_t idx = (y * width + x) * 3;
+            pixels(x, y) = {buffer[idx], buffer[idx+1], buffer[idx+2]};
         }
     }
 

@@ -55,7 +55,7 @@
     <script>
         async function setupImportMap() {
             // Get isPackaged status from electron
-            const isPackaged = await window.api.isPackaged();
+            const isPackaged = await window.api.invoke('is_packaged');
             
             // Define the import map based on environment
             const importMap = {
