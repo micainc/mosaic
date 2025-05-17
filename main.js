@@ -522,34 +522,36 @@ ipcMain.handle('apply_slic', async (event, {dimensions, pixelData}) => {
     // Spawn process with just dimensions as argument
     const process = spawn(slicPath, [dimensions]);
     
-    let stdout = '';
+    let buffers = [];
     let stderr = '';
 
-    // Handle stdout data
+    // Collect binary data chunks
     process.stdout.on('data', (data) => {
-        stdout += data;
+      buffers.push(data);  // Store raw buffer chunks
     });
 
-    // Handle stderr data
     process.stderr.on('data', (data) => {
-        stderr += data;
+        stderr += data.toString();
     });
 
-    // Handle errors
     process.on('error', (error) => {
         console.error('Failed to start SLIC process:', error);
         reject(error);
     });
 
-    // Handle process completion
     process.on('close', (code) => {
-        if (code === 0) {
-            resolve(stdout);
-        } else {
-            reject(new Error(`SLIC process exited with code ${code}: ${stderr}`));
-        }
+      if (code === 0) {
+          // Concatenate all buffers
+          const resultBuffer = Buffer.concat(buffers);
+          // Convert to ArrayBuffer for sending to renderer
+          resolve(resultBuffer.buffer.slice(
+              resultBuffer.byteOffset, 
+              resultBuffer.byteOffset + resultBuffer.byteLength
+          ));
+      } else {
+          reject(new Error(`SLIC process exited with code ${code}: ${stderr}`));
+      }
     });
-    console.log(`Invoking SLIC with dimensions: ${dimensions}, buffer size: ${pixelData.byteLength}`);
 
     process.stdin.write(Buffer.from(new Uint8Array(pixelData)));
     process.stdin.end();
