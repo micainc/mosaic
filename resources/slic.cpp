@@ -9,15 +9,73 @@
 #include <algorithm>
 #include <cstdio> 
 #include <fcntl.h>
+#include <random>  
 
 struct Pixel {
     uint8_t r, g, b;
 };
 
-struct Center {
-    float y, x;      // spatial coordinates
-    float r, g, b;   // color values
+// LAB color structure
+struct LabColor {
+    float l, a, b;
 };
+
+struct Center {
+    float y, x;      // normalized spatial coordinates [0-1]
+    float l, a, b;   // normalized LAB color values [0-1]
+};
+
+// RGB to LAB conversion utilities
+inline float srgbToLinear(float c) {
+    return c <= 0.04045f ? c / 12.92f : std::pow((c + 0.055f) / 1.055f, 2.4f);
+}
+
+inline void rgbToXyz(uint8_t r, uint8_t g, uint8_t b, float& x, float& y, float& z) {
+    float rf = srgbToLinear(r / 255.0f);
+    float gf = srgbToLinear(g / 255.0f);
+    float bf = srgbToLinear(b / 255.0f);
+    
+    x = 0.4124564f * rf + 0.3575761f * gf + 0.1804375f * bf;
+    y = 0.2126729f * rf + 0.7151522f * gf + 0.0721750f * bf;
+    z = 0.0193339f * rf + 0.1191920f * gf + 0.9503041f * bf;
+}
+
+inline void xyzToLab(float x, float y, float z, float& l, float& a, float& b) {
+    // D65 white point
+    const float xn = 0.95047f;
+    const float yn = 1.0f;
+    const float zn = 1.08883f;
+    
+    x /= xn;
+    y /= yn;
+    z /= zn;
+    
+    auto f = [](float t) {
+        return t > 0.008856f ? std::pow(t, 1.0f/3.0f) : (7.787f * t + 16.0f/116.0f);
+    };
+    
+    float fx = f(x);
+    float fy = f(y);
+    float fz = f(z);
+    
+    l = y > 0.008856f ? (116.0f * std::pow(y, 1.0f/3.0f) - 16.0f) : (903.3f * y);
+    a = 500.0f * (fx - fy);
+    b = 200.0f * (fy - fz);
+    
+    // Normalize to [0-1]
+    l /= 100.0f;                 // L is in [0, 100]
+    a = (a + 128.0f) / 255.0f;   // a is roughly in [-128, 127]
+    b = (b + 128.0f) / 255.0f;   // b is roughly in [-128, 127]
+}
+
+inline LabColor rgbToLab(uint8_t r, uint8_t g, uint8_t b) {
+    float x, y, z;
+    rgbToXyz(r, g, b, x, y, z);
+    
+    LabColor lab;
+    xyzToLab(x, y, z, lab.l, lab.a, lab.b);
+    return lab;
+}
 
 class ImageMatrix {
 private:
@@ -49,47 +107,78 @@ private:
     std::vector<Center> centers;
     int n_segments;
     float compactness;
-    int grid_step;
+    float width_factor, height_factor;  // Factors for normalizing spatial coordinates
     
     float computeDistance(const Center& center, int x, int y) const {
         const Pixel& pixel = image(x, y);
         
-        // Color distance
-        float color_dist = std::sqrt(
-            std::pow(pixel.r - center.r, 2) +
-            std::pow(pixel.g - center.g, 2) +
-            std::pow(pixel.b - center.b, 2)
-        );
+        // Convert RGB to LAB
+        LabColor lab = rgbToLab(pixel.r, pixel.g, pixel.b);
         
-        // Spatial distance
-        float spatial_dist = std::sqrt(
-            std::pow(y - center.y, 2) +
-            std::pow(x - center.x, 2)
-        );
+        // Normalize spatial coordinates
+        float norm_x = x * width_factor;
+        float norm_y = y * height_factor;
         
-        return color_dist + (compactness / grid_step) * spatial_dist;
+        // // Color distance (in normalized LAB space)
+        // float color_dist = std::sqrt(
+        //     std::pow(lab.l - center.l, 2) +
+        //     std::pow(lab.a - center.a, 2) +
+        //     std::pow(lab.b - center.b, 2)
+        // );
+        
+        // // Spatial distance (in normalized coordinates)
+        // float spatial_dist = std::sqrt(
+        //     std::pow(norm_y - center.y, 2) +
+        //     std::pow(norm_x - center.x, 2)
+        // );
+        
+        float dist = std::sqrt(
+            std::pow(lab.l - center.l, 2) +
+            std::pow(lab.a - center.a, 2) +
+            std::pow(lab.b - center.b, 2) +
+            compactness*std::pow(norm_y - center.y, 2) +
+            compactness*std::pow(norm_x - center.x, 2)
+        );
+        // Both components are now in similar ranges [0-1]
+        // return color_dist + compactness * spatial_dist;
+        return dist;
     }
     
     void initializeCenters() {
         centers.clear();
-        // Initialize cluster centers on a regular grid
-        for (int y = grid_step/2; y < image.height(); y += grid_step) {
-            for (int x = grid_step/2; x < image.width(); x += grid_step) {
-                if (y >= image.height() || x >= image.width()) continue;
-                
-                const Pixel& pixel = image(x, y);
-                Center center = {
-                    static_cast<float>(y),
-                    static_cast<float>(x),
-                    static_cast<float>(pixel.r),
-                    static_cast<float>(pixel.g),
-                    static_cast<float>(pixel.b)
-                };
-                centers.push_back(center);
-            }
+        
+        // Use C++11 random number generator for better distribution
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<int> x_dist(0, image.width() - 1);
+        std::uniform_int_distribution<int> y_dist(0, image.height() - 1);
+        
+        // Initialize n_segments random centers
+        for (int i = 0; i < n_segments; i++) {
+            // Generate random x,y coordinates
+            int x = x_dist(gen);
+            int y = y_dist(gen);
+            
+            const Pixel& pixel = image(x, y);
+            
+            // Convert RGB to normalized LAB
+            LabColor lab = rgbToLab(pixel.r, pixel.g, pixel.b);
+            
+            // Normalize spatial coordinates
+            float norm_y = y * height_factor;
+            float norm_x = x * width_factor;
+            
+            Center center = {
+                norm_y,
+                norm_x,
+                lab.l,
+                lab.a,
+                lab.b
+            };
+            centers.push_back(center);
         }
     }
-    
+        
     void updateCenters() {
         std::vector<Center> new_centers = centers;
         std::vector<int> cluster_sizes(centers.size(), 0);
@@ -106,11 +195,19 @@ private:
                 if (label == -1) continue;
                 
                 const Pixel& pixel = image(x, y);
-                new_centers[label].y += y;
-                new_centers[label].x += x;
-                new_centers[label].r += pixel.r;
-                new_centers[label].g += pixel.g;
-                new_centers[label].b += pixel.b;
+                
+                // Convert RGB to LAB
+                LabColor lab = rgbToLab(pixel.r, pixel.g, pixel.b);
+                
+                // Normalize spatial coordinates
+                float norm_y = y * height_factor;
+                float norm_x = x * width_factor;
+                
+                new_centers[label].y += norm_y;
+                new_centers[label].x += norm_x;
+                new_centers[label].l += lab.l;
+                new_centers[label].a += lab.a;
+                new_centers[label].b += lab.b;
                 cluster_sizes[label]++;
             }
         }
@@ -121,8 +218,8 @@ private:
                 float size = static_cast<float>(cluster_sizes[i]);
                 new_centers[i].y /= size;
                 new_centers[i].x /= size;
-                new_centers[i].r /= size;
-                new_centers[i].g /= size;
+                new_centers[i].l /= size;
+                new_centers[i].a /= size;
                 new_centers[i].b /= size;
             } else {
                 new_centers[i] = centers[i];  // Keep old center if cluster is empty
@@ -132,103 +229,8 @@ private:
         centers = std::move(new_centers);
     }
 
-    void enforceConnectivity(int min_size = 25) {
-        std::vector<std::vector<bool>> visited(image.height(), std::vector<bool>(image.width(), false));
-        std::vector<std::vector<int>> new_labels = labels; // Copy current labels
-        
-        // First pass: find all segments and their sizes
-        struct Segment {
-            int label;
-            int size;
-            std::vector<std::pair<int,int>> pixels;
-        };
-        std::map<int, Segment> segments;
-
-        // Find connected components for each original label
-        for(int y = 0; y < image.height(); y++) {
-            for(int x = 0; x < image.width(); x++) {
-                if(visited[y][x]) continue;
-                
-                int originalLabel = labels[y][x];
-                int size = 0;
-                std::vector<std::pair<int,int>> component;
-                
-                // BFS to find connected component
-                std::queue<std::pair<int,int>> q;
-                q.push({y,x});
-                
-                while(!q.empty()) {
-                    auto [cy, cx] = q.front();
-                    q.pop();
-                    
-                    if(cy < 0 || cy >= image.height() || cx < 0 || cx >= image.width()) continue;
-                    if(visited[cy][cx] || labels[cy][cx] != originalLabel) continue;
-                    
-                    visited[cy][cx] = true;
-                    size++;
-                    component.push_back({cy,cx});
-                    
-                    // Add 4-connected neighbors
-                    q.push({cy+1, cx});
-                    q.push({cy-1, cx});
-                    q.push({cy, cx+1});
-                    q.push({cy, cx-1});
-                }
-                
-                if(size > 0) {
-                    segments[originalLabel].label = originalLabel;
-                    segments[originalLabel].size = size;
-                    segments[originalLabel].pixels = component;
-                }
-            }
-        }
-
-        // Second pass: merge small segments
-        for(const auto& segment : segments) {
-            if(segment.second.size < min_size) {
-                // Find neighboring segments
-                std::map<int, int> neighborCounts;
-                
-                for(const auto& pixel : segment.second.pixels) {
-                    int y = pixel.first;
-                    int x = pixel.second;
-                    
-                    // Check 4-connected neighbors
-                    std::vector<std::pair<int,int>> dirs = {{1,0}, {-1,0}, {0,1}, {0,-1}};
-                    for(const auto& [dy, dx] : dirs) {
-                        int ny = y + dy;
-                        int nx = x + dx;
-                        
-                        if(ny < 0 || ny >= image.height() || nx < 0 || nx >= image.width()) continue;
-                        int neighborLabel = labels[ny][nx];
-                        if(neighborLabel != segment.first) {
-                            neighborCounts[neighborLabel]++;
-                        }
-                    }
-                }
-                
-                // Find most frequent neighbor
-                int bestNeighbor = segment.first;
-                int maxCount = 0;
-                for(const auto& [label, count] : neighborCounts) {
-                    if(count > maxCount) {
-                        maxCount = count;
-                        bestNeighbor = label;
-                    }
-                }
-                
-                // Merge with best neighbor
-                for(const auto& pixel : segment.second.pixels) {
-                    new_labels[pixel.first][pixel.second] = bestNeighbor;
-                }
-            }
-        }
-        
-        labels = std::move(new_labels);
-    }
-
 public:
-    SLIC(const ImageMatrix& img, int num_segments, float compact = 10.0)
+    SLIC(const ImageMatrix& img, int num_segments, float compact = 1.0)
         : image(img), 
           n_segments(num_segments),
           compactness(compact),
@@ -237,36 +239,29 @@ public:
     {
         int num_pixels = img.height() * img.width();
 
-        // Ensure we don't request more segments than pixels
-        n_segments = std::min(n_segments, num_pixels);
-        // Ensure grid_step is atleast 1 to avoid infinite loops
-        grid_step = std::max(1, static_cast<int>(std::sqrt(num_pixels / static_cast<float>(n_segments))));
+        // LIMIT: Hard-code maximum of 256 clusters
+        n_segments = std::min(std::min(num_segments, num_pixels), 256);
+
+        // Normalization factors for spatial coordinates
+        width_factor = 1.0f / img.width();
+        height_factor = 1.0f / img.height();
 
         initializeCenters();
     }
     
     std::vector<std::vector<int>> compute(int max_iter = 10) {
-        // TODO: Convert to LAB or HSV color space for better results
-        
         for (int iter = 0; iter < max_iter; ++iter) {
             // Reset distances
             for (auto& row : distances) {
                 std::fill(row.begin(), row.end(), std::numeric_limits<float>::max());
             }
             
-            // Assign pixels to nearest center
-            for (size_t i = 0; i < centers.size(); ++i) {
-                const Center& center = centers[i];
-                
-                // Get search region boundaries
-                int y_min = std::max(0, static_cast<int>(center.y - grid_step));
-                int y_max = std::min(image.height(), static_cast<int>(center.y + grid_step));
-                int x_min = std::max(0, static_cast<int>(center.x - grid_step));
-                int x_max = std::min(image.width(), static_cast<int>(center.x + grid_step));
-                
-                // Search in 2S × 2S region
-                for (int y = y_min; y < y_max; ++y) {
-                    for (int x = x_min; x < x_max; ++x) {
+            // Assign pixels to nearest center (checking all centers for each pixel)
+            for (int y = 0; y < image.height(); ++y) {
+                for (int x = 0; x < image.width(); ++x) {
+                    // Check every center for this pixel
+                    for (size_t i = 0; i < centers.size(); ++i) {
+                        const Center& center = centers[i];
                         float d = computeDistance(center, x, y);
                         if (d < distances[y][x]) {
                             distances[y][x] = d;
@@ -276,12 +271,9 @@ public:
                 }
             }
             
-            // Update centers
             updateCenters();
         }
-
-        enforceConnectivity(25);
-        
+                
         return labels;
     }
 };
@@ -314,20 +306,17 @@ int main(int argc, char* argv[]) {
     }
 
     // Run SLIC
-    SLIC slic(pixels, 40, 20);  // Create 100 superpixels
+    SLIC slic(pixels, 16, 0.0); 
     auto labels = slic.compute(10);  // Run for 10 iterations
     
-    // Output results
-    std::cout << height << " " << width << "\n";
-    for (const auto& row : labels) {
-        for (size_t i = 0; i < row.size(); ++i) {
-            std::cout << row[i];
-            if (i < row.size() - 1) std::cout << " ";
+
+    // Output the labels directly as uint8 values
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            uint8_t label_val = static_cast<uint8_t>(labels[y][x]);
+            std::cout.write(reinterpret_cast<const char*>(&label_val), sizeof(uint8_t));
         }
-        std::cout << "\n";
     }
-    
-    std::cout << "sup\n";
-    
+
     return 0;
 }
