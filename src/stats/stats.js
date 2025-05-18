@@ -7,7 +7,7 @@ function rgbToHex(r, g, b) {
     }).join('');
 }
 
-function analyzeGrains(imageData, labelColours) {
+function getGrainStats(imageData, labelColours) {
     const width = imageData.width;
     const height = imageData.height;
     const pixels = width * height;
@@ -455,16 +455,16 @@ function createHistogramPlot(grains) {
 // Request image data when window loads
 window.addEventListener('load', async () => {
     try {
-        const [receivedData, labelColours] = await Promise.all([
+        const [segmentationData, labelColours] = await Promise.all([
             window.api.invoke('get_draw_data'),
             window.api.invoke('get_label_colours')
         ]);
 
-        if (receivedData) {
-            const imageData = new ImageData(new Uint8ClampedArray(receivedData.data), receivedData.width, receivedData.height);
+        if (segmentationData) {
+            const imageData = new ImageData(new Uint8ClampedArray(segmentationData.data), segmentationData.width, segmentationData.height);
 
             console.log("LABEL COLOURS: ", labelColours)
-            const grains = analyzeGrains(imageData, labelColours);
+            const grains = getGrainStats(imageData, labelColours);
 
             console.log("GRAIN STATS ", grains)
             

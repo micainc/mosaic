@@ -1,5 +1,6 @@
 
 
+// called by frontend- frontend function!
 async function prepareImagesForClassifier(images) {
     // Create a canvas to get image data
     const tempCanvas = document.createElement('canvas');
@@ -29,6 +30,7 @@ async function prepareImagesForClassifier(images) {
     return prepared;
 }
 
+// called by frontend- frontend function!
 async function applyClassifier() {
     const classes = ['undefined', 'unknown', 'K-feldspar', 'amphibole', 'andalusite', 'anhydrite', 'apatite', 'arsenopyrite', 'azurite', 'barite', 'beryl', 'biotite', 'bornite', 'calcite', 'cassiterite', 'celestite', 'cerussite', 'chalcedony', 'chalcocite', 'chalcopyrite', 'chlorite', 'chloritoid', 'cinnabar', 'clay minerals', 'clinopyroxene', 'columbite', 'cordierite', 'corundum', 'cummingtonite', 'diamond', 'dolomite', 'epidote', 'fluorite', 'galena', 'garnet', 'goethite', 'graphite', 'gypsum', 'halite', 'hematite', 'ilmenite', 'kyanite', 'limonite', 'magnetite', 'malachite', 'molybdenite', 'monazite', 'muscovite', 'native copper', 'native gold', 'native silver', 'native sulfur', 'nepheline', 'olivine', 'opal', 'orpiment', 'orthopyroxene', 'pentlandite', 'plagioclase feldspar', 'prehnite', 'pyrite', 'pyrrhotite', 'quartz', 'realgar', 'rhodochrosite', 'rutile', 'scapolite', 'scheelite', 'serpentine', 'siderite', 'sillimanite', 'smithsonite', 'sphalerite', 'staurolite', 'stibnite', 'sylvite', 'talc', 'tantalite', 'titanite', 'topaz', 'tourmaline', 'vesuvianite', 'wolframite', 'wollastonite', 'zeolites', 'zircon'];
     const label_colours = await window.api.invoke('get_label_colours');
@@ -41,7 +43,7 @@ async function applyClassifier() {
 
     try {
         // Prepare images first
-        const preparedImages = await prepareImagesForClassifier(LAYERS);
+        const preparedImages = await prepareImagesForClassifier(IMAGE_LAYERS);
         const {success, error, predictions} = await window.api.invoke('apply_classifier', preparedImages);
         if (success) {
             // predictions = _predictions
@@ -82,7 +84,7 @@ async function applyClassifier() {
 
 
 
-
+// ALL BACKEND!!! 
 async function classify(images, model, tf) {
     // console.log("APPLY CLASSIFIER IMAGES: ", images)
     // 1. Sort and prepare the images
@@ -119,7 +121,6 @@ async function applySlideWindow(input, model, tf) {
     console.log("WIDTH/HEIGHT: " + width + ", "+ height)
     // Initialize predictions and counts arrays to match the original image size
     const predictions = new Uint16Array(width * height * 86) // instead of float32, use uInt8 to store percent predictions: normalize predition values from range (0,1) to 0 to 255
-
     const counts = new Uint8Array(height * width);
     console.log(model.inputs[0].shape);  // Shows input shape
     console.log(model.inputs[0].dtype);  // Shows expected data type

@@ -27,7 +27,7 @@ contextBridge.exposeInMainWorld(
                 "set_save_dir",
                 "get_loadouts",
                 "set_loadout",
-                "open_analysis",
+                "open_stats_window",
                 "set_draw_data",
                 "get_draw_data",
                 'get_label_colours',

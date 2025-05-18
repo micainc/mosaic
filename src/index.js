@@ -34,17 +34,31 @@ cursor.style.height = drawDiameter+"px";
 var activeColour = {'colour': "#000000", 'label': ""}
 var hoveredColour = "#000000"
 var floodStack = []
-
-var LAYERS = {} // image layers used by MOSAIC
-var currentImage = '';
 var undoHistory = [];
-const MAX_HISTORY_SIZE = 10;
 const origin = { x: 0, y: 0 };
+
+var IMAGE_LAYERS = {} 
+var ACTIVE_IMAGE_LAYER = '';
+const MAX_HISTORY_SIZE = 10;
+var INTERACTION_MODE = "pencil";
+
+function setMode(newMode, button) {
+    INTERACTION_MODE = newMode;
+    // Get all buttons with the 'tool' class and remove 'selected-tool' from each
+    document.querySelectorAll('.tool').forEach(button => {
+        button.classList.remove('selected-tool');
+    });
+
+    // Add the 'selected-tool' class to the selected button
+    button.classList.add('selected-tool');
+    clearHighlights();
+}
+
 
 
 // Add this function to clean up when image URLS
 function revokeImageUrls() {
-    Object.values(LAYERS).forEach(img => {
+    Object.values(IMAGE_LAYERS).forEach(img => {
         URL.revokeObjectURL(img.src);
     });
 }
@@ -79,7 +93,7 @@ function init() {
             console.log("ADDING TO DRAW PATH...")
             drawPath.push({x: mouseX, y: mouseY});
 
-            if(mode === 'pencil') {
+            if(INTERACTION_MODE === 'pencil') {
 
                 scrollX = document.documentElement.scrollLeft;
                 scrollY = document.documentElement.scrollTop;
@@ -101,7 +115,7 @@ function init() {
                 
                 svgScaleGroup.appendChild(svgPath);
 
-            } else if(mode === 'select') {
+            } else if(INTERACTION_MODE === 'select') {
                 // Get color at click point
                 const imageData = drawCtx.getImageData(mouseX, mouseY, 1, 1);
                 const pixel = imageData.data;
@@ -140,7 +154,7 @@ function init() {
     drawCanvas.addEventListener('mouseup', function(e) {
         // doesn't matter what the draw path looks like, a drawn pixel will be without the boundaries returned by this function
         if(leftClicked) {
-            switch (mode) {
+            switch (INTERACTION_MODE) {
                 case "fill":
                     // if user was in fill mode and drew a line, we need to check all points on that line for loops to fill
                     console.log("FILLING")
@@ -200,7 +214,7 @@ function init() {
 
     drawCanvas.addEventListener("mouseleave", function(e) {
         document.getElementById('cursor').style.display = "none";
-        switch (mode) {
+        switch (INTERACTION_MODE) {
             case "pencil":
                 if(leftClicked) {
                     // Remove the preview path
@@ -358,11 +372,11 @@ function init() {
         console.log(searchBox.style.display)
         if (searchBox.style.display !== 'block') {
             if (event.key === 'ArrowRight' || event.key === 'd') {
-                changeActiveLayer(1);
+                setActiveImageLayer(1);
             }
 
             if (event.key === 'ArrowLeft' || event.key === 'a') {
-                changeActiveLayer(-1);
+                setActiveImageLayer(-1);
             }
         } else {
             if(event.key === 'Escape') {
@@ -711,7 +725,7 @@ function flood(x1, y1, mode=null) {
 
 
 
-async function openAnalysisWindow() {
+async function openStatsWindow() {
     // Send image data to main process for temporary storage
     // Right now, if we want to update the draw canvas data, we need to close and re-open the window.
     // Not ideal, but works for now.
@@ -721,271 +735,29 @@ async function openAnalysisWindow() {
         width: drawCanvas.width,
         height: drawCanvas.height
     };
-    window.api.invoke('set_draw_data', imageDataToSend)
+    // window.api.invoke('set_draw_data', imageDataToSend)
 
-    // Open analysis window
     try {
-        const result = await window.api.invoke('open_analysis');
+        const result = await window.api.invoke('open_stats_window', imageDataToSend);
     } catch (error) {
-        console.error('Failed to open analysis window:', error);
+        console.error('Failed to open stats window:', error);
     }
 }
 
-//------------------------------------------------------ LOAD DROPPED IMAGES ------------------------------------------------------//
 
-function catchDrag(event) {
-	event.dataTransfer.dropEffect = "copy"
-	event.preventDefault();
-}
-
-var shouldEraseDrawLayer = true
-var dimensionsSet = false;
-
-function dropFiles(event) {
-    // revokeImageUrls(); // Clear old URLs before processing new files
-    shouldEraseDrawLayer = true
-    dimensionsSet = false;
-    event.preventDefault();
-    if (event.dataTransfer && event.dataTransfer.files) {
-        const files = Array.from(event.dataTransfer.files);
-
-        // precheck if any of the files are .png
-        files.forEach(file => {
-            console.log("file.name: ", file.name)
-            if (file.name.endsWith(".png")) {
-                shouldEraseDrawLayer = false
-            }
-        })
-
-        let segmentationLayer = null
-        const imagePromises = files.map(file => {
-            if (file.name.endsWith(".png")) {
-                //return processEdgeOrSegmentationMap(file);
-                segmentationLayer = file;
-            } else {
-                return processImageLayer(file);
-            }
-        });
-
-        Promise.all(imagePromises).then(() => {
-            if(segmentationLayer !== null) {
-                processSegmentationLayer(segmentationLayer);
-            }
-            console.log("SHOULD ERASE DRAW LAYER? ", shouldEraseDrawLayer)
-
-            // finally, set active image layer
-            const keys = Object.keys(LAYERS);
-            const base = document.getElementById('base-image');
-            
-            if (keys.length > 0) {
-                currentImage = keys[0];
-                document.getElementById('toolbar-filename').textContent = currentImage;
-                base.src = LAYERS[currentImage].src;
-            } else {
-                document.getElementById('toolbar-filename').textContent = 'Drag image set below...';
-                currentImage = '';
-                base.src = ''; // Clear the image
-                console.log("UPDATING IMAGE: ERASING DRAW LAYER? " + shouldEraseDrawLayer)
-                shouldEraseDrawLayer ? drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height) : null;
-            }
-        });
-    }
-    console.log("IMAGE LAYERS: ", LAYERS)
-}
-
-
-function processSegmentationLayer(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const img = new Image();
-
-            img.onload = function() {
-                if(!dimensionsSet) {
-                    console.log("SETTING DIMENSIONS...")
-                    drawCanvas.width = img.width;
-                    drawCanvas.height = img.height;
-                    dimensionsSet = true;
-                // }
-
-                // if (file.name.includes("edge_map")) {
-                //     console.log("IMPORTING EDGE MAP...")
-                //     processEdgeMap(img);
-                // } else {
-                //     console.log("IMPORTING SEGMENTATION MAP...")
-                    drawCtx.drawImage(img, 0, 0);
-                }
-                // resolve();
-            };
-            img.onerror = reject;
-            img.src = e.target.result;
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
-
-function processImageLayer(file) {
-    return new Promise(async (resolve, reject) => {
-        try {
-            // Create URL for display
-            const displayUrl = URL.createObjectURL(file);
-            
-            // Create and store ImageBitmap for computations
-            const blob = new Blob([await file.arrayBuffer()]);
-            const bitmap = await createImageBitmap(blob);
-            
-            // Load image for dimension checking
-            const tempImg = new Image();
-            await new Promise(imgResolve => {
-                tempImg.onload = imgResolve;
-                tempImg.src = displayUrl;
-            });
-
-            // Generate icon with max dimension of 256px
-            const iconCanvas = document.createElement('canvas');
-            const iconCtx = iconCanvas.getContext('2d');
-            
-            // Calculate scaled dimensions maintaining aspect ratio
-            let iconWidth, iconHeight;
-            if (tempImg.naturalWidth >= tempImg.naturalHeight) {
-                // Width is the longer side
-                iconWidth = 256;
-                iconHeight = Math.round((tempImg.naturalHeight / tempImg.naturalWidth) * 256);
-            } else {
-                // Height is the longer side
-                iconHeight = 256;
-                iconWidth = Math.round((tempImg.naturalWidth / tempImg.naturalHeight) * 256);
-            }
-            
-            // Set canvas dimensions and draw the scaled image
-            iconCanvas.width = iconWidth;
-            iconCanvas.height = iconHeight;
-            iconCtx.drawImage(tempImg, 0, 0, iconWidth, iconHeight);
-            
-            // Convert canvas to data URL for the icon
-            const iconUrl = iconCanvas.toDataURL('image/jpeg', 1); // 1 === quality
-
-            if(!dimensionsSet) {
-                drawCanvas.width = tempImg.naturalWidth;
-                drawCanvas.height = tempImg.naturalHeight;
-
-                const baseImg = document.getElementById('base-image');
-                baseImg.src = displayUrl;
-                baseImg.style.width = '100%';
-                baseImg.style.height = 'auto';
-                dimensionsSet = true;
-            }
-
-            // Determine the type based on filename
-            let type;
-            const filename = file.name.toLowerCase();
-
-            // existing default supported layer types
-            const typeKeywords = ['xpol_texture', 'xpol', 'ppol_texture', 'ppol', 'lin', 'ref', 'texture', 'composite'];
-            
-            // Check if filename contains any of the keywords
-            const matchedType = typeKeywords.find(keyword => filename.includes(keyword));
-            
-            if (matchedType) {
-                type = matchedType;
-            } else {
-                // Count existing 'layer_x' types to determine the next number
-                const layerCount = Object.values(LAYERS).filter(img => img.type && img.type.startsWith('layer_')).length;
-                type = `layer_${layerCount + 1}`;
-            }
-
-            LAYERS[file.name] = {
-                icon: iconUrl,             // New icon URL
-                src: displayUrl,           // For display
-                bitmap: bitmap,            // For computations
-                width: tempImg.naturalWidth,
-                height: tempImg.naturalHeight,
-                type: type
-            };
-
-            resolve();
-        } catch(err) {
-            reject(err);
-        }
-    });
-}
-
-// function processImageLayer(file) {
-//     return new Promise(async (resolve, reject) => {
-//         try {
-//             // Create URL for display
-//             const displayUrl = URL.createObjectURL(file);
-            
-//             // Create and store ImageBitmap for computations
-//             const blob = new Blob([await file.arrayBuffer()]);
-//             const bitmap = await createImageBitmap(blob);
-            
-//             // Load image for dimension checking
-//             const tempImg = new Image();
-//             await new Promise(imgResolve => {
-//                 tempImg.onload = imgResolve;
-//                 tempImg.src = displayUrl;
-//             });
-
-//             if(!dimensionsSet) {
-//                 drawCanvas.width = tempImg.naturalWidth;
-//                 drawCanvas.height = tempImg.naturalHeight;
-
-//                 const baseImg = document.getElementById('base-image');
-//                 baseImg.src = displayUrl;
-//                 baseImg.style.width = '100%';
-//                 baseImg.style.height = 'auto';
-//                 dimensionsSet = true;
-//             }
-
-//             // Determine the type based on filename
-//             let type;
-//             const filename = file.name.toLowerCase();
-
-//             // existing default supported layer types
-//             const typeKeywords = ['xpol_texture', 'xpol',  'ppol_texture', 'ppol',  'lin', 'ref', 'texture', 'composite'];
-            
-//             // Check if filename contains any of the keywords
-//             const matchedType = typeKeywords.find(keyword => filename.includes(keyword));
-            
-//             if (matchedType) {
-//                 type = matchedType;
-//             } else {
-//                 // Count existing 'layer_x' types to determine the next number
-//                 const layerCount = Object.values(layers).filter(img => img.type && img.type.startsWith('layer_')).length;
-//                 type = `layer_${layerCount + 1}`;
-//             }
-
-
-
-//             // Store both formats
-//             layers[file.name] = {
-//                 icon: 
-//                 src: displayUrl,           // For display
-//                 bitmap: bitmap,            // For computations
-//                 width: tempImg.naturalWidth,
-//                 height: tempImg.naturalHeight,
-//                 type: type
-//             };
-
-//             resolve();
-//         } catch(err) {
-//             reject(err);
-//         }
-//     });
-// }
-
-function changeActiveLayer(dir) {
-    const keys = Object.keys(LAYERS);
+function setActiveImageLayer(dir) {
+    const keys = Object.keys(IMAGE_LAYERS);
     if(keys.length < 2) return;
-    const idx = keys.indexOf(currentImage);
+    const idx = keys.indexOf(ACTIVE_IMAGE_LAYER);
     const newIdx = (idx + dir + keys.length) % keys.length;
-    currentImage = keys[newIdx];
+    ACTIVE_IMAGE_LAYER = keys[newIdx];
 
     const img = document.getElementById('base-image');
-    img.src = LAYERS[currentImage].src;
-    document.getElementById('toolbar-filename').textContent = currentImage;
+    img.src = IMAGE_LAYERS[ACTIVE_IMAGE_LAYER].src;
+    document.getElementById('toolbar-filename').textContent = ACTIVE_IMAGE_LAYER;
+    
+    // Add this to update the active icon
+    updateImageIcons();
 }
 
 
@@ -997,7 +769,7 @@ function draw() {
     //ctx.globalCompositeOperation = "copy";
 
     //drawCtx.globalCompositeOperation = 'source-over';
-    switch (mode) {
+    switch (INTERACTION_MODE) {
         case "pencil":
             if(leftClicked) {
 
@@ -1031,385 +803,6 @@ function draw() {
 init();
 
 
-
-function cropTiles() {
-    const CHUNK_SIZE = 256;
-    const MAX_OVERLAP_AREA = 0.5 * CHUNK_SIZE * CHUNK_SIZE; // 32768 pixels
-  
-    const width = drawCanvas.width;
-    const height = drawCanvas.height;
-  
-    // 1. Get the image data and build a binary mask.
-    // Foreground pixels are those with a nonzero alpha and not rgb(127, 127, 127) (not the transparent 'undefined' or grey 'unknown' reserved classes )
-    const segmentationData = drawCtx.getImageData(0, 0, width, height).data;
-    const foreground = new Uint8Array(width * height);
-    for (let i = 0; i < width * height; i++) {
-      const r = segmentationData[4 * i],
-            g = segmentationData[4 * i + 1],
-            b = segmentationData[4 * i + 2],
-            a = segmentationData[4 * i + 3];
-      // If pixel is non-transparent and not grey, mark as foreground.
-      foreground[i] = (a !== 0 && !(r === 127 && g === 127 && b === 127)) ? 1 : 0;
-    }
-  
-    // 2. Build an integral image (summed-area table) for fast area-sum queries.
-    const integral = new Uint32Array(width * height);
-    for (let y = 0; y < height; y++) {
-      let rowSum = 0;
-      for (let x = 0; x < width; x++) {
-        const idx = y * width + x;
-        rowSum += foreground[idx];
-        if (y === 0) {
-          integral[idx] = rowSum;
-        } else {
-          integral[idx] = integral[(y - 1) * width + x] + rowSum;
-        }
-      }
-    }
-
-    // 3. Find connected components of foreground pixels via flood fill.
-    // (This will allow us to “tile” only over areas where foreground exists.)
-    const visited = new Uint8Array(width * height);
-    const grainBoundingBoxes = [];
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const idx = y * width + x;
-        if (foreground[idx] === 1 && visited[idx] === 0) { // found a new unvisited component
-          const comp = { minX: x, maxX: x, minY: y, maxY: y };
-          const stack = [[x, y]];
-          visited[idx] = 1;
-          while (stack.length) {
-            const [cx, cy] = stack.pop();
-            comp.minX = Math.min(comp.minX, cx);
-            comp.maxX = Math.max(comp.maxX, cx);
-            comp.minY = Math.min(comp.minY, cy);
-            comp.maxY = Math.max(comp.maxY, cy);
-            // Check 4-connected neighbors.
-            const neighbors = [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]];
-            for (const [nx, ny] of neighbors) {
-              if (nx >= 0 && ny >= 0 && nx < width && ny < height) {
-                const nIdx = ny * width + nx;
-                if (foreground[nIdx] === 1 && visited[nIdx] === 0) {
-                  visited[nIdx] = 1;
-                  stack.push([nx, ny]);
-                }
-              }
-            }
-          }
-          grainBoundingBoxes.push(comp);
-        }
-      }
-    }
-    if (grainBoundingBoxes.length === 0) {
-      console.log("No foreground found.");
-      return [];
-    }
-
-    // return the sum of mask values in the rectangle [x1,y1]–[x2,y2] (inclusive)
-    function getGrainSum(x1, y1, x2, y2) {
-        x1 = Math.max(0, x1); y1 = Math.max(0, y1);
-        x2 = Math.min(width - 1, x2); y2 = Math.min(height - 1, y2);
-        const A = (x1 > 0 && y1 > 0) ? integral[(y1 - 1) * width + (x1 - 1)] : 0;
-        const B = (y1 > 0) ? integral[(y1 - 1) * width + x2] : 0;
-        const C = (x1 > 0) ? integral[y2 * width + (x1 - 1)] : 0;
-        const D = integral[y2 * width + x2];
-        return D - B - C + A;
-    }
-
-          
-  
-    // 4. For each component, tile its bounding box with 256×256 windows.
-    // We “tile” such that the tiles cover the box and the step between adjacent tiles is never less than 128 (max 50% overlap).
-    let candidateTiles = [];
-
-    function boundingBoxToTiles(comp) {
-      // Use the component’s bounding box.
-      let x0 = comp.minX, y0 = comp.minY;
-      let x1 = comp.maxX, y1 = comp.maxY;
-      const boxWidth = x1 - x0 + 1;
-      const boxHeight = y1 - y0 + 1;
-  
-      // Determine horizontal start positions.
-      let xStarts = [];
-      if (boxWidth <= CHUNK_SIZE) {
-        // Single tile – choose the leftmost possible (clamped to canvas).
-        xStarts.push(Math.max(0, Math.min(x0, width - CHUNK_SIZE)));
-      } else {
-        // Use as few tiles as possible. First try with no overlap (step = 256).
-        let n = Math.ceil((boxWidth - CHUNK_SIZE) / 256) + 1;
-        let step = (boxWidth - CHUNK_SIZE) / (n - 1);
-        // If step would be too small (<128), force a 128-pixel step and recalc n.
-        if (step < 128) {
-          step = 128;
-          n = Math.ceil((boxWidth - CHUNK_SIZE) / 128) + 1;
-        }
-        const minXStart = x0;
-        const maxXStart = Math.min(x1 - CHUNK_SIZE + 1, width - CHUNK_SIZE);
-        for (let i = 0; i < n; i++) {
-          const pos = Math.round(minXStart + i * (maxXStart - minXStart) / (n - 1));
-          xStarts.push(pos);
-        }
-        // Remove duplicates.
-        xStarts = Array.from(new Set(xStarts));
-      }
-  
-      // Determine vertical start positions.
-      let yStarts = [];
-      if (boxHeight <= CHUNK_SIZE) {
-        yStarts.push(Math.max(0, Math.min(y0, height - CHUNK_SIZE)));
-      } else {
-        let n = Math.ceil((boxHeight - CHUNK_SIZE) / 256) + 1;
-        let step = (boxHeight - CHUNK_SIZE) / (n - 1);
-        if (step < 128) {
-          step = 128;
-          n = Math.ceil((boxHeight - CHUNK_SIZE) / 128) + 1;
-        }
-        const minYStart = y0;
-        const maxYStart = Math.min(y1 - CHUNK_SIZE + 1, height - CHUNK_SIZE);
-        for (let i = 0; i < n; i++) {
-          const pos = Math.round(minYStart + i * (maxYStart - minYStart) / (n - 1));
-          yStarts.push(pos);
-        }
-        yStarts = Array.from(new Set(yStarts));
-      }
-  
-      // Combine horizontal and vertical starts to form candidate 256×256 tiles.
-      for (const xs of xStarts) {
-        for (const ys of yStarts) {
-          // Only consider if at least one foreground pixel is inside.
-          const cov = getGrainSum(xs, ys, xs + CHUNK_SIZE - 1, ys + CHUNK_SIZE - 1);
-          if (cov > 0) {
-            candidateTiles.push({ x: xs, y: ys, coverage: cov });
-          }
-        }
-      }
-    }
-
-    for (const grainBoundingBox of grainBoundingBoxes) {
-      boundingBoxToTiles(grainBoundingBox);
-    }
-  
-    // 5. Run a simple non-maximum suppression to discard redundant tiles.
-    // We sort candidates by “coverage” (number of foreground pixels inside)
-    // and then suppress any candidate that overlaps more than 50% (i.e. >32768 pixels) with a higher scoring one.
-    candidateTiles.sort((a, b) => b.coverage - a.coverage);
-    const selectedTiles = [];
-    const suppressed = new Array(candidateTiles.length).fill(false);
-    function intersectionArea(tileA, tileB) {
-      const xA = Math.max(tileA.x, tileB.x);
-      const yA = Math.max(tileA.y, tileB.y);
-      const xB = Math.min(tileA.x + CHUNK_SIZE, tileB.x + CHUNK_SIZE);
-      const yB = Math.min(tileA.y + CHUNK_SIZE, tileB.y + CHUNK_SIZE);
-      return (xB > xA && yB > yA) ? (xB - xA) * (yB - yA) : 0;
-    }
-    for (let i = 0; i < candidateTiles.length; i++) {
-      if (suppressed[i]) continue;
-      const tileA = candidateTiles[i];
-      selectedTiles.push(tileA);
-      for (let j = i + 1; j < candidateTiles.length; j++) {
-        if (suppressed[j]) continue;
-        const tileB = candidateTiles[j];
-        if (intersectionArea(tileA, tileB) > MAX_OVERLAP_AREA) {
-          suppressed[j] = true;
-        }
-      }
-    }
-  
-    idx = 0;
-    // 6. Format the output tiles.
-    const tiles = selectedTiles.map(tile => ({
-      left: tile.x,
-      top: tile.y,
-      right: tile.x + CHUNK_SIZE,
-      bottom: tile.y + CHUNK_SIZE,
-      index: idx++,
-      coverage: tile.coverage // (optional; can be omitted)
-    }));
-  
-    console.log("Found tiles:", tiles);
-    return tiles;
-  }
-
-
-
-
-function getCommonSubstring(strings) {
-    if (!strings.length) {
-      return '';
-    }
-  
-    // Helper function to find common prefix between two strings
-    function commonPrefix(str1, str2) {
-      let i = 0;
-      while (i < str1.length && i < str2.length && str1[i] === str2[i]) {
-        i++;
-      }
-      return str1.substring(0, i);
-    }
-  
-    // Start with the first string as a candidate for the common substring
-    // and compare it with all other strings, shortening it as necessary
-    let commonSub = strings[0];
-    for (let i = 1; i < strings.length && commonSub !== ''; i++) {
-      commonSub = commonPrefix(commonSub, strings[i]);
-      if (commonSub === '') break; // If empty, no common substring exists
-    }
-  
-    // If commonSub still has length, it means it's present in all strings so far,
-    // but it might not be the longest. Check for longer common substrings.
-    if (commonSub.length > 0) {
-      for (let i = commonSub.length; i > 0; i--) {
-        let subCandidate = commonSub.substring(0, i);
-        let isCommon = strings.every((str) => str.includes(subCandidate));
-        if (isCommon) {
-          return subCandidate; // Returns the longest common substring found
-        }
-      }
-    }
-  
-    return commonSub; // Return the common substring (which may be empty)
-}
-
-function getFilename(path) {
-    // Extract the filename from a path, handling both Windows and Unix paths
-    const filename = path.split(/[/\\]/).pop(); // Splits on both forward and backslash
-    return filename.replace(/\.(jpg|JPG|png|PNG|jpeg|JPEG|tiff|TIFF|TIF|tif|gif|GIF)$/, ''); // Removes known image extensions
-}
-
-
-async function saveTiles() {
-    const tiles = cropTiles();
-    console.log("SAVING TILES...")
-
-    // Get identifier same as before
-    const filenames = Object.keys(LAYERS);
-    const identifier = getCommonSubstring(filenames.map(filename => 
-        getFilename(filename).trim().toLowerCase()
-    )).replace(/^_+|_+$/g, '') || Date.now().toString();
-
-    console.log("IDENTIFIER: ", identifier)
-
-    window.api.invoke('set_save_dir', {'path': '', 'type': 'save', identifier}).then(async () => {
-
-
-        // // Get draw layer data once
-        // const drawLayerData = drawCtx.getImageData(0, 0, drawCanvas.width, drawCanvas.height);
-        // const drawBuffer = new Uint32Array(drawLayerData.data.buffer);
-
-        // Create off-screen buffer once
-        // const _offscreenCanvas = new OffscreenCanvas(drawCanvas.width, drawCanvas.height);
-        // const _offscreenCtx = _offscreenCanvas.getContext('2d');
-
-        try {
-
-            // Process all tiles in parallel
-            await Promise.all(tiles.map(async tile => {
-                const { left, right, top, bottom, index } = tile;
-                const width = right - left;
-                const height = bottom - top;
-
-                // Create crop buffer
-                const cropCanvas = new OffscreenCanvas(width, height);
-                const cropCtx = cropCanvas.getContext('2d');
-
-                // Save segmentation map crop
-                cropCtx.putImageData(
-                    drawCtx.getImageData(left, top, width, height),
-                    0, 0
-                );
-                const mapBlob = await cropCanvas.convertToBlob({type: 'image/png'});
-                await window.api.invoke('save_img', {
-                    data: await blobToBase64(mapBlob),
-                    filename: '',
-                    identifier,
-                    type: 'map',
-                    idx: index
-                });
-
-                // Process each image layer in parallel, using the stored bitmaps
-                await Promise.all(Object.entries(LAYERS).map(async ([filename, image]) => {
-                    cropCtx.clearRect(0, 0, width, height);
-                    cropCtx.drawImage(image.bitmap, left, top, width, height, 0, 0, width, height);
-                    
-                    const layerBlob = await cropCanvas.convertToBlob({type: 'image/jpeg', quality: 1});
-                    return window.api.invoke('save_img', {
-                        data: await blobToBase64(layerBlob),
-                        filename,
-                        identifier,
-                        type: image.type,
-                        idx: index
-                    });
-                }));
-
-
-            }));
-
-            //  //... then we save the entire draw layer for a save file:
-            // var draw_data = drawCanvas.toDataURL("image/png");
-            // window.api.invoke('save_img', {'data': draw_data, 'filename': '', 'identifier':identifier, 'type': 'segmentation_map', 'idx': ''})
-
-
-
-            await window.api.invoke('save_label_colours', {dict: colourLabelMap});
-
-        } catch (error) {
-            console.error('Error in saveTiles:', error);
-            throw error;
-        }
-    });
-}
-
-async function saveMap() {
-    console.log("SAVING SEG MAP...")
-
-    // Get identifier same as before
-    const filenames = Object.keys(LAYERS);
-    const identifier = getCommonSubstring(filenames.map(filename => 
-        getFilename(filename).trim().toLowerCase()
-    )).replace(/^_+|_+$/g, '') || Date.now().toString();
-
-    window.api.invoke('set_save_dir', {'path': '', 'type': 'save', identifier}).then(async () => {
-        try {
-
-            var draw_data = drawCanvas.toDataURL("image/png");
-            window.api.invoke('save_img', {'data': draw_data, 'filename': '', 'identifier':identifier, 'type': 'segmentation_map', 'idx': ''})
-
-            // ... then we create all overlays in parallel
-            // await Promise.all(Object.entries(images).map(async ([filename, image]) => {
-
-            //     _offscreenCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-            //     _offscreenCtx.drawImage(image.bitmap, 0, 0);
-            //     _offscreenCtx.globalAlpha = 0.5;
-            //     _offscreenCtx.drawImage(drawCanvas, 0, 0);
-            //     _offscreenCtx.globalAlpha = 1.0;
-
-            //     const overlayBlob = await _offscreenCanvas.convertToBlob({type: 'image/jpeg', quality: 1});
-            //     return window.api.invoke('save_img', {
-            //         data: await blobToBase64(overlayBlob),
-            //         filename,
-            //         identifier,
-            //         type: images[filename].type,
-            //         idx: '',
-                    
-            //     });
-            // }));
-
-        } catch (error) {
-            console.error('Error in saveTiles:', error);
-            throw error;
-        }
-    });
-}
-
-// Helper function to convert Blob to base64
-function blobToBase64(blob) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
-}
 
 function changeActiveColour(selection) {
     activeColour = selection
