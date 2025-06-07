@@ -53,15 +53,11 @@ function dropFiles(event) {
             
             if (keys.length > 0) {
                 ACTIVE_IMAGE_LAYER = keys[0];
-                document.getElementById('toolbar-filename').textContent = ACTIVE_IMAGE_LAYER;
                 base.src = IMAGE_LAYERS[ACTIVE_IMAGE_LAYER].src;
             } else {
-                document.getElementById('toolbar-filename').textContent = 'Drag image set below...';
                 ACTIVE_IMAGE_LAYER = '';
                 base.src = ''; // Clear the image
             }
-
-            // ... then, create clickable image icons in the 'toolbar' element of the app for each image
 
             updateImageIcons();
 
@@ -185,45 +181,9 @@ function processImageLayer(file) {
 
 
 function updateImageIcons() {
-    // Clear existing icons
     const layersContainer = document.getElementById('toolbar-layers');
     
-    // Keep the filename span
-    const filenameSpan = document.getElementById('toolbar-filename');
-    layersContainer.innerHTML = '';
-    layersContainer.appendChild(filenameSpan);
-    
-    // Create icons container
-    const iconsContainer = document.createElement('div');
-    iconsContainer.className = 'layer-icons';
-    layersContainer.appendChild(iconsContainer);
-    
-    // Add style for the icons container if not already in your CSS
-    const style = document.createElement('style');
-    style.textContent = `
-        .layer-icons {
-            display: flex;
-            margin-left: 10px;
-            overflow-x: auto;
-            max-width: 300px;
-        }
-        .layer-icon {
-            width: 40px;
-            height: 40px;
-            margin: 0 5px;
-            cursor: pointer;
-            border: 2px solid transparent;
-            object-fit: cover;
-            transition: all 0.2s;
-        }
-        .layer-icon.active {
-            border-color: #4a90e2;
-        }
-        .layer-icon:hover {
-            transform: scale(1.1);
-        }
-    `;
-    document.head.appendChild(style);
+    layersContainer.innerHTML = ''; // clear layer icons
     
     // Add an icon for each layer
     Object.keys(IMAGE_LAYERS).forEach(layerName => {
@@ -231,7 +191,8 @@ function updateImageIcons() {
         img.src = IMAGE_LAYERS[layerName].icon;
         img.className = 'layer-icon';
         img.title = layerName;
-        
+        img.setAttribute('data-tooltip', layerName); // Add this line
+
         // Mark the active layer
         if (layerName === ACTIVE_IMAGE_LAYER) {
             img.classList.add('active');
@@ -246,9 +207,6 @@ function updateImageIcons() {
             const baseImg = document.getElementById('base-image');
             baseImg.src = IMAGE_LAYERS[layerName].src;
             
-            // Update filename text
-            document.getElementById('toolbar-filename').textContent = layerName;
-            
             // Update active state of icons
             document.querySelectorAll('.layer-icon').forEach(icon => {
                 icon.classList.remove('active');
@@ -256,6 +214,6 @@ function updateImageIcons() {
             img.classList.add('active');
         });
         
-        iconsContainer.appendChild(img);
+        layersContainer.appendChild(img);
     });
 }

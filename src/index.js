@@ -40,7 +40,7 @@ const origin = { x: 0, y: 0 };
 var IMAGE_LAYERS = {} 
 var ACTIVE_IMAGE_LAYER = '';
 const MAX_HISTORY_SIZE = 10;
-var INTERACTION_MODE = "pencil";
+var INTERACTION_MODE = "draw";
 
 function setMode(newMode, button) {
     INTERACTION_MODE = newMode;
@@ -93,7 +93,7 @@ function init() {
             console.log("ADDING TO DRAW PATH...")
             drawPath.push({x: mouseX, y: mouseY});
 
-            if(INTERACTION_MODE === 'pencil') {
+            if(INTERACTION_MODE === 'draw') {
 
                 scrollX = document.documentElement.scrollLeft;
                 scrollY = document.documentElement.scrollTop;
@@ -162,7 +162,7 @@ function init() {
                         flood(point.x, point.y, 'replace') // replace 
                     })
                     break;
-                case "pencil":
+                case "draw":
 
                     // Remove the preview path
                     if (svgPath) {
@@ -215,7 +215,7 @@ function init() {
     drawCanvas.addEventListener("mouseleave", function(e) {
         document.getElementById('cursor').style.display = "none";
         switch (INTERACTION_MODE) {
-            case "pencil":
+            case "draw":
                 if(leftClicked) {
                     // Remove the preview path
                     if (svgPath) {
@@ -396,6 +396,8 @@ function init() {
         } 
     });
 
+    initTooltip();
+
     function updateCursor(event) {
         const rect = drawCanvas.getBoundingClientRect();
         
@@ -418,9 +420,9 @@ function init() {
 
         }
 
-        // Update coordinates text.
-        $('#coords').text(mouseX + ", " + mouseY);
-        $('#ecoords').text(event.clientX + ", " + event.clientY);
+        // // Update coordinates text.
+        // $('#coords').text(mouseX + ", " + mouseY);
+        // $('#ecoords').text(event.clientX + ", " + event.clientY);
 
         // Function to compare the current point with the last point
         function isDistinct(p1, p0) {
@@ -753,9 +755,7 @@ function setActiveImageLayer(dir) {
     ACTIVE_IMAGE_LAYER = keys[newIdx];
 
     const img = document.getElementById('base-image');
-    img.src = IMAGE_LAYERS[ACTIVE_IMAGE_LAYER].src;
-    document.getElementById('toolbar-filename').textContent = ACTIVE_IMAGE_LAYER;
-    
+    img.src = IMAGE_LAYERS[ACTIVE_IMAGE_LAYER].src;    
     // Add this to update the active icon
     updateImageIcons();
 }
@@ -770,7 +770,7 @@ function draw() {
 
     //drawCtx.globalCompositeOperation = 'source-over';
     switch (INTERACTION_MODE) {
-        case "pencil":
+        case "draw":
             if(leftClicked) {
 
                 if(svgPath) {
