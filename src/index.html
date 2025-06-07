@@ -29,10 +29,12 @@
                     // Now load your app scripts
                     await loadScript('./loadouts.js');
                     await loadScript('./rgb-utils.js');
-                    await loadScript('./modes.js');
                     await loadScript('./classifier.js');
                     await loadScript('./clustering.js');
                     await loadScript('./highlight.js')
+                    await loadScript('./io/image_input_handles.js');
+                    await loadScript('./io/image_output_handles.js');
+                    await loadScript('./tooltip.js');
                     await loadScript('./index.js');  // Load this last!!! as it has your init code
 
                     // If you have any initialization that needs to run after all scripts are loaded,
@@ -51,30 +53,30 @@
 
 
         <div id="cursor"><div id="cursor-text"></div></div>
+        <div id="tooltip" class="tooltip hidden"></div>
         <div id="toolbar">
             
             <div id="toolbar-paths">
-                <button id="save-segmentation-map" class="toolbar-button" onclick="saveMap()"><img width="20px" src="./public/img/save_map.png" title="Save Segmentation Map..."/></button>
-                <button id="save-tiles" class="toolbar-button" onclick="saveTiles()"><img width="20px" src="./public/img/save_folder.png" title="Save Tiles..."></button> 
+                <button id="save-segmentation-map" class="toolbar-button" onclick="saveSegmentationMap()" data-tooltip="Export segmentation map..."><img width="20px" src="./public/img/save_map.png" title="Save Segmentation Map..."/></button>
+                <button id="save-tiles" class="toolbar-button" onclick="saveTiles()" data-tooltip="Export segmentation map to tiles..."><img width="20px" src="./public/img/save_folder.png" title="Save Tiles..."></button> 
 
             </div>
             <div id="toolbar-layers">
-                    <span id="toolbar-filename">Drag image set below...</span>
             </div>
             <div id="toolbar-note">
                 
             </div>
             <div id="toolbar-right">
-                <div id="coords"></div> |&nbsp;<div id="ecoords"></div>
+                <!-- <div id="coords"></div> |&nbsp;<div id="ecoords"></div> -->
 
-                <button class="toolbar-button" onclick="undo()"><img width="20px" src="./public/img/undo.png"/></button>
-                <button class="toolbar-button" onclick="openAnalysisWindow()"><img width="20px" src="./public/img/bar-chart.png"/></button>
-                <button class="toolbar-button tool" onclick="setMode('select', this)"><img width="20px" src="./public/img/pipette.png"/></button>
-                <button class="toolbar-button tool selected-tool" onclick="setMode('pencil', this)"><img width="20px" src="./public/img/pencil.png"/></button>
-                <button class="toolbar-button tool" onclick="setMode('fill', this)"><img width="20px" src="./public/img/bucket.png"/></button>
-                <button class="toolbar-button tool" onclick="applySlic()"><img width="20px" src="./public/img/splash.png"/></button>
-                <button class="toolbar-button tool" onclick="setMode('wand', this)"><img  width="20px" src="./public/img/wand.png"/></button>
-                <button class="toolbar-button" onclick="applyClassifier()"><img  width="20px" src="./public/img/ai.png"/></button>
+                <button class="toolbar-button" onclick="undo()" data-tooltip="Undo..."><img width="20px" src="./public/img/undo.png"/></button>
+                <button class="toolbar-button" onclick="openStatsWindow()" data-tooltip="Stats..."><img width="20px" src="./public/img/bar-chart.png"/></button>
+                <button class="toolbar-button tool" onclick="setMode('select', this) " data-tooltip="Select segments of class..."><img width="20px" src="./public/img/pipette.png"/></button>
+                <button class="toolbar-button tool selected-tool" onclick="setMode('draw', this)" data-tooltip="Draw..."><img width="20px" src="./public/img/pencil.png"/></button>
+                <button class="toolbar-button tool" onclick="setMode('fill', this)" data-tooltip="Fill..."><img width="20px" src="./public/img/bucket.png"/></button>
+                <button class="toolbar-button tool" onclick="applySlic()" data-tooltip="Cluster..."><img width="20px" src="./public/img/splash.png"/></button>
+                <!-- <button class="toolbar-button tool" onclick="setMode('wand', this)" data-tooltip="Cluster..."></button>><img  width="20px" src="./public/img/wand.png"/></button> -->
+                <button class="toolbar-button" onclick="applyClassifier()" data-tooltip="Classify..."><img  width="20px" src="./public/img/ai.png"/></button>
 
                 <input class="slider" id="cursor-size-slider" type="range" min="5" max="100" value="10">
 
@@ -88,6 +90,7 @@
             
             </div>
         </div>
+        <span id="no-layers-tip"><img src="./public/img/drag_and_drop.png"/>Drag image layers in...</span>
 
         <img class="mosaic-canvas" id="base-image" style="position: absolute;">
         <canvas class= "mosaic-canvas" id="draw-canvas"></canvas>

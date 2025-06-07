@@ -1,28 +1,78 @@
+@font-face {
+    font-family: 'Inter';
+    src: url('./public/fonts/Inter-VariableFont_opsz,wght.ttf') format('truetype');
+    font-weight: 100 900; /* Supports weights from 100 to 900 */
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Inter';
+    src: url('./public/fonts/Inter-Italic-VariableFont_opsz,wght.ttf') format('truetype');
+    font-weight: 100 900; /* Supports weights from 100 to 900 */
+    font-style: italic;
+}
+
+
 * {
     -webkit-print-color-adjust: exact !important;   /* Chrome, Safari 6 – 15.3, Edge */
     color-adjust: exact !important;                 /* Firefox 48 – 96 */
     print-color-adjust: exact !important;           /* Firefox 97+, Safari 15.4+ */
     font-size:13px; 
-    font-family: "Arial";
+    font-family: "Inter";
 }
 
 body {
     margin:0px;
     text-align: center;
+    background-color: #000000;
+    color:#FFFFFF;
 }
 
 [contenteditable] {
     cursor: text;
 }
 
-button, select, .table-control {
-    font-family: "Hanken Grotesk", "Arial";
-    background-color: #FFFFFF;
+/******************* SCROLLBAR *******************/
+
+::-webkit-scrollbar {
+    width:8px;
+    background: #000000;
+}
+
+/* ::-webkit-scrollbar-track {
+    background: #000000;
+} */
+
+::-webkit-scrollbar-thumb {
+    background: #666666;
+    border:1px solid transparent;
+    background-clip: padding-box;
+
+}
+
+::-webkit-scrollbar-thumb:hover{
+    background: #FFFFFF;
+    border:1px solid transparent;
+    background-clip: padding-box;
+
+}
+
+
+
+
+
+button, select {
+    /* font-family: "Hanken Grotesk", "Arial"; */
+    background-color: transparent;
     border: none;
-    color: #323232;
+    color: #FFFFFF;
     cursor:pointer;
     outline: none;
     opacity: 0.5;
+}
+
+button:not(#save-segmentation-map) > img {
+    filter: invert(1);
 }
 
 button:hover, select:hover {
@@ -34,9 +84,9 @@ button:hover, select:hover {
     position: fixed;
     top:0px;
     z-index: 3 !important;
-    background-color: #FFFFFF;
+    background-color: #000000;
     border:none;
-    border-bottom: 1px solid #DDDDDD;
+    border-bottom: 1px solid #323232;
     -webkit-app-region: drag; /*allows dragging the electron app window around */
     width:100%;
 }
@@ -59,14 +109,20 @@ button:hover, select:hover {
     justify-content: right;
 }
 
+
+
+/******************* TOOLBAR IMAGE LAYERS *******************/
+
 #toolbar-layers {
+    -webkit-app-region: no-drag; /*allows dragging the electron app window around */
     display: flex;
     margin-left: auto;   
     margin-right: auto;
     align-items:center;
     justify-content:center;
     white-space: nowrap;
-    overflow-x: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
 
@@ -78,6 +134,45 @@ button:hover, select:hover {
     align-items: center;
     height:100%;
 }
+
+.layer-icon {
+    margin: 0 2px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    object-fit: cover;
+    height:24px;
+}
+
+.layer-icon.active {
+    border-color: #FFFFFF;
+}
+
+.layer-icon:not(.active):hover {
+    border-color: #FFFFFF7F;
+}
+
+/******************* TOOLBAR IMAGE LAYERS *******************/
+
+
+#no-layers-tip {
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform: translate(-50%, -50%);
+    display:flex;
+    flex-direction: column;
+    align-items: center;
+    padding:0px 8px;
+    opacity:0.25;
+}
+
+#no-layers-tip img {
+    height: 32px;
+    width: 32px;
+    aspect-ratio: 1/1;
+    filter:invert(1);
+}
+
 
 #toolbar-note {
     display: flex;
@@ -142,6 +237,7 @@ button:hover, select:hover {
 }
 
 #cursor-size-slider {
+    background-color: transparent;
     cursor: none;
     -webkit-appearance: none;
     -webkit-app-region: no-drag;
@@ -149,8 +245,13 @@ button:hover, select:hover {
 
 #cursor-size-slider::-webkit-slider-runnable-track {
     border-radius: 20px;
-    border: solid 1px #C4C4C4; 
+    border: solid 1px #323232; 
 }
+
+#cursor-size-slider::-webkit-slider-runnable-track:hover {
+    border-color: #FFFFFF;
+}
+
 
 #cursor-size-slider::-webkit-slider-thumb {
     -webkit-appearance: none; /* Override default appearance */
@@ -251,7 +352,7 @@ button:hover, select:hover {
 
 .path::-webkit-scrollbar {
     display: none;
-  }
+}
   
 /* Hide scrollbar for IE, Edge and Firefox */
 .path {
@@ -278,7 +379,7 @@ button:hover, select:hover {
 
 /*style the items (options), including the selected item:*/
 .selectable {
-    color: #161616;
+    color: #FFFFFF7F;
     border: 1px solid transparent;
     border-color: transparent transparent rgba(0, 0, 0, 0.1) transparent;
     border-radius: 10px;
@@ -299,7 +400,9 @@ button:hover, select:hover {
 }
 
 .selectable:hover {
-    -webkit-filter: brightness(80%);
+    color: #FFFFFF;
+    outline: 1px solid #FFFFFF;
+    outline-offset: -1px;
 }
 
 /*style items (options):*/
@@ -345,3 +448,28 @@ span[placeholder]:empty:before {
 
 }
   
+/**********************************************  TOOLTIP  **************************************************/
+
+.tooltip {
+    position: fixed;
+    background-color: #000000;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #323232;
+    font-size: 12px;
+    z-index: 9999;
+    pointer-events: none;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.tooltip.show {
+    opacity: 1;
+}
+
+.tooltip.hidden {
+    display: none;
+}

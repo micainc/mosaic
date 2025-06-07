@@ -1,12 +1,12 @@
 async function applySlic() {
     console.log("Running SLIC")
-    if (!LAYERS || Object.keys(LAYERS).length === 0) {
+    if (!IMAGE_LAYERS || Object.keys(IMAGE_LAYERS).length === 0) {
         console.error('No images loaded');
         return;
     }
 
     // Get the first image from LAYERS
-    const firstImage = Object.values(LAYERS)[0];
+    const firstImage = Object.values(IMAGE_LAYERS)[0];
     const originalWidth = firstImage.width;
     const originalHeight = firstImage.height;
     
