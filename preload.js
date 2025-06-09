@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld(
                 'save_grains',
                 'is_packaged',
                 'apply_classifier',
+                'apply_classifier_c',
                 'apply_slic',
 
             ]; // list of ipcMain.handle channels you want access in frontend to

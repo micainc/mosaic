@@ -561,3 +561,89 @@ ipcMain.handle('apply_slic', async (event, {dimensions, pixelData}) => {
   });
 
 });
+
+/* 
+C++ handler for classification rundown:
+
+current classifier program path:
+toolbar-button --> applyClassifier() --> invoke/handle apply_classifier --> loadModel() & classify()
+  loadModel(): initializes global model
+  ./src/classifier.js::classify(): runs applySlideWindow() using global model
+
+new classifier program path:
+toolbar-button --> applyClassifier() --> invoke/handle apply_classifier_c --> spawn() in resources/classifier_win.exe
+  getClassifierPath() returns classifier_win.exe 
+
+current slic program path:
+toolbar-button --> applySlic() --> invoke/handle apply_slic --> spawn() in resources/slic_win.exe
+  getSlicPath() returns slic_win.exe
+*/
+const getClassifierPath = () => {
+  // For development, use project directory
+  const basePath = path.join(__dirname, 'resources');
+  const execName = process.platform === 'win32' ? 'classifier_win.exe' : 'classifier_unix';
+  
+  return path.join(basePath, execName);
+};
+
+
+/*
+Arguments sent to classifier.cpp:
+  argv[1]: "<width> <height>"
+  stdin: Raw binary pixel data (Uint8Array) of size width * height * 3 
+
+Output received from classifier.cpp:
+  stdout: Classifier's output
+*/
+ipcMain.handle('apply_classifier_c', async (event, {dimensions, pixelData}) => {
+
+  return new Promise((resolve, reject) => {
+    const classifierPath = getClassifierPath();
+
+    // check that dimensions match the pixel data.
+    const [widthStr, heightStr] = dimensions.split(" ");
+    const width = parseInt(widthStr, 10);
+    const height = parseInt(heightStr, 10);
+    if (pixelData.length !== width * height * 3 * 5) {
+      return reject(new Error(`PixelData length mismatch: expected ${width * height * 3 * 5} but got ${pixelData.length}`));
+    }
+    
+    // Spawn process with just dimensions as argument
+    const process = spawn(classifierPath, [dimensions]);
+    
+    let buffers = [];
+    let stderr = '';
+
+    // Collect binary data chunks
+    process.stdout.on('data', (data) => {
+      buffers.push(data);  // Store raw buffer chunks
+    });
+
+    process.stderr.on('data', (data) => {
+        stderr += data.toString();
+    });
+
+    process.on('error', (error) => {
+        console.error('Failed to start CLASSIFIER process:', error);
+        reject(error);
+    });
+
+    process.on('close', (code) => {
+      if (code === 0) {
+          // Concatenate all buffers
+          const resultBuffer = Buffer.concat(buffers);
+          // Convert to ArrayBuffer for sending to renderer
+          resolve(resultBuffer.buffer.slice(
+              resultBuffer.byteOffset, 
+              resultBuffer.byteOffset + resultBuffer.byteLength
+          ));
+      } else {
+          reject(new Error(`CLASSIFIER process exited with code ${code}: ${stderr}`));
+      }
+    });
+
+    process.stdin.write(Buffer.from(new Uint8Array(pixelData)));
+    process.stdin.end();
+  });
+
+});
