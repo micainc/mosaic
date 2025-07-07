@@ -32,8 +32,13 @@ async function prepareImagesForClassifier(images) {
 
 // called by frontend- frontend function!
 async function applyClassifier() {
+
+    console.log("1) Frontend::Entering classification phase")
+
     const classes = ['undefined', 'unknown', 'K-feldspar', 'amphibole', 'andalusite', 'anhydrite', 'apatite', 'arsenopyrite', 'azurite', 'barite', 'beryl', 'biotite', 'bornite', 'calcite', 'cassiterite', 'celestite', 'cerussite', 'chalcedony', 'chalcocite', 'chalcopyrite', 'chlorite', 'chloritoid', 'cinnabar', 'clay minerals', 'clinopyroxene', 'columbite', 'cordierite', 'corundum', 'cummingtonite', 'diamond', 'dolomite', 'epidote', 'fluorite', 'galena', 'garnet', 'goethite', 'graphite', 'gypsum', 'halite', 'hematite', 'ilmenite', 'kyanite', 'limonite', 'magnetite', 'malachite', 'molybdenite', 'monazite', 'muscovite', 'native copper', 'native gold', 'native silver', 'native sulfur', 'nepheline', 'olivine', 'opal', 'orpiment', 'orthopyroxene', 'pentlandite', 'plagioclase feldspar', 'prehnite', 'pyrite', 'pyrrhotite', 'quartz', 'realgar', 'rhodochrosite', 'rutile', 'scapolite', 'scheelite', 'serpentine', 'siderite', 'sillimanite', 'smithsonite', 'sphalerite', 'staurolite', 'stibnite', 'sylvite', 'talc', 'tantalite', 'titanite', 'topaz', 'tourmaline', 'vesuvianite', 'wolframite', 'wollastonite', 'zeolites', 'zircon'];
     const label_colours = await window.api.invoke('get_label_colours');
+
+    console.log("3) Frontend::Successfully Retrieved label colours");
 
     // Use the actual image dimensions
     let width = drawCanvas.width;
@@ -70,6 +75,7 @@ async function applyClassifier() {
 
             console.log('Classifier applied successfully');
         } else {
+            console.log("Frontend::Classification failure");
             console.error('Error applying classifier:', error);
         }
     } catch (error) {
@@ -86,6 +92,12 @@ async function applyClassifier() {
 
 // ALL BACKEND!!! 
 async function classify(images, model, tf) {
+
+    console.log("5) Backend::classify helper function called");
+
+    console.log("receiving tf from apply_classifier handler: ", tf);
+
+
     // console.log("APPLY CLASSIFIER IMAGES: ", images)
     // 1. Sort and prepare the images
     console.log("IMAGES: ", images)
@@ -95,42 +107,72 @@ async function classify(images, model, tf) {
         return;
     }
 
+    console.log("5.1) Backend::Successfully sorted and destructured images");
+
     return applySlideWindow({ xpol, ppol, xpol_texture, ppol_texture, ref, width, height }, model, tf);
 
 }
 
 function sortImages(images) {
+
+    console.log("6) Backend::sortImages helper function called");
+
     let xpol, ppol, xpol_texture, ppol_texture, ref, width, height;
     for (let [filename, imageData] of Object.entries(images)) {
-        if (filename.includes('xpol')) xpol = imageData.data.data;
-        else if (filename.includes('ppol')) ppol = imageData.data.data;
-        else if (filename.includes('xpol_texture')) xpol_texture = imageData.data.data;
+
+        console.log("Filename:", filename);
+        console.log("Width:", imageData?.width, "Height:", imageData?.height);
+        console.log("imageData structure:", imageData);
+
+        if (filename.includes('xpol_texture')) xpol_texture = imageData.data.data;
         else if (filename.includes('ppol_texture')) ppol_texture = imageData.data.data;
+        else if (filename.includes('xpol')) xpol = imageData.data.data;
+        else if (filename.includes('ppol')) ppol = imageData.data.data;
         else if (filename.includes('ref')) ref = imageData.data.data;
+
+        // if (filename.includes('xpol')) xpol = imageData.data.data;
+        // else if (filename.includes('ppol')) ppol = imageData.data.data;
+        // else if (filename.includes('xpol_texture')) xpol_texture = imageData.data.data;
+        // else if (filename.includes('ppol_texture')) ppol_texture = imageData.data.data;
+        // else if (filename.includes('ref')) ref = imageData.data.data;
 
         width = imageData.width;
         height = imageData.height;
+
+        console.log("\n---\n");
     }
+
+    if (!xpol) console.log("Error::Missing xpol");
+    if (!ppol) console.log("Error::Missing ppol");
+    if (!xpol_texture) console.log("Error::Missing xpol_texture");
+    if (!ppol_texture) console.log("Error::Missing ppol_texture");
+    if (!ref) console.log("Error::Missing ref");
+
     return (xpol && ppol && xpol_texture && ppol_texture && ref) ? { xpol, ppol, xpol_texture, ppol_texture, ref, width, height } : null;
 }
 
 async function applySlideWindow(input, model, tf) {
+
+    console.log("7) Backend::applySlideWindow helper function called");
+
     const windowSize = 256;
     const stride = 256;
     const { xpol, ppol, xpol_texture,  ppol_texture, ref, width, height } = input;
-    console.log("WIDTH/HEIGHT: " + width + ", "+ height)
+    console.log("WIDTH/HEIGHT: " + width + ", "+ height);
     // Initialize predictions and counts arrays to match the original image size
-    const predictions = new Uint16Array(width * height * 86) // instead of float32, use uInt8 to store percent predictions: normalize predition values from range (0,1) to 0 to 255
+    const predictions = new Uint16Array(width * height * 86); // instead of float32, use uInt8 to store percent predictions: normalize predition values from range (0,1) to 0 to 255
     const counts = new Uint8Array(height * width);
-    console.log(model.inputs[0].shape);  // Shows input shape
-    console.log(model.inputs[0].dtype);  // Shows expected data type
+    // console.log(model.inputs[0].shape);  // Shows input shape
+    // console.log(model.inputs[0].dtype);  // Shows expected data type
     
     for (let y = 0; y < height; y += stride) {
         for (let x = 0; x < width; x += stride) {
             const windowTensor = extractWindow({ xpol, ppol, xpol_texture, ppol_texture, ref }, x, y, windowSize, width, height, tf);
             console.log("CLASSIFYING " + windowTensor.shape + " (" + windowTensor.dtype+ ") WINDOW AT "+ x + ", " + y + "... ");
-            const predictionTensor = model.predict(windowTensor);
-            const prediction = await predictionTensor.array();
+
+            // const predictionTensor = model.predict(windowTensor);
+            // const prediction = await predictionTensor.array();
+            const prediction = await runPythonInference(windowTensor.arraySync());
 
             if (!Array.isArray(prediction) || !Array.isArray(prediction[0]) || !Array.isArray(prediction[0][0])) {
                 console.error("Unexpected prediction shape:", prediction);
@@ -173,7 +215,43 @@ async function applySlideWindow(input, model, tf) {
     return percentPredictions;
 }
 
+
+// will need to manually include the python script later
+// when we package the application
+const { spawn } = require('child_process');
+const path = require('path');
+const scriptPath = path.join(__dirname, '../resources/infer_window.py');
+
+async function runPythonInference(windowData) {
+    return new Promise((resolve, reject) => {
+        const py = spawn('python', [scriptPath]);
+        let output = '';
+        let error = '';
+
+        py.stdout.on('data', (data) => output += data.toString());
+        py.stderr.on('data', (data) => error += data.toString());
+
+        py.on('close', () => {
+            if (error) return reject(error);
+            try {
+                const result = JSON.parse(output);
+                if (result.success) resolve(result.predictions);
+                else reject(result.error);
+            } catch (e) {
+                reject("Failed to parse Python output");
+            }
+        });
+
+        py.stdin.write(JSON.stringify(windowData));
+        py.stdin.end();
+    });
+}
+
+
 function extractWindow(images, x, y, windowSize, fullWidth, fullHeight, tf) {
+
+    console.log("extractWindow: tf is", tf);
+
 
     // Get a mutable buffer from the tensor to modify its values
     const windowData = new Float32Array(windowSize * windowSize * 15);
