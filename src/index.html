@@ -26,7 +26,6 @@
                     await loadScript('../node_modules/jquery-ui/dist/jquery-ui.min.js');
                     console.log('jQuery and jQuery UI loaded');
 
-                    // Now load your app scripts
                     await loadScript('./loadouts.js');
                     await loadScript('./rgb-utils.js');
                     await loadScript('./classifier.js');
@@ -35,10 +34,10 @@
                     await loadScript('./io/image_input_handles.js');
                     await loadScript('./io/image_output_handles.js');
                     await loadScript('./tooltip.js');
-                    await loadScript('./index.js');  // Load this last!!! as it has your init code
+                    await loadScript('./pen.js');  // Load this last!!! has init code
 
-                    // If you have any initialization that needs to run after all scripts are loaded,
-                    // you can call it here
+                    await loadScript('./index.js');  // Load this last!!! has init code
+
                     if (typeof initApp === 'function') {
                         initApp();
                     }
@@ -57,8 +56,8 @@
         <div id="toolbar">
             
             <div id="toolbar-paths">
-                <button id="save-segmentation-map" class="toolbar-button" onclick="saveSegmentationMap()" data-tooltip="Export segmentation map..."><img width="20px" src="./public/img/save_map.png" title="Save Segmentation Map..."/></button>
-                <button id="save-tiles" class="toolbar-button" onclick="saveTiles()" data-tooltip="Export segmentation map to tiles..."><img width="20px" src="./public/img/save_folder.png" title="Save Tiles..."></button> 
+                <button id="save-segmentation-map" class="toolbar-button" onclick="saveSegmentationMap()" data-tooltip="Download segmentation map..."><img width="20px" src="./public/img/save_map.png" title="Save Segmentation Map..."/></button>
+                <button id="save-tiles" class="toolbar-button" onclick="saveTiles()" data-tooltip="Download segmentation map tiles..."><img width="20px" src="./public/img/save_folder.png" title="Save Tiles..."></button> 
 
             </div>
             <div id="toolbar-layers">
@@ -72,9 +71,10 @@
                 <button class="toolbar-button" onclick="undo()" data-tooltip="Undo..."><img width="20px" src="./public/img/undo.png"/></button>
                 <button class="toolbar-button" onclick="openStatsWindow()" data-tooltip="Stats..."><img width="20px" src="./public/img/bar-chart.png"/></button>
                 <button class="toolbar-button tool" onclick="setMode('select', this) " data-tooltip="Select segments of class..."><img width="20px" src="./public/img/pipette.png"/></button>
-                <button class="toolbar-button tool selected-tool" onclick="setMode('draw', this)" data-tooltip="Draw..."><img width="20px" src="./public/img/pencil.png"/></button>
-                <button class="toolbar-button tool" onclick="setMode('fill', this)" data-tooltip="Fill..."><img width="20px" src="./public/img/bucket.png"/></button>
-                <button class="toolbar-button tool" onclick="applySlic()" data-tooltip="Cluster..."><img width="20px" src="./public/img/splash.png"/></button>
+                <button class="toolbar-button tool selected-tool" onclick="setMode('draw', this)" data-tooltip="Pencil"><img width="20px" src="./public/img/pencil.svg"/></button>
+                <button class="toolbar-button tool" onclick="setMode('pen', this)" data-tooltip="Pen"><img width="20px" src="./public/img/pen.svg"/></button>
+                <button class="toolbar-button tool" onclick="setMode('fill', this)" data-tooltip="Fill"><img width="20px" src="./public/img/bucket.png"/></button>
+                <button class="toolbar-button tool" onclick="openClusteringWindow()" data-tooltip="Cluster..."><img width="20px" src="./public/img/cluster.png"/></button>
                 <!-- <button class="toolbar-button tool" onclick="setMode('wand', this)" data-tooltip="Cluster..."></button>><img  width="20px" src="./public/img/wand.png"/></button> -->
                 <button class="toolbar-button" onclick="applyClassifier()" data-tooltip="Classify..."><img  width="20px" src="./public/img/ai.png"/></button>
 

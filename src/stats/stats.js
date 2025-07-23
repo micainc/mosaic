@@ -26,8 +26,8 @@ function getGrainStats(imageData, labelColours) {
               b = data[4 * i + 2],
               a = data[4 * i + 3];
               
-        // If pixel is non-transparent and not grey, mark as foreground
-        if (a !== 0 && !(r === 127 && g === 127 && b === 127)) {
+        // If pixel is non-transparent mark as foreground
+        if (a !== 0) {
             mask[i] = 1;
             // Store color as 32-bit integer for faster comparison
             colorMap[i] = (a << 24) | (r << 16) | (g << 8) | b;
@@ -456,7 +456,7 @@ function createHistogramPlot(grains) {
 window.addEventListener('load', async () => {
     try {
         const [segmentationData, labelColours] = await Promise.all([
-            window.api.invoke('get_draw_data'),
+            window.api.invoke('get_seg_map'),
             window.api.invoke('get_label_colours')
         ]);
 
