@@ -28,13 +28,16 @@ contextBridge.exposeInMainWorld(
                 "get_loadouts",
                 "set_loadout",
                 "open_stats_window",
-                "set_draw_data",
-                "get_draw_data",
+                "open_clustering_window",
+                "get_seg_map",
+                "set_seg_map",
+                'get_image_layers',
+                'set_image_layers',
                 'get_label_colours',
                 'save_grains',
                 'is_packaged',
                 'apply_classifier',
-                'apply_slic',
+                'apply_clustering',
 
             ]; // list of ipcMain.handle channels you want access in frontend to
             if (validChannels.includes(channel)) {

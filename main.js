@@ -31,21 +31,10 @@ log.transports.console.level = 'debug';
 log.info('App starting...');
 // log.error('Something failed:', error);
 
-// Variables for constructing & transmiting data to stats window
+let clusteringWindow = null;
 let statsWindow = null;
-let segmentationData = null;
-
-
-
-// Helper function to get the correct SLIC (simple linear iterative clustering) executable path
-const getSlicPath = () => {
-  // For development, use project directory
-  const basePath = path.join(__dirname, 'resources');
-  const execName = process.platform === 'win32' ? 'slic_win.exe' : 'slic_unix';
-  
-  return path.join(basePath, execName);
-};
-
+let segmentationMap = null;
+let imageLayers = [];
 
 
 // there are ~16.7M different colours in RGB format. I think I want to do a sort of 'hash' on these for when a user creates a custom set of labels during classification. 
@@ -61,7 +50,8 @@ const getSlicPath = () => {
 
 // Dictionary mapping colours to labels for various minerals
 // We must have this here since multiple renderer processes need it (main renderer and stats renderer)
-const label_colours = {'#3FBF00': 'K-feldspar', 'K-feldspar': '#3FBF00', '#7F7F00': 'amphibole', 'amphibole': '#7F7F00', '#1F007F': 'andalusite', 'andalusite': '#1F007F', '#FF1F1F': 'anhydrite', 'anhydrite': '#FF1F1F', '#BFBF3F': 'apatite', 'apatite': '#BFBF3F', '#7FBF9F': 'arsenopyrite', 'arsenopyrite': '#7FBF9F', '#7FDFDF': 'azurite', 'azurite': '#7FDFDF', '#3FDFDF': 'barite', 'barite': '#3FDFDF', '#3FDF00': 'beryl', 'beryl': '#3FDF00', '#9F3F5F': 'biotite', 'biotite': '#9F3F5F', '#FFBF1F': 'bornite', 'bornite': '#FFBF1F', '#BFBFDF': 'calcite', 'calcite': '#BFBFDF', '#DFBF5F': 'cassiterite', 'cassiterite': '#DFBF5F', '#005FFF': 'celestite', 'celestite': '#005FFF', '#1F9F3F': 'cerussite', 'cerussite': '#1F9F3F', '#FFBF7F': 'chalcedony', 'chalcedony': '#FFBF7F', '#FF009F': 'chalcocite', 'chalcocite': '#FF009F', '#BF3FDF': 'chalcopyrite', 'chalcopyrite': '#BF3FDF', '#009F3F': 'chlorite', 'chlorite': '#009F3F', '#1F3F5F': 'chloritoid', 'chloritoid': '#1F3F5F', '#7FBF00': 'cinnabar', 'cinnabar': '#7FBF00', '#00BF1F': 'clay minerals', 'clay minerals': '#00BF1F', '#7F00BF': 'clinopyroxene', 'clinopyroxene': '#7F00BF', '#00BF5F': 'columbite', 'columbite': '#00BF5F', '#00BFDF': 'cordierite', 'cordierite': '#00BFDF', '#7F5F1F': 'corundum', 'corundum': '#7F5F1F', '#DF3FFF': 'cummingtonite', 'cummingtonite': '#DF3FFF', '#9FBF9F': 'diamond', 'diamond': '#9FBF9F', '#3F9F5F': 'dolomite', 'dolomite': '#3F9F5F', '#3F9F00': 'epidote', 'epidote': '#3F9F00', '#DF3F5F': 'fluorite', 'fluorite': '#DF3F5F', '#9F9F3F': 'galena', 'galena': '#9F9F3F', '#DFBF7F': 'garnet', 'garnet': '#DFBF7F', '#7F5FDF': 'goethite', 'goethite': '#7F5FDF', '#7FBF3F': 'graphite', 'graphite': '#7FBF3F', '#001F5F': 'gypsum', 'gypsum': '#001F5F', '#FFBF9F': 'halite', 'halite': '#FFBF9F', '#1F1FFF': 'hematite', 'hematite': '#1F1FFF', '#BF009F': 'ilmenite', 'ilmenite': '#BF009F', '#5F009F': 'kyanite', 'kyanite': '#5F009F', '#001F9F': 'limonite', 'limonite': '#001F9F', '#BF0000': 'magnetite', 'magnetite': '#BF0000', '#FF0000': 'malachite', 'malachite': '#FF0000', '#3F3F5F': 'molybdenite', 'molybdenite': '#3F3F5F', '#DFFFBF': 'monazite', 'monazite': '#DFFFBF', '#3F1F9F': 'muscovite', 'muscovite': '#3F1F9F', '#1FBF7F': 'native copper', 'native copper': '#1FBF7F', '#7F3FBF': 'native gold', 'native gold': '#7F3FBF', '#3FDF7F': 'native silver', 'native silver': '#3FDF7F', '#00001F': 'native sulfur', 'native sulfur': '#00001F', '#9FDF7F': 'nepheline', 'nepheline': '#9FDF7F', '#7F009F': 'olivine', 'olivine': '#7F009F', '#5F3FBF': 'opal', 'opal': '#5F3FBF', '#FF5F1F': 'orpiment', 'orpiment': '#FF5F1F', '#BF1FDF': 'orthopyroxene', 'orthopyroxene': '#BF1FDF', '#7FBFFF': 'pentlandite', 'pentlandite': '#7FBFFF', '#7FDFFF': 'plagioclase feldspar', 'plagioclase feldspar': '#7FDFFF', '#3FBFBF': 'prehnite', 'prehnite': '#3FBFBF', '#5F9FFF': 'pyrite', 'pyrite': '#5F9FFF', '#BFFF00': 'pyrrhotite', 'pyrrhotite': '#BFFF00', '#3F007F': 'quartz', 'quartz': '#3F007F', '#5FBFBF': 'realgar', 'realgar': '#5FBFBF', '#5F001F': 'rhodochrosite', 'rhodochrosite': '#5F001F', '#BFDFFF': 'rutile', 'rutile': '#BFDFFF', '#3F9FFF': 'scapolite', 'scapolite': '#3F9FFF', '#DFDFBF': 'scheelite', 'scheelite': '#DFDFBF', '#DF5F1F': 'serpentine', 'serpentine': '#DF5F1F', '#3FBFDF': 'siderite', 'siderite': '#3FBFDF', '#FF00BF': 'sillimanite', 'sillimanite': '#FF00BF', '#BF9FFF': 'smithsonite', 'smithsonite': '#BF9FFF', '#7F5F9F': 'sphalerite', 'sphalerite': '#7F5F9F', '#7F3F5F': 'staurolite', 'staurolite': '#7F3F5F', '#009F7F': 'stibnite', 'stibnite': '#009F7F', '#3F5F7F': 'sylvite', 'sylvite': '#3F5F7F', '#1F3F7F': 'talc', 'talc': '#1F3F7F', '#3FDF1F': 'tantalite', 'tantalite': '#3FDF1F', '#5F00BF': 'titanite', 'titanite': '#5F00BF', '#1FFF7F': 'topaz', 'topaz': '#1FFF7F', '#1FBF9F': 'tourmaline', 'tourmaline': '#1FBF9F', '#1FDF7F': 'vesuvianite', 'vesuvianite': '#1FDF7F', '#5F1FDF': 'wolframite', 'wolframite': '#5F1FDF', '#BFBF00': 'wollastonite', 'wollastonite': '#BFBF00', '#7FFF5F': 'zeolites', 'zeolites': '#7FFF5F', '#BF5F3F': 'zircon', 'zircon': '#BF5F3F', 'unknown': '#7F7F7F', '#7F7F7F': 'unknown', 'undefined': '#000000', '#000000': 'undefined'}
+// const label_colours = {'#3FBF00': 'K-feldspar', 'K-feldspar': '#3FBF00', '#7F7F00': 'amphibole', 'amphibole': '#7F7F00', '#1F007F': 'andalusite', 'andalusite': '#1F007F', '#FF1F1F': 'anhydrite', 'anhydrite': '#FF1F1F', '#BFBF3F': 'apatite', 'apatite': '#BFBF3F', '#7FBF9F': 'arsenopyrite', 'arsenopyrite': '#7FBF9F', '#7FDFDF': 'azurite', 'azurite': '#7FDFDF', '#3FDFDF': 'barite', 'barite': '#3FDFDF', '#3FDF00': 'beryl', 'beryl': '#3FDF00', '#9F3F5F': 'biotite', 'biotite': '#9F3F5F', '#FFBF1F': 'bornite', 'bornite': '#FFBF1F', '#BFBFDF': 'calcite', 'calcite': '#BFBFDF', '#DFBF5F': 'cassiterite', 'cassiterite': '#DFBF5F', '#005FFF': 'celestite', 'celestite': '#005FFF', '#1F9F3F': 'cerussite', 'cerussite': '#1F9F3F', '#FFBF7F': 'chalcedony', 'chalcedony': '#FFBF7F', '#FF009F': 'chalcocite', 'chalcocite': '#FF009F', '#BF3FDF': 'chalcopyrite', 'chalcopyrite': '#BF3FDF', '#009F3F': 'chlorite', 'chlorite': '#009F3F', '#1F3F5F': 'chloritoid', 'chloritoid': '#1F3F5F', '#7FBF00': 'cinnabar', 'cinnabar': '#7FBF00', '#00BF1F': 'clay minerals', 'clay minerals': '#00BF1F', '#7F00BF': 'clinopyroxene', 'clinopyroxene': '#7F00BF', '#00BF5F': 'columbite', 'columbite': '#00BF5F', '#00BFDF': 'cordierite', 'cordierite': '#00BFDF', '#7F5F1F': 'corundum', 'corundum': '#7F5F1F', '#DF3FFF': 'cummingtonite', 'cummingtonite': '#DF3FFF', '#9FBF9F': 'diamond', 'diamond': '#9FBF9F', '#3F9F5F': 'dolomite', 'dolomite': '#3F9F5F', '#3F9F00': 'epidote', 'epidote': '#3F9F00', '#DF3F5F': 'fluorite', 'fluorite': '#DF3F5F', '#9F9F3F': 'galena', 'galena': '#9F9F3F', '#DFBF7F': 'garnet', 'garnet': '#DFBF7F', '#7F5FDF': 'goethite', 'goethite': '#7F5FDF', '#7FBF3F': 'graphite', 'graphite': '#7FBF3F', '#001F5F': 'gypsum', 'gypsum': '#001F5F', '#FFBF9F': 'halite', 'halite': '#FFBF9F', '#1F1FFF': 'hematite', 'hematite': '#1F1FFF', '#BF009F': 'ilmenite', 'ilmenite': '#BF009F', '#5F009F': 'kyanite', 'kyanite': '#5F009F', '#001F9F': 'limonite', 'limonite': '#001F9F', '#BF0000': 'magnetite', 'magnetite': '#BF0000', '#FF0000': 'malachite', 'malachite': '#FF0000', '#3F3F5F': 'molybdenite', 'molybdenite': '#3F3F5F', '#DFFFBF': 'monazite', 'monazite': '#DFFFBF', '#3F1F9F': 'muscovite', 'muscovite': '#3F1F9F', '#1FBF7F': 'native copper', 'native copper': '#1FBF7F', '#7F3FBF': 'native gold', 'native gold': '#7F3FBF', '#3FDF7F': 'native silver', 'native silver': '#3FDF7F', '#00001F': 'native sulfur', 'native sulfur': '#00001F', '#9FDF7F': 'nepheline', 'nepheline': '#9FDF7F', '#7F009F': 'olivine', 'olivine': '#7F009F', '#5F3FBF': 'opal', 'opal': '#5F3FBF', '#FF5F1F': 'orpiment', 'orpiment': '#FF5F1F', '#BF1FDF': 'orthopyroxene', 'orthopyroxene': '#BF1FDF', '#7FBFFF': 'pentlandite', 'pentlandite': '#7FBFFF', '#7FDFFF': 'plagioclase feldspar', 'plagioclase feldspar': '#7FDFFF', '#3FBFBF': 'prehnite', 'prehnite': '#3FBFBF', '#5F9FFF': 'pyrite', 'pyrite': '#5F9FFF', '#BFFF00': 'pyrrhotite', 'pyrrhotite': '#BFFF00', '#3F007F': 'quartz', 'quartz': '#3F007F', '#5FBFBF': 'realgar', 'realgar': '#5FBFBF', '#5F001F': 'rhodochrosite', 'rhodochrosite': '#5F001F', '#BFDFFF': 'rutile', 'rutile': '#BFDFFF', '#3F9FFF': 'scapolite', 'scapolite': '#3F9FFF', '#DFDFBF': 'scheelite', 'scheelite': '#DFDFBF', '#DF5F1F': 'serpentine', 'serpentine': '#DF5F1F', '#3FBFDF': 'siderite', 'siderite': '#3FBFDF', '#FF00BF': 'sillimanite', 'sillimanite': '#FF00BF', '#BF9FFF': 'smithsonite', 'smithsonite': '#BF9FFF', '#7F5F9F': 'sphalerite', 'sphalerite': '#7F5F9F', '#7F3F5F': 'staurolite', 'staurolite': '#7F3F5F', '#009F7F': 'stibnite', 'stibnite': '#009F7F', '#3F5F7F': 'sylvite', 'sylvite': '#3F5F7F', '#1F3F7F': 'talc', 'talc': '#1F3F7F', '#3FDF1F': 'tantalite', 'tantalite': '#3FDF1F', '#5F00BF': 'titanite', 'titanite': '#5F00BF', '#1FFF7F': 'topaz', 'topaz': '#1FFF7F', '#1FBF9F': 'tourmaline', 'tourmaline': '#1FBF9F', '#1FDF7F': 'vesuvianite', 'vesuvianite': '#1FDF7F', '#5F1FDF': 'wolframite', 'wolframite': '#5F1FDF', '#BFBF00': 'wollastonite', 'wollastonite': '#BFBF00', '#7FFF5F': 'zeolites', 'zeolites': '#7FFF5F', '#BF5F3F': 'zircon', 'zircon': '#BF5F3F', 'unknown': '#7F7F7F', '#7F7F7F': 'unknown', 'undefined': '#000000', '#000000': 'undefined'}
+const label_colours = {'#3FBF00': 'K-feldspar', 'K-feldspar': '#3FBF00', '#7F7F00': 'amphibole', 'amphibole': '#7F7F00', '#1F007F': 'andalusite', 'andalusite': '#1F007F', '#FF1F1F': 'anhydrite', 'anhydrite': '#FF1F1F', '#BFBF3F': 'apatite', 'apatite': '#BFBF3F', '#7FBF9F': 'arsenopyrite', 'arsenopyrite': '#7FBF9F', '#7FDFDF': 'azurite', 'azurite': '#7FDFDF', '#3FDFDF': 'barite', 'barite': '#3FDFDF', '#3FDF00': 'beryl', 'beryl': '#3FDF00', '#9F3F5F': 'biotite', 'biotite': '#9F3F5F', '#FFBF1F': 'bornite', 'bornite': '#FFBF1F', '#BFBFDF': 'calcite', 'calcite': '#BFBFDF', '#DFBF5F': 'cassiterite', 'cassiterite': '#DFBF5F', '#005FFF': 'celestite', 'celestite': '#005FFF', '#1F9F3F': 'cerussite', 'cerussite': '#1F9F3F', '#FFBF7F': 'chalcedony', 'chalcedony': '#FFBF7F', '#FF009F': 'chalcocite', 'chalcocite': '#FF009F', '#BF3FDF': 'chalcopyrite', 'chalcopyrite': '#BF3FDF', '#009F3F': 'chlorite', 'chlorite': '#009F3F', '#1F3F5F': 'chloritoid', 'chloritoid': '#1F3F5F', '#7FBF00': 'cinnabar', 'cinnabar': '#7FBF00', '#00BF1F': 'clay minerals', 'clay minerals': '#00BF1F', '#7F00BF': 'clinopyroxene', 'clinopyroxene': '#7F00BF', '#00BF5F': 'columbite', 'columbite': '#00BF5F', '#00BFDF': 'cordierite', 'cordierite': '#00BFDF', '#7F5F1F': 'corundum', 'corundum': '#7F5F1F', '#DF3FFF': 'cummingtonite', 'cummingtonite': '#DF3FFF', '#9FBF9F': 'diamond', 'diamond': '#9FBF9F', '#3F9F5F': 'dolomite', 'dolomite': '#3F9F5F', '#3F9F00': 'epidote', 'epidote': '#3F9F00', '#DF3F5F': 'fluorite', 'fluorite': '#DF3F5F', '#9F9F3F': 'galena', 'galena': '#9F9F3F', '#DFBF7F': 'garnet', 'garnet': '#DFBF7F', '#7F5FDF': 'goethite', 'goethite': '#7F5FDF', '#7FBF3F': 'graphite', 'graphite': '#7FBF3F', '#001F5F': 'gypsum', 'gypsum': '#001F5F', '#FFBF9F': 'halite', 'halite': '#FFBF9F', '#1F1FFF': 'hematite', 'hematite': '#1F1FFF', '#BF009F': 'ilmenite', 'ilmenite': '#BF009F', '#5F009F': 'kyanite', 'kyanite': '#5F009F', '#001F9F': 'limonite', 'limonite': '#001F9F', '#BF0000': 'magnetite', 'magnetite': '#BF0000', '#FF0000': 'malachite', 'malachite': '#FF0000', '#3F3F5F': 'molybdenite', 'molybdenite': '#3F3F5F', '#DFFFBF': 'monazite', 'monazite': '#DFFFBF', '#3F1F9F': 'muscovite', 'muscovite': '#3F1F9F', '#1FBF7F': 'native copper', 'native copper': '#1FBF7F', '#7F3FBF': 'native gold', 'native gold': '#7F3FBF', '#3FDF7F': 'native silver', 'native silver': '#3FDF7F', '#00001F': 'native sulfur', 'native sulfur': '#00001F', '#9FDF7F': 'nepheline', 'nepheline': '#9FDF7F', '#7F009F': 'olivine', 'olivine': '#7F009F', '#5F3FBF': 'opal', 'opal': '#5F3FBF', '#FF5F1F': 'orpiment', 'orpiment': '#FF5F1F', '#BF1FDF': 'orthopyroxene', 'orthopyroxene': '#BF1FDF', '#7FBFFF': 'pentlandite', 'pentlandite': '#7FBFFF', '#7FDFFF': 'plagioclase feldspar', 'plagioclase feldspar': '#7FDFFF', '#3FBFBF': 'prehnite', 'prehnite': '#3FBFBF', '#5F9FFF': 'pyrite', 'pyrite': '#5F9FFF', '#BFFF00': 'pyrrhotite', 'pyrrhotite': '#BFFF00', '#3F007F': 'quartz', 'quartz': '#3F007F', '#5FBFBF': 'realgar', 'realgar': '#5FBFBF', '#5F001F': 'rhodochrosite', 'rhodochrosite': '#5F001F', '#BFDFFF': 'rutile', 'rutile': '#BFDFFF', '#3F9FFF': 'scapolite', 'scapolite': '#3F9FFF', '#DFDFBF': 'scheelite', 'scheelite': '#DFDFBF', '#DF5F1F': 'serpentine', 'serpentine': '#DF5F1F', '#3FBFDF': 'siderite', 'siderite': '#3FBFDF', '#FF00BF': 'sillimanite', 'sillimanite': '#FF00BF', '#BF9FFF': 'smithsonite', 'smithsonite': '#BF9FFF', '#7F5F9F': 'sphalerite', 'sphalerite': '#7F5F9F', '#7F3F5F': 'staurolite', 'staurolite': '#7F3F5F', '#009F7F': 'stibnite', 'stibnite': '#009F7F', '#3F5F7F': 'sylvite', 'sylvite': '#3F5F7F', '#1F3F7F': 'talc', 'talc': '#1F3F7F', '#3FDF1F': 'tantalite', 'tantalite': '#3FDF1F', '#5F00BF': 'titanite', 'titanite': '#5F00BF', '#1FFF7F': 'topaz', 'topaz': '#1FFF7F', '#1FBF9F': 'tourmaline', 'tourmaline': '#1FBF9F', '#1FDF7F': 'vesuvianite', 'vesuvianite': '#1FDF7F', '#5F1FDF': 'wolframite', 'wolframite': '#5F1FDF', '#BFBF00': 'wollastonite', 'wollastonite': '#BFBF00', '#7FFF5F': 'zeolites', 'zeolites': '#7FFF5F', '#BF5F3F': 'zircon', 'zircon': '#BF5F3F', 'unknown': '#000000', '#000000': 'unknown'}
 
 let tf;
 try {
@@ -445,13 +435,13 @@ ipcMain.handle('apply_classifier', async (event, images) => {
   }
 });
 
-ipcMain.handle('open_stats_window', (data) => {
+ipcMain.handle('open_stats_window', (event, s) => {
     if (statsWindow) {
         statsWindow.focus();
         return;
     }
 
-    segmentationData = data; // update active segmentation data for stats/analytics
+    segmentationMap = s; // update active segmentation data for stats/analytics
 
     statsWindow = new BrowserWindow({
         width: 1200,
@@ -469,35 +459,53 @@ ipcMain.handle('open_stats_window', (data) => {
         }
     });
 
-    statsWindow.webContents.openDevTools()
     statsWindow.loadFile('src/stats/stats.html');
-
-    // Clean up resources before closing
-    statsWindow.on('close', (e) => {
-      if (statsWindow && !statsWindow.isDestroyed()) {
-          statsWindow.webContents.closeDevTools();
-          statsWindow = null;
-      }
-    });
-
-    // Null out the reference after window is closed
-    statsWindow.on('closed', () => {
-        statsWindow = null;
-    });
-  
 
     return 'Stats window opened';
 });
 
-ipcMain.handle('set_draw_data', async (event, data) => {
-  segmentationData = data;
-  console.log('Received and stored image data in main process');
+ipcMain.handle('open_clustering_window', (event, s) => {
+    if (clusteringWindow) {
+        clusteringWindow.focus();
+        return;
+    }
+
+    segmentationMap = s; // update active segmentation data for stats/analytics
+
+    clusteringWindow = new BrowserWindow({
+        width: 1200,
+        height: 800,
+        titleBarStyle: 'hidden',
+        webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
+            nodeIntegration: false,
+            contextIsolation: true,
+            sandbox: false,
+        }
+    });
+
+    clusteringWindow.webContents.openDevTools()
+    clusteringWindow.loadFile('src/clustering/clustering.html');
+
+    return 'Clustering window opened';
 });
 
-ipcMain.handle('get_draw_data', async () => {
-  const data = segmentationData;
-  segmentationData = null; // Clear stored data after sending
-  return data;
+ipcMain.handle('get_seg_map', async () => {
+  return segmentationMap;
+});
+
+ipcMain.handle('set_seg_map', async (event, s) => {
+    segmentationMap = s; // update active segmentation data for stats/analytics
+});
+
+ipcMain.handle('get_image_layers', async () => {
+  return imageLayers;
+});
+
+ipcMain.handle('set_image_layers', (event, _imageLayers) => {
+    imageLayers = _imageLayers;
+    console.log('Updated stored image layers:', Object.keys(imageLayers));
+    return 'Image layers updated successfully';
 });
 
 ipcMain.handle('get_label_colours', async () => {
@@ -517,10 +525,11 @@ ipcMain.handle('save_grains', async (event, {path, data}) => {
 
 ipcMain.handle('is_packaged', () => app.isPackaged);
 
-ipcMain.handle('apply_slic', async (event, {dimensions, pixelData}) => {
+ipcMain.handle('apply_clustering', async (event, {dimensions, pixelData}) => {
 
   return new Promise((resolve, reject) => {
-    const slicPath = getSlicPath();
+    const slicPath = path.join(__dirname, 'resources', process.platform === 'win32' ? 'slic_win.exe' : 'slic_unix');
+
     
     // Spawn process with just dimensions as argument
     const process = spawn(slicPath, [dimensions]);

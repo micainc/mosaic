@@ -5,14 +5,7 @@ function getFilename(path) {
     return filename.replace(/\.(jpg|JPG|png|PNG|jpeg|JPEG|tiff|TIFF|TIF|tif|gif|GIF)$/, ''); // Removes known image extensions
 }
 
-function blobToBase64(blob) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
-}
+
 
 
 
@@ -45,7 +38,7 @@ function dropFiles(event) {
             }
         });
 
-        Promise.all(imagePromises).then(() => {
+        Promise.all(imagePromises).then(async () => {
 
             // finally, set active image layer
             const keys = Object.keys(IMAGE_LAYERS);
@@ -60,6 +53,7 @@ function dropFiles(event) {
             }
 
             updateImageIcons();
+            // await syncImageLayersToBackend(); // fix THIS!
 
         });
     }
@@ -80,6 +74,10 @@ function processSegmentationLayer(file) {
                     drawCanvas.height = img.height;
                     dimensionsSet = true;
                     drawCtx.drawImage(img, 0, 0);
+                    
+                    // ✅ Convert #7F7F7F pixels to #000000
+                    console.log("Converting #7F7F7F pixels to #000000...");
+                    convertGrayToTransparent();
                 }
             };
             img.onerror = reject;
@@ -91,53 +89,87 @@ function processSegmentationLayer(file) {
     });
 }
 
+function convertGrayToTransparent() {
+    const imageData = drawCtx.getImageData(0, 0, drawCanvas.width, drawCanvas.height);
+    const data = imageData.data;
+    
+    // Loop through all pixels
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const a = data[i + 3];
+        
+        // Check if pixel is #7F7F7F (127, 127, 127) and not transparent
+        if (r === 127 && g === 127 && b === 127 && a !== 0) {
+            // Convert to black #00000000
+            data[i] = 0;     // R
+            data[i + 1] = 0; // G
+            data[i + 2] = 0; // B
+            data[i + 3] = 0; // A
+
+        }
+    }
+    
+    // Put the modified image data back on the canvas
+    drawCtx.putImageData(imageData, 0, 0);
+    
+}
+
+
 function processImageLayer(file) {
     return new Promise(async (resolve, reject) => {
         try {
-            // Create URL for display
+            // 1. Create URL for display (keep this for HTML img element)
             const displayUrl = URL.createObjectURL(file);
             
-            // Create and store ImageBitmap for computations
-            const blob = new Blob([await file.arrayBuffer()]);
-            const bitmap = await createImageBitmap(blob);
-            
-            // Load image for dimension checking
+            // 2. Load image once - use for everything
             const tempImg = new Image();
             await new Promise(imgResolve => {
                 tempImg.onload = imgResolve;
                 tempImg.src = displayUrl;
             });
 
-        
-            // Generate icon with max dimension of 256px
+            // 3. Extract pixel data using tempImg 
+            const canvas = new OffscreenCanvas(tempImg.naturalWidth, tempImg.naturalHeight);
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(tempImg, 0, 0); // Use tempImg directly
+            const imageData = ctx.getImageData(0, 0, tempImg.naturalWidth, tempImg.naturalHeight);
+
+            // Extract RGB only
+            const rgbPixels = new Uint8Array(tempImg.naturalWidth * tempImg.naturalHeight * 3);
+            const rgbaData = imageData.data;
+            
+            let rgbIndex = 0;
+            for (let i = 0; i < rgbaData.length; i += 4) {
+                rgbPixels[rgbIndex++] = rgbaData[i];     // R
+                rgbPixels[rgbIndex++] = rgbaData[i + 1]; // G  
+                rgbPixels[rgbIndex++] = rgbaData[i + 2]; // B
+            }
+
+            // 4. Generate icon using the same tempImg
             const iconCanvas = document.createElement('canvas');
             const iconCtx = iconCanvas.getContext('2d');
             
-            // Calculate scaled dimensions maintaining aspect ratio
             let iconWidth, iconHeight;
             if (tempImg.naturalWidth >= tempImg.naturalHeight) {
-                // Width is the longer side
                 iconWidth = 256;
                 iconHeight = Math.round((tempImg.naturalHeight / tempImg.naturalWidth) * 256);
             } else {
-                // Height is the longer side
                 iconHeight = 256;
                 iconWidth = Math.round((tempImg.naturalWidth / tempImg.naturalHeight) * 256);
             }
             
-            // Set canvas dimensions and draw the scaled image
             iconCanvas.width = iconWidth;
             iconCanvas.height = iconHeight;
             iconCtx.drawImage(tempImg, 0, 0, iconWidth, iconHeight);
-            
-            // Convert canvas to data URL for the icon
-            const iconUrl = iconCanvas.toDataURL('image/jpeg', 1); // 1 === quality
+            const iconUrl = iconCanvas.toDataURL('image/jpeg', 1);
 
+            // 5. Set canvas dimensions if first image
             if(!dimensionsSet) {
                 drawCanvas.width = tempImg.naturalWidth;
                 drawCanvas.height = tempImg.naturalHeight;
-                console.log("IMG LAYERS SETTING DIMENSIONS ...")
-
+                
                 const baseImg = document.getElementById('base-image');
                 baseImg.src = displayUrl;
                 baseImg.style.width = '100%';
@@ -145,20 +177,15 @@ function processImageLayer(file) {
                 dimensionsSet = true;
             }
 
-            // Determine the type based on filename
-            let type;
+            // 6. Determine type (unchanged)
             const filename = file.name.toLowerCase();
-
-            // existing default supported layer types
             const typeKeywords = ['xpol_texture', 'xpol', 'ppol_texture', 'ppol', 'lin', 'ref', 'texture', 'composite'];
-            
-            // Check if filename contains any of the keywords
             const matchedType = typeKeywords.find(keyword => filename.includes(keyword));
             
+            let type;
             if (matchedType) {
                 type = matchedType;
             } else {
-                // Count existing 'layer_x' types to determine the next number
                 const layerCount = Object.values(IMAGE_LAYERS).filter(img => img.type && img.type.startsWith('layer_')).length;
                 type = `layer_${layerCount + 1}`;
             }
@@ -166,7 +193,7 @@ function processImageLayer(file) {
             IMAGE_LAYERS[file.name] = {
                 icon: iconUrl,         
                 src: displayUrl,         
-                bitmap: bitmap,       
+                pixels: rgbPixels,
                 width: tempImg.naturalWidth,
                 height: tempImg.naturalHeight,
                 type: type
@@ -178,7 +205,6 @@ function processImageLayer(file) {
         }
     });
 }
-
 
 function updateImageIcons() {
     const layersContainer = document.getElementById('toolbar-layers');
@@ -216,4 +242,27 @@ function updateImageIcons() {
         
         layersContainer.appendChild(img);
     });
+}
+
+
+
+async function syncImageLayersToBackend() {
+    const serializedLayers = {};
+    
+    for (const [layerName, layer] of Object.entries(IMAGE_LAYERS)) {
+        serializedLayers[layerName] = {
+            pixels: layer.pixels, 
+            width: layer.width,
+            height: layer.height,
+            type: layer.type
+            // Exclude 'src' - Object URLs won't work in backend
+        };
+    }
+
+    try {
+        await window.api.invoke('set_image_layers', serializedLayers);
+        console.log('Synced IMAGE_LAYERS to backend:', Object.keys(serializedLayers));
+    } catch (error) {
+        console.error('Failed to sync IMAGE_LAYERS to backend:', error);
+    }
 }

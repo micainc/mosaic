@@ -43,7 +43,17 @@ const MAX_HISTORY_SIZE = 10;
 var INTERACTION_MODE = "draw";
 
 function setMode(newMode, button) {
+
+    if (INTERACTION_MODE === "pen" && newMode !== "pen") {
+        clearPenMode();
+    }
     INTERACTION_MODE = newMode;
+
+    // Initialize pen mode
+    if (newMode === "pen") {
+        initPenMode();
+    }
+
     // Get all buttons with the 'tool' class and remove 'selected-tool' from each
     document.querySelectorAll('.tool').forEach(button => {
         button.classList.remove('selected-tool');
@@ -86,6 +96,11 @@ function init() {
         $('#cursor-text').css("display", "none")
         saveState(); // should move this: save state after 'mouseup' and save initial draw state once on load
 
+        const rect = drawCanvas.getBoundingClientRect();
+        const x = Math.round((e.clientX - rect.left) * drawCanvas.width / drawCanvas.clientWidth);
+        const y = Math.round((e.clientY - rect.top) * drawCanvas.height / drawCanvas.clientHeight);
+        
+        
         if (e.button === 0) { 
             leftClicked = true;
 
@@ -134,9 +149,45 @@ function init() {
                 })
                 
 
+            } else if (INTERACTION_MODE === 'pen') {
+                e.preventDefault();
+                $('#cursor-text').css("display", "none");
+                
+
+
+                // Check if clicking on existing point
+                const clickedPointIndex = getPointAtPosition(x, y);
+                
+                if (clickedPointIndex !== -1) {
+                    // Start dragging
+                    isDraggingPoint = true;
+                    draggedPointIndex = clickedPointIndex;
+                } else {
+                    // Check if clicking on a line
+                    const insertIndex = getLineInsertIndex(x, y);
+                    
+                    if (insertIndex !== -1) {
+                        // Insert point between two existing points
+                        penPoints.splice(insertIndex, 0, { x, y });
+                    } else {
+                        // Add new point
+                        penPoints.push({ x, y });
+                    }
+                    updatePenDisplay();
+                }
             }
 
         } else if (e.button === 2 && !leftClicked) {
+            if (INTERACTION_MODE === 'pen') {
+
+                const clickedPointIndex = getPointAtPosition(x, y);
+                if (clickedPointIndex !== -1) {
+                    penPoints.splice(clickedPointIndex, 1);
+                    updatePenDisplay();
+                }
+
+            }
+
             rightClicked = true;
             
         }
@@ -152,6 +203,12 @@ function init() {
 
 
     drawCanvas.addEventListener('mouseup', function(e) {
+
+        if (INTERACTION_MODE === 'pen' && !isDraggingPoint) {
+            // This will only handle non-dragging pen mode actions
+            return;
+        }
+
         // doesn't matter what the draw path looks like, a drawn pixel will be without the boundaries returned by this function
         if(leftClicked) {
             switch (INTERACTION_MODE) {
@@ -165,41 +222,21 @@ function init() {
                 case "draw":
 
                     // Remove the preview path
-                    if (svgPath) {
+                    if (svgPath) {                    
+                        const pathData = svgPath.getAttribute("d");
                         svgScaleGroup.removeChild(svgPath);
                         svgPath = null;
-                    }
 
-                    if( drawPath.length === 1 ) { // if user clicked once: check if user wants to flood a closed-loop path of the same colour
-
-                        // !IMPORTANT! clear the draw area where clicked first to ensure uniform
-                        // drawCtx.globalCompositeOperation = 'destination-out' // this clear the point first
-                        // drawCircle(drawCtx, mouseX, mouseY, Math.floor((drawDiameter*(drawCanvas.width / drawCanvas.clientWidth))/2)-1)
-                        // then: either flood the area, or draw that erased point back
-                        drawCtx.globalCompositeOperation = 'source-over'
-                        if(flood(mouseX, mouseY)) { // do an initial check
-                            console.log("INFILLING")
-                            flood(mouseX, mouseY, 'infill') // flood the white area...
-
-                        } 
-                        // !IMPORTANT! draw a circle: if user didnt mean to flood, still meant to draw small region 
-                        drawCircle(drawCtx, mouseX, mouseY, Math.floor((drawDiameter*(drawCanvas.width / drawCanvas.clientWidth))/2)-1); 
-
-                    } else {
-                        // user is finishing a path
-                        drawPath.push({x: mouseX, y: mouseY}); // finish drawPath
-                        // drawPath = solidifyPath(drawPath); // RESOLVE: fill in the gaps between the drawn points of the line/loop path
-                            // Draw the final path to canvas
-                        //if (drawPath.length > 1) {
-
-                            drawPath = solidifyPath(drawPath);
-                            drawCtx.fillStyle = activeColour.colour;
-                            drawPath.forEach(point => {
-                                drawCircle(drawCtx, point.x, point.y, Math.floor((drawDiameter*(drawCanvas.width / drawCanvas.clientWidth))/2)-1);
-                            });
-                        //}                    
+                        if (pathData) {
+                            drawSVGPathToCanvas(pathData);
+                        }
                     }
                     break;
+                case "pen":
+                    isDraggingPoint = false;
+                    draggedPointIndex = -1;
+                    return;
+
                 default:
                     console.log('No tool was selected.');
             }
@@ -211,6 +248,94 @@ function init() {
         
 
     })
+
+
+    window.addEventListener('mouseup', function(e) {
+        if (INTERACTION_MODE === 'pen') {
+            if (isDraggingPoint) {
+                isDraggingPoint = false;
+                draggedPointIndex = -1;
+            }
+            
+            if (isTransforming) {
+                isTransforming = false;
+                transformType = '';
+                
+                // Reset cursor
+                if (penRotationHandle) {
+                    penRotationHandle.style.cursor = "grab";
+                }
+                
+                // Update original points to current state
+                originalPenPoints = penPoints.map(p => ({...p}));
+            }
+        }
+    });
+
+
+    function drawSVGPathToCanvas(pathData) {
+        const scale = drawCanvas.width / drawCanvas.clientWidth;
+        const radius = Math.max(1, Math.floor((drawDiameter * scale) / 2));
+        
+        // Parse the SVG path and convert to points
+        const points = parseSVGPathToPoints(pathData, scale);
+        
+        // Draw hard-edged circles
+        drawCtx.fillStyle = activeColour.colour;
+        
+        for (let i = 0; i < points.length - 1; i++) {
+            // Fill gaps between points
+            const dx = points[i + 1].x - points[i].x;
+            const dy = points[i + 1].y - points[i].y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            const steps = Math.ceil(distance / (radius * 0.5));
+            
+            for (let step = 0; step <= steps; step++) {
+                const t = step / steps;
+                const x = Math.round(points[i].x + dx * t);
+                const y = Math.round(points[i].y + dy * t);
+                
+                drawCircle(drawCtx, x, y, radius);
+            }
+        }
+        
+        // Handle single click
+        if(drawPath.length === 1) {
+            if(flood(mouseX, mouseY)) {
+                flood(mouseX, mouseY, 'infill');
+            }
+            drawCircle(drawCtx, mouseX, mouseY, radius);
+        }
+    }
+
+    function parseSVGPathToPoints(pathData, scale) {
+        const points = [];
+        const commands = pathData.match(/[MLZ]\s*[\d\s,.-]+/g);
+        
+        if (!commands) return points;
+        
+        let currentX = 0, currentY = 0;
+        
+        commands.forEach(cmd => {
+            const type = cmd[0];
+            const coords = cmd.slice(1).trim().split(/[\s,]+/).map(Number);
+            
+            if (type === 'M' && coords.length >= 2) {
+                currentX = (coords[0] + scrollX) * scale;
+                currentY = (coords[1] + scrollY) * scale;
+                points.push({ x: Math.round(currentX), y: Math.round(currentY) });
+            } else if (type === 'L' && coords.length >= 2) {
+                currentX = (coords[0] + scrollX) * scale;
+                currentY = (coords[1] + scrollY) * scale;
+                points.push({ x: Math.round(currentX), y: Math.round(currentY) });
+            }
+        });
+        
+        return points;
+    }
+
+
 
     drawCanvas.addEventListener("mouseleave", function(e) {
         document.getElementById('cursor').style.display = "none";
@@ -255,7 +380,7 @@ function init() {
             const scaleChange = 1 + (delta * -0.01); // Adjust the multiplier to tune sensitivity
             
             scale *= scaleChange;
-            scale = Math.min(Math.max(1, scale), 10);
+            scale = Math.min(Math.max(1, scale), 20);
             zoomAround(scale, e.clientX, e.clientY);
 
             // zoomAround(scale);
@@ -350,7 +475,7 @@ function init() {
     drawCanvas.addEventListener("drop", dropFiles);
 
     document.addEventListener('keydown', function(event) {
-        console.log("KEY: ", event.key)
+        // console.log("KEY: ", event.key)
 
         if (event.code === 'Space') {
             event.preventDefault()
@@ -386,6 +511,17 @@ function init() {
 
             }
         }
+
+        if (INTERACTION_MODE === 'pen') {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                rasterizePenShape();
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                clearPenMode();
+            }
+        }
+
     });
     // Event listener for keyup
     document.addEventListener('keyup', function(event) {
@@ -457,7 +593,9 @@ function init() {
         if(leftClicked) {
             $('#cursor-text').css("display", "none")
         } else if(hoveredColour !== pixelHex) {
-            if(pixelHex === "#000000" || pixelHex === "#7F7F7F") {
+            // if(pixelHex === "#000000" || pixelHex === "#7F7F7F") {
+
+            if(pixelHex === "#000000") {
                 $('#cursor-text').css("display", "none")
             } else if(activeColour.colour !== pixelHex) {
                 var label = colourLabelMap[pixelHex]
@@ -480,11 +618,28 @@ function init() {
         // console.log("UPDATED CURSOR POS: " + Math.round(1000*posX)/10 + ", " + Math.round(1000*posY)/10)
     }
     
-    window.addEventListener('mousemove', (event) => {
-        updateCursor(event);
+    window.addEventListener('mousemove', function(e) {
+        if (INTERACTION_MODE === 'pen') {
+            const rect = drawCanvas.getBoundingClientRect();
+            const x = Math.round((e.clientX - rect.left) * drawCanvas.width / drawCanvas.clientWidth);
+            const y = Math.round((e.clientY - rect.top) * drawCanvas.height / drawCanvas.clientHeight);
+            
+            if (isDraggingPoint && draggedPointIndex !== -1) {
+                penPoints[draggedPointIndex] = { x, y };
+                updatePenDisplay();
+            } else if (isTransforming) {
+                performTransform(x, y);
+            }
+        }
+        
+        updateCursor(e);
     });
     
     window.addEventListener('scroll', (event) => {
+        if (INTERACTION_MODE === 'pen') {
+            updatePenDisplay();
+        }
+
         leftClicked = false;
         rightClicked =false;
         updateCursor(event);
@@ -704,7 +859,7 @@ function flood(x1, y1, mode=null) {
             }
         } else {
             // Original behavior for null and infill modes
-            if (pixelValue !== col) {
+            if (pixelValue !== col) { // IMPORTANT: this LIMITS the infill function: when encountering pixels of its OWN colour, will NOT progress further
                 floodStack.push({ x: x - 2, y: y });
                 floodStack.push({ x: x + 2, y: y });
                 floodStack.push({ x: x, y: y - 2 });
@@ -732,17 +887,32 @@ async function openStatsWindow() {
     // Right now, if we want to update the draw canvas data, we need to close and re-open the window.
     // Not ideal, but works for now.
     const imageData = drawCtx.getImageData(0, 0, drawCanvas.width, drawCanvas.height);
-    const imageDataToSend = {
-        data: imageData.data,
-        width: drawCanvas.width,
-        height: drawCanvas.height
-    };
-    // window.api.invoke('set_draw_data', imageDataToSend)
 
     try {
-        const result = await window.api.invoke('open_stats_window', imageDataToSend);
+        const result = await window.api.invoke('open_stats_window', {
+            data: imageData.data,
+            width: drawCanvas.width,
+            height: drawCanvas.height
+        });
     } catch (error) {
         console.error('Failed to open stats window:', error);
+    }
+}
+
+async function openClusteringWindow() {
+    // Send image data to main process for temporary storage
+    // Right now, if we want to update the draw canvas data, we need to close and re-open the window.
+    // Not ideal, but works for now.
+    const imageData = drawCtx.getImageData(0, 0, drawCanvas.width, drawCanvas.height);
+
+    try {
+        const result = await window.api.invoke('open_clustering_window', {
+            data: imageData.data,
+            width: drawCanvas.width,
+            height: drawCanvas.height
+        });
+    } catch (error) {
+        console.error('Failed to open clustering window:', error);
     }
 }
 
@@ -810,6 +980,11 @@ function changeActiveColour(selection) {
     console.log("NEW ACTIVE: ", selection)
     cursor.style.borderColor= activeColour.colour;
     document.getElementById("cursor-size-slider").style.setProperty('--color', activeColour.colour);
+
+    if (INTERACTION_MODE === 'pen') {
+        updatePenDisplay();
+    }
+
     if(highlightedMask) {
         applyActiveColourToHighlighted()
     }

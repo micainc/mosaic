@@ -1,3 +1,12 @@
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
 
 function getCommonSubstring(strings) {
     if (!strings.length) {
@@ -38,15 +47,15 @@ function getCommonSubstring(strings) {
 
 
 
-function cropTiles() {
+function findTiles() {
     const CHUNK_SIZE = 256;
-    const MAX_OVERLAP_AREA = 0.5 * CHUNK_SIZE * CHUNK_SIZE; // 32768 pixels
+    const MAX_OVERLAP_AREA = 0.25 * CHUNK_SIZE * CHUNK_SIZE; // 16384 pixels
   
     const width = drawCanvas.width;
     const height = drawCanvas.height;
   
     // 1. Get the image data and build a binary mask.
-    // Foreground pixels are those with a nonzero alpha and not rgb(127, 127, 127) (not the transparent 'undefined' or grey 'unknown' reserved classes )
+    // Foreground pixels are those with a nonzero alpha (not transparent 'unknown' reserved class)
     const segmentationData = drawCtx.getImageData(0, 0, width, height).data;
     const foreground = new Uint8Array(width * height);
     for (let i = 0; i < width * height; i++) {
@@ -55,7 +64,7 @@ function cropTiles() {
             b = segmentationData[4 * i + 2],
             a = segmentationData[4 * i + 3];
       // If pixel is non-transparent and not grey, mark as foreground.
-      foreground[i] = (a !== 0 && !(r === 127 && g === 127 && b === 127)) ? 1 : 0;
+      foreground[i] = a !== 0 ? 1 : 0;
     }
   
     // 2. Build an integral image (summed-area table) for fast area-sum queries.
@@ -236,9 +245,19 @@ function cropTiles() {
     return tiles;
 }
 
+// Create bitmap only when needed for tiling
+async function getBitmap(layerName) {
+    const layer = IMAGE_LAYERS[layerName];
+    if (!layer.bitmap) {
+        const blob = new Blob([await fetch(layer.src).then(r => r.arrayBuffer())]);
+        layer.bitmap = await createImageBitmap(blob);
+    }
+    return layer.bitmap;
+}
+
 
 async function saveTiles() {
-    const tiles = cropTiles();
+    const tiles = findTiles();
     console.log("SAVING TILES...")
 
     // Get identifier same as before
@@ -249,21 +268,12 @@ async function saveTiles() {
 
     console.log("IDENTIFIER: ", identifier)
 
-    window.api.invoke('set_save_dir', {'path': '', 'type': 'save', identifier}).then(async () => {
+    try {
+        await window.api.invoke('set_save_dir', {'path': '', 'type': 'save', identifier});
 
-
-        // // Get draw layer data once
-        // const drawLayerData = drawCtx.getImageData(0, 0, drawCanvas.width, drawCanvas.height);
-        // const drawBuffer = new Uint32Array(drawLayerData.data.buffer);
-
-        // Create off-screen buffer once
-        // const _offscreenCanvas = new OffscreenCanvas(drawCanvas.width, drawCanvas.height);
-        // const _offscreenCtx = _offscreenCanvas.getContext('2d');
-
-        try {
-
-            // Process all tiles in parallel
-            await Promise.all(tiles.map(async tile => {
+        // Process tiles sequentially to avoid memory overload
+        for (const tile of tiles) {
+            try {
                 const { left, right, top, bottom, index } = tile;
                 const width = right - left;
                 const height = bottom - top;
@@ -272,52 +282,143 @@ async function saveTiles() {
                 const cropCanvas = new OffscreenCanvas(width, height);
                 const cropCtx = cropCanvas.getContext('2d');
 
-                // Save segmentation map crop
-                cropCtx.putImageData(
-                    drawCtx.getImageData(left, top, width, height),
-                    0, 0
-                );
+                // Save segmentation map crops
+                const segmentData = drawCtx.getImageData(left, top, width, height);
+                cropCtx.putImageData(segmentData, 0, 0);
+                
                 const mapBlob = await cropCanvas.convertToBlob({type: 'image/png'});
+                const mapBase64 = await blobToBase64(mapBlob);
+                
                 await window.api.invoke('save_img', {
-                    data: await blobToBase64(mapBlob),
+                    data: mapBase64,
                     filename: '',
                     identifier,
                     type: 'map',
                     idx: index
                 });
 
-                // Process each image layer in parallel, using the stored bitmaps
-                await Promise.all(Object.entries(IMAGE_LAYERS).map(async ([filename, image]) => {
-                    cropCtx.clearRect(0, 0, width, height);
-                    cropCtx.drawImage(image.bitmap, left, top, width, height, 0, 0, width, height);
-                    
-                    const layerBlob = await cropCanvas.convertToBlob({type: 'image/jpeg', quality: 1});
-                    return window.api.invoke('save_img', {
-                        data: await blobToBase64(layerBlob),
-                        filename,
-                        identifier,
-                        type: image.type,
-                        idx: index
-                    });
-                }));
+                // Process each image layer
+                for (const [filename, image] of Object.entries(IMAGE_LAYERS)) {
+                    try {
+                        cropCtx.clearRect(0, 0, width, height);
+                        const bitmap = await getBitmap(filename);
 
+                        cropCtx.drawImage(bitmap, left, top, width, height, 0, 0, width, height);
+                        
+                        const layerBlob = await cropCanvas.convertToBlob({type: 'image/jpeg', quality: 1});
+                        const layerBase64 = await blobToBase64(layerBlob);
+                        
+                        await window.api.invoke('save_img', {
+                            data: layerBase64,
+                            filename,
+                            identifier,
+                            type: image.type,
+                            idx: index
+                        });
+                    } catch (layerError) {
+                        console.error(`Error processing layer ${filename} for tile ${index}:`, layerError);
+                        // Continue with next layer even if one fails
+                    }
+                }
 
-            }));
+                // // Add a small delay to prevent overwhelming the system
+                // await new Promise(resolve => setTimeout(resolve, 10));
 
-            //  //... then we save the entire draw layer for a save file:
-            // var draw_data = drawCanvas.toDataURL("image/png");
-            // window.api.invoke('save_img', {'data': draw_data, 'filename': '', 'identifier':identifier, 'type': 'segmentation_map', 'idx': ''})
-
-
-
-            await window.api.invoke('save_label_colours', {dict: colourLabelMap});
-
-        } catch (error) {
-            console.error('Error in saveTiles:', error);
-            throw error;
+            } catch (tileError) {
+                console.error(`Error processing tile ${tile.index}:`, tileError);
+                // Continue with next tile even if one fails
+            }
         }
-    });
+
+        // Save label colors after all tiles are processed
+        await window.api.invoke('save_label_colours', {dict: colourLabelMap});
+
+        console.log("All tiles saved successfully!");
+
+    } catch (error) {
+        console.error('Error in saveTiles:', error);
+        throw error;
+    }
 }
+// async function saveTiles() {
+//     const tiles = findTiles();
+//     console.log("SAVING TILES...")
+
+//     // Get identifier same as before
+//     const filenames = Object.keys(IMAGE_LAYERS);
+//     const identifier = getCommonSubstring(filenames.map(filename => 
+//         getFilename(filename).trim().toLowerCase()
+//     )).replace(/^_+|_+$/g, '') || Date.now().toString();
+
+//     console.log("IDENTIFIER: ", identifier)
+
+//     window.api.invoke('set_save_dir', {'path': '', 'type': 'save', identifier}).then(async () => {
+
+
+//         // // Get draw layer data once
+//         // const drawLayerData = drawCtx.getImageData(0, 0, drawCanvas.width, drawCanvas.height);
+//         // const drawBuffer = new Uint32Array(drawLayerData.data.buffer);
+
+//         // Create off-screen buffer once
+//         // const _offscreenCanvas = new OffscreenCanvas(drawCanvas.width, drawCanvas.height);
+//         // const _offscreenCtx = _offscreenCanvas.getContext('2d');
+
+//         try {
+
+//             tiles.map(tile => {
+//                 const { left, right, top, bottom, index } = tile;
+//                 const width = right - left;
+//                 const height = bottom - top;
+
+//                 // Create crop buffer
+//                 const cropCanvas = new OffscreenCanvas(width, height);
+//                 const cropCtx = cropCanvas.getContext('2d');
+
+//                 // Save segmentation map crops
+//                 cropCtx.putImageData(drawCtx.getImageData(left, top, width, height), 0, 0 );
+//                 const mapBlob = await cropCanvas.convertToBlob({type: 'image/png'});
+//                 await window.api.invoke('save_img', {
+//                     data: await blobToBase64(mapBlob),
+//                     filename: '',
+//                     identifier,
+//                     type: 'map',
+//                     idx: index
+//                 });
+
+//                 await Promise.all(Object.entries(IMAGE_LAYERS).map(async ([filename, image]) => {
+//                     cropCtx.clearRect(0, 0, width, height);
+//                     const bitmap = await getBitmap(filename)
+
+//                     cropCtx.drawImage(bitmap, left, top, width, height, 0, 0, width, height);
+                    
+//                     const layerBlob = await cropCanvas.convertToBlob({type: 'image/jpeg', quality: 1});
+//                     return window.api.invoke('save_img', {
+//                         data: await blobToBase64(layerBlob),
+//                         filename,
+//                         identifier,
+//                         type: image.type,
+//                         idx: index
+//                     });
+//                 }));
+
+
+//             });
+
+//             //  //... then we save the entire draw layer for a save file:
+//             // var draw_data = drawCanvas.toDataURL("image/png");
+//             // window.api.invoke('save_img', {'data': draw_data, 'filename': '', 'identifier':identifier, 'type': 'segmentation_map', 'idx': ''})
+
+
+
+//             await window.api.invoke('save_label_colours', {dict: colourLabelMap});
+
+//         } catch (error) {
+//             console.error('Error in saveTiles:', error);
+//             throw error;
+//         }
+//     });
+// }
+
 
 async function saveSegmentationMap() {
     console.log("SAVING SEGMENTATION MAP...")
@@ -333,26 +434,6 @@ async function saveSegmentationMap() {
 
             var draw_data = drawCanvas.toDataURL("image/png");
             window.api.invoke('save_img', {'data': draw_data, 'filename': '', 'identifier':identifier, 'type': 'segmentation_map', 'idx': ''})
-
-            // ... then we create all overlays in parallel
-            // await Promise.all(Object.entries(images).map(async ([filename, image]) => {
-
-            //     _offscreenCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-            //     _offscreenCtx.drawImage(image.bitmap, 0, 0);
-            //     _offscreenCtx.globalAlpha = 0.5;
-            //     _offscreenCtx.drawImage(drawCanvas, 0, 0);
-            //     _offscreenCtx.globalAlpha = 1.0;
-
-            //     const overlayBlob = await _offscreenCanvas.convertToBlob({type: 'image/jpeg', quality: 1});
-            //     return window.api.invoke('save_img', {
-            //         data: await blobToBase64(overlayBlob),
-            //         filename,
-            //         identifier,
-            //         type: images[filename].type,
-            //         idx: '',
-                    
-            //     });
-            // }));
 
         } catch (error) {
             console.error('Error in saveTiles:', error);

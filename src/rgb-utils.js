@@ -21,6 +21,11 @@ function invertHex(hex) {
     hex = hex.slice(1);
   }
 
+  if (hex.length === 8) { // transparent case; return #FFFFFF
+        return '#FFFFFF';
+
+  }
+
   if (hex.length !== 6) {
     throw new Error('Invalid HEX color.');
   }

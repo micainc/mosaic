@@ -1,38 +1,8 @@
-
-
-// called by frontend- frontend function!
-async function prepareImagesForClassifier(images) {
-    // Create a canvas to get image data
-    const tempCanvas = document.createElement('canvas');
-    const tempCtx = tempCanvas.getContext('2d');
-    
-    let prepared = {};
-    
-    for (const [filename, imageInfo] of Object.entries(images)) {
-        const img = new Image();
-        await new Promise((resolve) => {
-            img.onload = () => {
-                tempCanvas.width = img.naturalWidth;
-                tempCanvas.height = img.naturalHeight;
-                tempCtx.drawImage(img, 0, 0);
-                const imageData = tempCtx.getImageData(0, 0, img.naturalWidth, img.naturalHeight);
-                prepared[filename] = {
-                    data: imageData,
-                    width: img.naturalWidth,
-                    height: img.naturalHeight
-                };
-                resolve();
-            };
-            img.src = imageInfo.src;
-        });
-    }
-    
-    return prepared;
-}
-
-// called by frontend- frontend function!
+// FRONTEND INVOCATION
 async function applyClassifier() {
-    const classes = ['undefined', 'unknown', 'K-feldspar', 'amphibole', 'andalusite', 'anhydrite', 'apatite', 'arsenopyrite', 'azurite', 'barite', 'beryl', 'biotite', 'bornite', 'calcite', 'cassiterite', 'celestite', 'cerussite', 'chalcedony', 'chalcocite', 'chalcopyrite', 'chlorite', 'chloritoid', 'cinnabar', 'clay minerals', 'clinopyroxene', 'columbite', 'cordierite', 'corundum', 'cummingtonite', 'diamond', 'dolomite', 'epidote', 'fluorite', 'galena', 'garnet', 'goethite', 'graphite', 'gypsum', 'halite', 'hematite', 'ilmenite', 'kyanite', 'limonite', 'magnetite', 'malachite', 'molybdenite', 'monazite', 'muscovite', 'native copper', 'native gold', 'native silver', 'native sulfur', 'nepheline', 'olivine', 'opal', 'orpiment', 'orthopyroxene', 'pentlandite', 'plagioclase feldspar', 'prehnite', 'pyrite', 'pyrrhotite', 'quartz', 'realgar', 'rhodochrosite', 'rutile', 'scapolite', 'scheelite', 'serpentine', 'siderite', 'sillimanite', 'smithsonite', 'sphalerite', 'staurolite', 'stibnite', 'sylvite', 'talc', 'tantalite', 'titanite', 'topaz', 'tourmaline', 'vesuvianite', 'wolframite', 'wollastonite', 'zeolites', 'zircon'];
+    // const classes = ['undefined', 'unknown', 'K-feldspar', 'amphibole', 'andalusite', 'anhydrite', 'apatite', 'arsenopyrite', 'azurite', 'barite', 'beryl', 'biotite', 'bornite', 'calcite', 'cassiterite', 'celestite', 'cerussite', 'chalcedony', 'chalcocite', 'chalcopyrite', 'chlorite', 'chloritoid', 'cinnabar', 'clay minerals', 'clinopyroxene', 'columbite', 'cordierite', 'corundum', 'cummingtonite', 'diamond', 'dolomite', 'epidote', 'fluorite', 'galena', 'garnet', 'goethite', 'graphite', 'gypsum', 'halite', 'hematite', 'ilmenite', 'kyanite', 'limonite', 'magnetite', 'malachite', 'molybdenite', 'monazite', 'muscovite', 'native copper', 'native gold', 'native silver', 'native sulfur', 'nepheline', 'olivine', 'opal', 'orpiment', 'orthopyroxene', 'pentlandite', 'plagioclase feldspar', 'prehnite', 'pyrite', 'pyrrhotite', 'quartz', 'realgar', 'rhodochrosite', 'rutile', 'scapolite', 'scheelite', 'serpentine', 'siderite', 'sillimanite', 'smithsonite', 'sphalerite', 'staurolite', 'stibnite', 'sylvite', 'talc', 'tantalite', 'titanite', 'topaz', 'tourmaline', 'vesuvianite', 'wolframite', 'wollastonite', 'zeolites', 'zircon'];
+    const classes = ['unknown', 'K-feldspar', 'amphibole', 'andalusite', 'anhydrite', 'apatite', 'arsenopyrite', 'azurite', 'barite', 'beryl', 'biotite', 'bornite', 'calcite', 'cassiterite', 'celestite', 'cerussite', 'chalcedony', 'chalcocite', 'chalcopyrite', 'chlorite', 'chloritoid', 'cinnabar', 'clay minerals', 'clinopyroxene', 'columbite', 'cordierite', 'corundum', 'cummingtonite', 'diamond', 'dolomite', 'epidote', 'fluorite', 'galena', 'garnet', 'goethite', 'graphite', 'gypsum', 'halite', 'hematite', 'ilmenite', 'kyanite', 'limonite', 'magnetite', 'malachite', 'molybdenite', 'monazite', 'muscovite', 'native copper', 'native gold', 'native silver', 'native sulfur', 'nepheline', 'olivine', 'opal', 'orpiment', 'orthopyroxene', 'pentlandite', 'plagioclase feldspar', 'prehnite', 'pyrite', 'pyrrhotite', 'quartz', 'realgar', 'rhodochrosite', 'rutile', 'scapolite', 'scheelite', 'serpentine', 'siderite', 'sillimanite', 'smithsonite', 'sphalerite', 'staurolite', 'stibnite', 'sylvite', 'talc', 'tantalite', 'titanite', 'topaz', 'tourmaline', 'vesuvianite', 'wolframite', 'wollastonite', 'zeolites', 'zircon'];
+
     const label_colours = await window.api.invoke('get_label_colours');
 
     // Use the actual image dimensions
@@ -43,7 +13,17 @@ async function applyClassifier() {
 
     try {
         // Prepare images first
-        const preparedImages = await prepareImagesForClassifier(IMAGE_LAYERS);
+        const preparedImages = {};
+        
+        for (const [filename, image] of Object.entries(IMAGE_LAYERS)) {
+            preparedImages[filename] = {
+                data: image.pixels, 
+                width: image.width,
+                height: image.height
+            };
+        }
+
+
         const {success, error, predictions} = await window.api.invoke('apply_classifier', preparedImages);
         if (success) {
             // predictions = _predictions
@@ -80,11 +60,24 @@ async function applyClassifier() {
 
 
 
+// BACKEND FXNS
+
+function sortImages(images) {
+    let xpol, ppol, xpol_texture, ppol_texture, ref, width, height;
+    for (let [filename, imageData] of Object.entries(images)) {
+        if (filename.includes('xpol')) xpol = imageData.data;
+        else if (filename.includes('ppol')) ppol = imageData.data;
+        else if (filename.includes('xpol_texture')) xpol_texture = imageData.data;
+        else if (filename.includes('ppol_texture')) ppol_texture = imageData.data;
+        else if (filename.includes('ref')) ref = imageData.data;
+
+        width = imageData.width;
+        height = imageData.height;
+    }
+    return (xpol && ppol && xpol_texture && ppol_texture && ref) ? { xpol, ppol, xpol_texture, ppol_texture, ref, width, height } : null;
+}
 
 
-
-
-// ALL BACKEND!!! 
 async function classify(images, model, tf) {
     // console.log("APPLY CLASSIFIER IMAGES: ", images)
     // 1. Sort and prepare the images
@@ -99,20 +92,6 @@ async function classify(images, model, tf) {
 
 }
 
-function sortImages(images) {
-    let xpol, ppol, xpol_texture, ppol_texture, ref, width, height;
-    for (let [filename, imageData] of Object.entries(images)) {
-        if (filename.includes('xpol')) xpol = imageData.data.data;
-        else if (filename.includes('ppol')) ppol = imageData.data.data;
-        else if (filename.includes('xpol_texture')) xpol_texture = imageData.data.data;
-        else if (filename.includes('ppol_texture')) ppol_texture = imageData.data.data;
-        else if (filename.includes('ref')) ref = imageData.data.data;
-
-        width = imageData.width;
-        height = imageData.height;
-    }
-    return (xpol && ppol && xpol_texture && ppol_texture && ref) ? { xpol, ppol, xpol_texture, ppol_texture, ref, width, height } : null;
-}
 
 async function applySlideWindow(input, model, tf) {
     const windowSize = 256;
@@ -178,7 +157,7 @@ function extractWindow(images, x, y, windowSize, fullWidth, fullHeight, tf) {
     // Get a mutable buffer from the tensor to modify its values
     const windowData = new Float32Array(windowSize * windowSize * 15);
 
-    let r1, g1, b1, r2, g2, b2, r3, g3, b3;
+    let r1, g1, b1, r2, g2, b2, r3, g3, b3, r4, g4, b4, r5, g5, b5;
 
     for (let wy = 0; wy < windowSize; wy++) {
         for (let wx = 0; wx < windowSize; wx++) {
@@ -190,7 +169,7 @@ function extractWindow(images, x, y, windowSize, fullWidth, fullHeight, tf) {
             // Check if the calculated coordinates are within the original image bounds
 
             if (imgX >= 0 && imgX < fullWidth && imgY >= 0 && imgY < fullHeight) {
-                const fullIndex = (imgY * fullWidth + imgX) * 4;
+                const fullIndex = (imgY * fullWidth + imgX) * 3;
                 // console.log("r1, g1, b1: " + images.xpol[fullIndex] + ", "+ images.xpol[fullIndex + 1] + ", "+ images.xpol[fullIndex + 2])
                 r1 = images.xpol[fullIndex] / 255;
                 g1 = images.xpol[fullIndex + 1] / 255;
