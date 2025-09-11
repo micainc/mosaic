@@ -338,91 +338,6 @@ function performTransform(currentX, currentY) {
     updatePenDisplay();
 }
 
-// function updatePenDisplay() {
-//     // Clear existing elements
-//     while (penSVGGroup.firstChild) {
-//         penSVGGroup.removeChild(penSVGGroup.firstChild);
-//     }
-//     penCircles = [];
-    
-//     if (penPoints.length === 0) return;
-    
-//     const scale = drawCanvas.width / drawCanvas.clientWidth;
-//     const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
-//     const scrollY = window.pageYOffset || document.documentElement.scrollTop;
-    
-//     // Create polygon fill (0.5 opacity)
-//     if (penPoints.length >= 3) {
-//         penPolygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-//         const points = penPoints.map(p => 
-//             `${(p.x/scale)-scrollX},${(p.y/scale)-scrollY}`
-//         ).join(" ");
-//         penPolygon.setAttribute("points", points);
-//         penPolygon.setAttribute("fill", activeColour.colour);
-//         penPolygon.setAttribute("fill-opacity", "0.5");
-//         penPolygon.setAttribute("stroke", "none");
-//         penSVGGroup.appendChild(penPolygon);
-//     }
-    
-//     // Create lines (opacity 1)
-//     if (penPoints.length >= 2) {
-//         penLines = document.createElementNS("http://www.w3.org/2000/svg", "path");
-//         let pathData = `M ${(penPoints[0].x/scale)-scrollX} ${(penPoints[0].y/scale)-scrollY}`;
-        
-//         for (let i = 1; i < penPoints.length; i++) {
-//             pathData += ` L ${(penPoints[i].x/scale)-scrollX} ${(penPoints[i].y/scale)-scrollY}`;
-//         }
-        
-//         // Close the path
-//         pathData += " Z";
-        
-//         penLines.setAttribute("d", pathData);
-//         penLines.setAttribute("stroke", activeColour.colour);
-//         penLines.setAttribute("stroke-width", "2");
-//         penLines.setAttribute("fill", "none");
-//         penLines.setAttribute("stroke-opacity", "1");
-//         penLines.style.pointerEvents = "stroke";
-//         penLines.style.cursor = "crosshair";
-//         penSVGGroup.appendChild(penLines);
-//     }
-    
-//     penPoints.forEach((point, index) => {
-//     const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-//     circle.setAttribute("cx", (point.x/scale)-scrollX);
-//     circle.setAttribute("cy", (point.y/scale)-scrollY);
-//     circle.setAttribute("r", penPointRadius);
-//     circle.setAttribute("fill", activeColour.colour);
-//     circle.setAttribute("stroke", "#ffffff");
-//     circle.setAttribute("stroke-width", "2");
-//     circle.style.cursor = "move";
-//     circle.style.pointerEvents = "fill";
-//     circle.dataset.pointIndex = index;
-    
-//     // Add direct event handlers to circles
-//     circle.addEventListener('mousedown', function(e) {
-//         if (e.button === 0) {
-//             e.stopPropagation();
-//             isDraggingPoint = true;
-//             draggedPointIndex = index;
-//         }
-//     });
-    
-//     circle.addEventListener('contextmenu', function(e) {
-//         e.preventDefault();
-//         e.stopPropagation();
-//         penPoints.splice(index, 1);
-//         updatePenDisplay();
-//     });
-    
-//     penSVGGroup.appendChild(circle);
-//     penCircles.push(circle);
-// });
-
-
-// }
-
-
-
 
 // Helper functions
 function getPointAtPosition(x, y) {
@@ -498,6 +413,11 @@ function pointToLineDistance(px, py, x1, y1, x2, y2) {
     return Math.sqrt(dx * dx + dy * dy);
 }
 
+
+
+
+
+
 function rasterizePenShape() {
     if (penPoints.length < 3) return;
     
@@ -510,10 +430,8 @@ function rasterizePenShape() {
     offCanvas.height = drawCanvas.height;
     const offCtx = offCanvas.getContext('2d');
     
-    // Disable image smoothing
     offCtx.imageSmoothingEnabled = false;
     
-    // Draw the polygon
     offCtx.fillStyle = activeColour.colour;
     offCtx.beginPath();
     offCtx.moveTo(penPoints[0].x, penPoints[0].y);
@@ -557,3 +475,79 @@ function rasterizePenShape() {
     drawCtx.drawImage(offCanvas, 0, 0);
 }
 
+function erasePenShape() {
+    if (penPoints.length < 3) return;
+    
+    // Save state for undo first
+    saveState();
+    
+    // Save current composite operation
+    const previousOperation = drawCtx.globalCompositeOperation;
+    
+    // Set to destination-out to erase pixels
+    drawCtx.globalCompositeOperation = 'destination-out';
+    drawCtx.imageSmoothingEnabled = false;
+    
+    // Draw the shape to erase
+    drawCtx.beginPath();
+    drawCtx.moveTo(penPoints[0].x, penPoints[0].y);
+    
+    for (let i = 1; i < penPoints.length; i++) {
+        drawCtx.lineTo(penPoints[i].x, penPoints[i].y);
+    }
+    
+    drawCtx.closePath();
+    drawCtx.fill();
+    
+    // Restore the previous composite operation
+    drawCtx.globalCompositeOperation = previousOperation;
+    
+    // Clear the pen points after erasing
+    clearPenMode();
+}
+
+function cropPenShape() {
+    if (penPoints.length < 3) return;
+    
+    // Save state for undo first
+    saveState();
+    
+    // Create an offscreen canvas to define the mask
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = drawCanvas.width;
+    maskCanvas.height = drawCanvas.height;
+    const maskCtx = maskCanvas.getContext('2d');
+    
+    maskCtx.imageSmoothingEnabled = false;
+    
+    // Fill the entire canvas with white (what we want to erase)
+    maskCtx.fillStyle = 'white';
+    maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+    
+    // Cut out the pen shape (what we want to keep) using destination-out
+    maskCtx.globalCompositeOperation = 'destination-out';
+    maskCtx.beginPath();
+    maskCtx.moveTo(penPoints[0].x, penPoints[0].y);
+    
+    for (let i = 1; i < penPoints.length; i++) {
+        maskCtx.lineTo(penPoints[i].x, penPoints[i].y);
+    }
+    
+    maskCtx.closePath();
+    maskCtx.fill();
+    
+    // Now apply this mask to the main canvas
+    // Save current composite operation
+    const previousOperation = drawCtx.globalCompositeOperation;
+    
+    // Use destination-out to erase where the mask is white
+    drawCtx.globalCompositeOperation = 'destination-out';
+    drawCtx.imageSmoothingEnabled = false;
+    drawCtx.drawImage(maskCanvas, 0, 0);
+    
+    // Restore the previous composite operation
+    drawCtx.globalCompositeOperation = previousOperation;
+    
+    // Clear the pen points after cropping
+    clearPenMode();
+}

@@ -519,6 +519,11 @@ function init() {
             } else if (event.key === 'Escape') {
                 event.preventDefault();
                 clearPenMode();
+            } else if (event.key === 'Delete' || event.key === 'Backspace')  {
+                event.preventDefault();
+                erasePenShape();
+            } else if (event.key === 'c')  {
+                cropPenShape();
             }
         }
 
