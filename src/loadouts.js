@@ -73,7 +73,7 @@ function initLoadouts(loadouts) {
 
 }
 function mapLabelsToColors(labelNames, drawColors) {
-  // const colourLabelMap = {"#00000000": "undefined", "undefined": "#00000000"}; // auto initialize 'undefined' and 'unknown' categories
+  // const colourLabelMap = {"#000000": "undefined", "undefined": '#000000'}; 
   // const colourLabelMap = {}; // auto initialize 'edges' and 'unknown' categories
 
   const sortedLabelNames = [...labelNames].sort(); // Create a sorted copy of labelNames
@@ -92,6 +92,8 @@ function mapLabelsToColors(labelNames, drawColors) {
     colourLabelMap[labelName] = color;
   }
 
+  colourLabelMap['undefined'] = '#000000'
+  colourLabelMap['#000000'] = 'undefined'
   return colourLabelMap;
 }
 
@@ -114,7 +116,7 @@ function initLabels(labels) {
   // Initialize the 'items' list for holding label objects
   var items = $("#labels .toolbar-list-items")[0]
   for (const [key, colour] of Object.entries(colourLabelMap)) {
-    if (key.startsWith('#') || key.startsWith('undefined')) continue;
+    if (key.startsWith('#')) continue;
 
     // if(label.contains("#")) {
     //   continue;
