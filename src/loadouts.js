@@ -19,34 +19,35 @@ var colourLabelMap = {} // '#FF0000': 'quartz'
 function initLoadouts(loadouts) {
   console.log("initLoadouts(): ", loadouts)
 
-  var items = $("#loadouts .toolbar-list-items")[0]
-  console.log(items)
+  // $ is JQUERY
+  var loadoutsList = $("#loadouts .toolbar-list-items")[0]
+  console.log(loadoutsList)
 
   for (const loadout in loadouts) {
     if (loadouts.hasOwnProperty(loadout)) {    // Make sure the property belongs to the object itself, not its prototype
 
       var item = document.createElement("DIV");
-      item.setAttribute("class", "selectable");
+      item.setAttribute("class", "loadout-label");
       item.setAttribute("contenteditable", "true");
       item.setAttribute("placeholder", "...");
       item.addEventListener("click", onSelectItem);
       item.innerHTML = loadout;
-      items.append(item)
+      loadoutsList.append(item)
     }
   }
 
   //Add "+" button to item list 
   var add = document.createElement("DIV");
-  add.setAttribute("class", "selectable add");
+  add.setAttribute("class", "loadout-label add");
 
   add.innerHTML = "+";
   //console.log(itemList)
-  items.append(add);
+  loadoutsList.append(add);
 
   // Create a new label 
   add.addEventListener("click", function(e) {
     var lbl = document.createElement("DIV");
-    lbl.setAttribute("class", "selectable selected");
+    lbl.setAttribute("class", "loadout-label selected");
     lbl.setAttribute("contenteditable", "true")
     lbl.setAttribute("placeholder", '...')
     lbl.addEventListener("click", onSelectItem);
@@ -67,8 +68,8 @@ function initLoadouts(loadouts) {
   })
 
   // initialize the first item in list as selected item
-  items.firstChild.classList.toggle("selected")
-  items.parentNode.prepend(items.firstChild)
+  loadoutsList.firstChild.classList.toggle("selected")
+  loadoutsList.parentNode.prepend(loadoutsList.firstChild)
   initLabels(loadouts[$("#loadouts .selected")[0].innerHTML])
 
 }
@@ -107,6 +108,10 @@ function hashCode(str) {
   return Math.abs(hash);
 }
 
+
+
+
+
 function initLabels(labels) {
 
   colourLabelMap = mapLabelsToColors(labels, drawColors);
@@ -115,34 +120,46 @@ function initLabels(labels) {
   // console.log("COLOURED LABELS: ", colour_mapped_labels)
   // Initialize the 'items' list for holding label objects
   var items = $("#labels .toolbar-list-items")[0]
-  for (const [key, colour] of Object.entries(colourLabelMap)) {
-    if (key.startsWith('#')) continue;
+  
+  for (const [label, colour] of Object.entries(colourLabelMap)) {
+    if (label.startsWith('#')) continue;
 
-    // if(label.contains("#")) {
-    //   continue;
-    // }
+
     // if (labels.hasOwnProperty(label)) {    // Make sure the property belongs to the object itself, not its prototype
-      var item = document.createElement("DIV");
+      var anchorIcon = document.createElement("img")
+      var fontColour = getBlackWhiteContrast(colour);
+      anchorIcon.className = 'loadout-label-anchor'
+      anchorIcon.src= './public/img/anchor.svg'
+      anchorIcon.style.filter = (fontColour == '#FFFFFF' ? 'invert(1)' : 'unset')
+      
+      anchorIcon.title='Anchor class pixels to canvas (uneditable)'
+      anchorIcon.addEventListener("click", (e) => {onToggleLabelAnchor(e, colour, label) });
+
       // const color = value; // The value is the color for label entries
       // const color = colourLabelMap[label];
+
+
+      var item = document.createElement("DIV");
       item.style.backgroundColor = colour;
-      item.style.color = invertHex(colour);
-      item.setAttribute("class", "selectable");
+      item.style.color = fontColour;
+      item.title = colour;
+      item.setAttribute("class", "loadout-label");
       item.setAttribute("contenteditable", "true");
-      item.setAttribute("placeholder", key+"...");
-      item.setAttribute("value", key)
+      item.setAttribute("placeholder", label+"...");
+      item.setAttribute("value", label)
       // item.setAttribute("placeholder", label+"...");
       // item.setAttribute("value", label)
       item.addEventListener("click", onSelectItem);
       // item.innerHTML = label;
-      item.innerHTML = key;
+      item.innerHTML = label;
+      item.append(anchorIcon)
       items.append(item)
     // }
   }
 
   //Add "+" button to item list 
   var add = document.createElement("DIV");
-  add.setAttribute("class", "selectable add");
+  add.setAttribute("class", "loadout-label add");
   add.innerHTML = "+";
   items.append(add);
 
@@ -150,15 +167,15 @@ function initLabels(labels) {
   add.addEventListener("click", function(e) {
     var idx = $("#labels .toolbar-list-items")[0].childNodes.length // dont include 'add' button
     var lbl = document.createElement("DIV");
-    lbl.setAttribute("class", "selectable selected");
+    lbl.setAttribute("class", "loadout-label selected");
     lbl.setAttribute("contenteditable", "true")
     lbl.setAttribute("placeholder", idx+'...')
     lbl.setAttribute("value", idx)
     lbl.addEventListener("click", onSelectItem);
     // lbl.addEventListener('blur', onBlur) // if user clicks on canvas/ outside list, close list
     lbl.style.backgroundColor = drawColors[idx]
-    lbl.style.color = invertHex(drawColors[idx])
-    changeActiveColour({'colour': drawColors[idx], 'label': idx})
+    lbl.style.color = getBlackWhiteContrast(drawColors[idx])
+    setDrawColour({'colour': drawColors[idx], 'label': idx})
     activeCursor = true;
 
     // when add is clicked, move selected item into item-list. 
@@ -175,7 +192,7 @@ function initLabels(labels) {
 
   // Create and add search box to list
   var searchBox = document.createElement("DIV");
-  searchBox.setAttribute("class", "selectable selected search-box hidden");
+  searchBox.setAttribute("class", "loadout-label selected search-box hidden");
   searchBox.setAttribute("contenteditable", "true");
   searchBox.setAttribute("placeholder", "Search...");
   searchBox.addEventListener("input", filterLabels);
@@ -193,7 +210,7 @@ function initLabels(labels) {
 
   initialSelected.classList.toggle("selected")
   items.parentNode.prepend(initialSelected)
-  changeActiveColour({'colour': rgbStringToHex(initialSelected.style.backgroundColor), 'label': initialSelected.innerHTML})
+  setDrawColour({'colour': rgbStringToHex(initialSelected.style.backgroundColor), 'label': initialSelected.innerHTML})
 
   // every time a label list is changed, ensure that if the user clicks anywhere outside the select box, then close all select boxes
   // document.addEventListener("click", closeList);
@@ -243,7 +260,7 @@ function onSelectItem(e) {
       searchBox.classList.toggle("hidden"); // hide search box
 
       // propogate the colour of the selected item to the frontend
-      changeActiveColour({'colour': rgbStringToHex(this.style.backgroundColor), 'label': this.innerHTML})
+      setDrawColour({'colour': rgbStringToHex(this.style.backgroundColor), 'label': this.innerHTML})
     }
 
     // get item with class 'selected' but NOT 'search-box'
@@ -251,13 +268,18 @@ function onSelectItem(e) {
     a.classList.toggle("selected") // turn the selected to unselected
     items.prepend(a); // put back in the items list at the top
 
+    // when an anchored label becomes the active colour, it is no longer truly ANCHORED:
+    // when switching to/from this label, recompute mask to ensure its pixels are saved/omitted from anchored mask
+    updateAnchoredMask(); 
+
     // move newly selected item to top
-    this.classList.toggle("selected")
+    this.classList.add("selected")
+    this.classList.add("used")
+
     list.prepend(this);
 
   }
   resetSearch(); 
-
 }
 
 function onBlur(e) {
@@ -278,7 +300,7 @@ function onBlur(e) {
 
 function filterLabels() {
   var input = this.innerText.toLowerCase();
-  var labels = $("#labels .toolbar-list-items")[0].getElementsByClassName("selectable");
+  var labels = $("#labels .toolbar-list-items")[0].getElementsByClassName("loadout-label");
 
   for (var i = 0; i < labels.length; i++) {
       var label = labels[i];
@@ -295,11 +317,11 @@ function filterLabels() {
 }
 
 function resetSearch() {
-  console.log("resetSearch()")
+  // console.log("resetSearch()")
   // empty search box
   var searchBox = document.getElementsByClassName('search-box')[0];
   searchBox.innerText = '';
-  var allLabels = $("#labels .toolbar-list-items")[0].getElementsByClassName("selectable");
+  var allLabels = $("#labels .toolbar-list-items")[0].getElementsByClassName("loadout-label");
     for (var i = 0; i < allLabels.length; i++) {
         allLabels[i].style.display = "";
   }
@@ -312,7 +334,7 @@ function saveLoadout() {
   /*
   var name = $("#loadouts .selected").html()
   if(name !== "") { // if the loadout is named, save it
-    var lbls = $("#labels .selectable:not(.add)")
+    var lbls = $("#labels .loadout-label:not(.add)")
     var l = {}
     l['name'] = name
     var labels = {}
@@ -328,3 +350,4 @@ function saveLoadout() {
   }
   */
 }
+

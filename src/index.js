@@ -31,8 +31,9 @@ var cursor = document.getElementById('cursor');
 cursor.style.width = drawDiameter+"px";
 cursor.style.height = drawDiameter+"px";
 
-var activeColour = {'colour': "#000000", 'label': ""}
+var ACTIVE_DRAW_LABEL_COLOUR = {'colour': "#000000", 'label': ""}
 var hoveredColour = "#000000"
+
 var floodStack = []
 var undoHistory = [];
 const origin = { x: 0, y: 0 };
@@ -92,6 +93,8 @@ function init() {
 
     drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
 
+    initAnchoredMaskCanvas()
+
     drawCanvas.addEventListener('mousedown', function(e) {
         $('#cursor-text').css("display", "none")
         saveState(); // should move this: save state after 'mouseup' and save initial draw state once on load
@@ -105,7 +108,7 @@ function init() {
             leftClicked = true;
 
             // push starting point of draw path
-            console.log("ADDING TO DRAW PATH...")
+            // console.log("ADDING TO DRAW PATH...")
             drawPath.push({x: mouseX, y: mouseY});
 
             if(INTERACTION_MODE === 'draw') {
@@ -117,7 +120,7 @@ function init() {
 
                 // Create new SVG PREVIEW path
                 svgPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                svgPath.setAttribute("stroke", activeColour.colour);
+                svgPath.setAttribute("stroke", ACTIVE_DRAW_LABEL_COLOUR.colour);
                 svgPath.setAttribute("stroke-width", drawDiameter);
                 svgPath.setAttribute("fill", "none");
                 svgPath.setAttribute("stroke-linecap", "round");
@@ -160,18 +163,18 @@ function init() {
                 
                 if (clickedPointIndex !== -1) {
                     // Start dragging
-                    isDraggingPoint = true;
-                    draggedPointIndex = clickedPointIndex;
+                    PEN__IS_DRAGGING = true;
+                    PEN__DRAGGED_POINT_INDEX = clickedPointIndex;
                 } else {
                     // Check if clicking on a line
                     const insertIndex = getLineInsertIndex(x, y);
                     
                     if (insertIndex !== -1) {
                         // Insert point between two existing points
-                        penPoints.splice(insertIndex, 0, { x, y });
+                        PEN__POINTS.splice(insertIndex, 0, { x, y });
                     } else {
                         // Add new point
-                        penPoints.push({ x, y });
+                        PEN__POINTS.push({ x, y });
                     }
                     updatePenDisplay();
                 }
@@ -182,12 +185,34 @@ function init() {
 
                 const clickedPointIndex = getPointAtPosition(x, y);
                 if (clickedPointIndex !== -1) {
-                    penPoints.splice(clickedPointIndex, 1);
+                    PEN__POINTS.splice(clickedPointIndex, 1);
                     updatePenDisplay();
                 }
 
-            }
+            }else if(INTERACTION_MODE === 'draw') { // erase
 
+                drawPath.push({x: mouseX, y: mouseY});
+
+                scrollX = document.documentElement.scrollLeft;
+                scrollY = document.documentElement.scrollTop;
+                // console.log("SCROLL X: ", scrollX)
+                // console.log("SCROLL Y: ", scrollY)
+
+                // Create new SVG PREVIEW path
+                svgPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                svgPath.setAttribute("stroke", '#000000');
+                svgPath.setAttribute("stroke-width", drawDiameter);
+                svgPath.setAttribute("fill", "none");
+                svgPath.setAttribute("stroke-linecap", "round");
+                svgPath.setAttribute("stroke-linejoin", "round");
+
+                // Scale coordinates to match canvas
+                const scale = drawCanvas.width / drawCanvas.clientWidth;
+                const d = `M ${(mouseX/scale)-scrollX} ${(mouseY/scale)-scrollY}`;
+                svgPath.setAttribute("d", d);
+                
+                svgScaleGroup.appendChild(svgPath);
+            }
             rightClicked = true;
             
         }
@@ -204,7 +229,7 @@ function init() {
 
     drawCanvas.addEventListener('mouseup', function(e) {
 
-        if (INTERACTION_MODE === 'pen' && !isDraggingPoint) {
+        if (INTERACTION_MODE === 'pen' && !PEN__IS_DRAGGING) {
             // This will only handle non-dragging pen mode actions
             return;
         }
@@ -218,6 +243,7 @@ function init() {
                     drawPath.forEach(point => {
                         flood(point.x, point.y, 'replace') // replace 
                     })
+                    reapplyAnchoredMask();
                     break;
                 case "draw":
 
@@ -229,20 +255,37 @@ function init() {
 
                         if (pathData) {
                             drawSVGPathToCanvas(pathData);
+                            // reapplyAnchoredMask();
+
                         }
                     }
                     break;
                 case "pen":
-                    isDraggingPoint = false;
-                    draggedPointIndex = -1;
+                    PEN__IS_DRAGGING = false;
+                    PEN__DRAGGED_POINT_INDEX = -1;
                     return;
 
                 default:
                     console.log('No tool was selected.');
             }
 
-            drawPath = []
+        } else if(rightClicked) {
+            if(INTERACTION_MODE === 'draw') {
+                if (svgPath) {                    
+                    const pathData = svgPath.getAttribute("d");
+                    svgScaleGroup.removeChild(svgPath);
+                    svgPath = null;
+
+                    if (pathData) {
+                        eraseSVGPathFromCanvas(pathData);
+                        // reapplyAnchoredMask();
+
+                    }
+                }
+            }
         }
+
+        drawPath = []
         leftClicked = false;
         rightClicked =false;
         
@@ -252,13 +295,13 @@ function init() {
 
     window.addEventListener('mouseup', function(e) {
         if (INTERACTION_MODE === 'pen') {
-            if (isDraggingPoint) {
-                isDraggingPoint = false;
-                draggedPointIndex = -1;
+            if (PEN__IS_DRAGGING) {
+                PEN__IS_DRAGGING = false;
+                PEN__DRAGGED_POINT_INDEX = -1;
             }
             
-            if (isTransforming) {
-                isTransforming = false;
+            if (PEN__IS_TRANSFORMING) {
+                PEN__IS_TRANSFORMING = false;
                 transformType = '';
                 
                 // Reset cursor
@@ -266,8 +309,8 @@ function init() {
                     penRotationHandle.style.cursor = "grab";
                 }
                 
-                // Update original points to current state
-                originalPenPoints = penPoints.map(p => ({...p}));
+                // Update original points to current state, for use in any further transforms
+                originalPenPoints = PEN__POINTS.map(p => ({...p}));
             }
         }
     });
@@ -281,7 +324,7 @@ function init() {
         const points = parseSVGPathToPoints(pathData, scale);
         
         // Draw hard-edged circles
-        drawCtx.fillStyle = activeColour.colour;
+        drawCtx.fillStyle = ACTIVE_DRAW_LABEL_COLOUR.colour;
         
         for (let i = 0; i < points.length - 1; i++) {
             // Fill gaps between points
@@ -307,7 +350,55 @@ function init() {
             }
             drawCircle(drawCtx, mouseX, mouseY, radius);
         }
+
+        // If we just drew in an anchored color, update the mask
+        reapplyAnchoredMask();        
     }
+
+
+    function eraseSVGPathFromCanvas(pathData) {
+        const scale = drawCanvas.width / drawCanvas.clientWidth;
+        const radius = Math.max(1, Math.floor((drawDiameter * scale) / 2));
+        drawCtx.globalCompositeOperation = 'destination-out' // this CLEARS FROM the canvas as a MASK operation
+
+        // Parse the SVG path and convert to points
+        const points = parseSVGPathToPoints(pathData, scale);
+        
+        // Draw hard-edged circles
+        drawCtx.fillStyle = ACTIVE_DRAW_LABEL_COLOUR.colour;
+        
+        for (let i = 0; i < points.length - 1; i++) {
+            // Fill gaps between points
+            const dx = points[i + 1].x - points[i].x;
+            const dy = points[i + 1].y - points[i].y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            const steps = Math.ceil(distance / (radius * 0.5));
+            
+            for (let step = 0; step <= steps; step++) {
+                const t = step / steps;
+                const x = Math.round(points[i].x + dx * t);
+                const y = Math.round(points[i].y + dy * t);
+                
+                drawCircle(drawCtx, x, y, radius);
+            }
+        }
+        
+        // Handle single click
+        if(drawPath.length === 1) {
+            if(flood(mouseX, mouseY)) {
+                flood(mouseX, mouseY, 'infill');
+            }
+            drawCircle(drawCtx, mouseX, mouseY, radius);
+        }
+
+        drawCtx.globalCompositeOperation = 'source-over'; // reenable naive OVERLAY operation
+
+        // If we just drew in an anchored color, update the mask
+        reapplyAnchoredMask();        
+    }
+
+
 
     function parseSVGPathToPoints(pathData, scale) {
         const points = [];
@@ -341,7 +432,7 @@ function init() {
         document.getElementById('cursor').style.display = "none";
         switch (INTERACTION_MODE) {
             case "draw":
-                if(leftClicked) {
+                if(leftClicked || rightClicked) {
                     // Remove the preview path
                     if (svgPath) {
                         svgScaleGroup.removeChild(svgPath);
@@ -350,9 +441,11 @@ function init() {
 
                     drawPath.push({x: mouseX, y: mouseY}); // finish drawPath
                     drawPath = solidifyPath(drawPath); // algorithmically fills gaps in the draw path to create a solid continuous line 
-                    drawCtx.fillStyle = activeColour.colour;
-                    drawPath.forEach(point => { drawCircle(drawCtx, point.x, point.y, Math.floor((drawDiameter*(drawCanvas.width / drawCanvas.clientWidth))/2)-1) });
-                }
+                    // drawCtx.fillStyle = ACTIVE_DRAW_LABEL_COLOUR.colour;
+                    // drawPath.forEach(point => { 
+                    //     drawCircle(drawCtx, point.x, point.y, Math.floor((drawDiameter*(drawCanvas.width / drawCanvas.clientWidth))/2)-1) 
+                    // });
+                } 
                 break;
             case "fill":
                 drawPath.forEach(point => {
@@ -491,6 +584,25 @@ function init() {
         // ctrl z: undo
         if (event.ctrlKey && event.key === 'z') {
             undo();
+        }
+
+        // Escape key: hide all toolbar list items
+        if (event.key === 'Escape') {
+            // Hide all toolbar-list-items elements
+            const toolbarListItems = document.querySelectorAll('.toolbar-list-items');
+            toolbarListItems.forEach(item => {
+                if (!item.classList.contains('hidden')) {
+                    item.classList.add('hidden');
+                }
+            });
+
+            // Also hide any search boxes
+            const searchBoxes = document.querySelectorAll('.search-box');
+            searchBoxes.forEach(box => {
+                if (!box.classList.contains('hidden')) {
+                    box.classList.add('hidden');
+                }
+            });
         } 
 
         var searchBox = document.getElementsByClassName('search-box')[0]
@@ -583,11 +695,11 @@ function init() {
         var inverted = rgbToHex(255-pixel[0], 255-pixel[1], 255-pixel[2])
         var pixelHex = rgbToHex(pixel[0], pixel[1], pixel[2]); // get colour as hex string
 
-        if(activeColour.colour === pixelHex) {
+        if(ACTIVE_DRAW_LABEL_COLOUR.colour === pixelHex) {
             // invert the colour of the cursor itself
             $('#cursor').css("border-color", inverted)
         } else {
-            $('#cursor').css("border-color", activeColour.colour)
+            $('#cursor').css("border-color", ACTIVE_DRAW_LABEL_COLOUR.colour)
 
         }
         
@@ -602,7 +714,7 @@ function init() {
 
             if(pixelHex === "#000000") {
                 $('#cursor-text').css("display", "none")
-            } else if(activeColour.colour !== pixelHex) {
+            } else if(ACTIVE_DRAW_LABEL_COLOUR.colour !== pixelHex) {
                 var label = colourLabelMap[pixelHex]
                 
                 drawColors.find((h, idx) => {
@@ -613,7 +725,7 @@ function init() {
                     }
                 })
     
-            } else if(activeColour.colour === pixelHex){
+            } else if(ACTIVE_DRAW_LABEL_COLOUR.colour === pixelHex){
                 $('#cursor-text').css("display", "none")
             }
             hoveredColour = pixelHex
@@ -629,11 +741,11 @@ function init() {
             const x = Math.round((e.clientX - rect.left) * drawCanvas.width / drawCanvas.clientWidth);
             const y = Math.round((e.clientY - rect.top) * drawCanvas.height / drawCanvas.clientHeight);
             
-            if (isDraggingPoint && draggedPointIndex !== -1) {
-                penPoints[draggedPointIndex] = { x, y };
+            if (PEN__IS_DRAGGING && PEN__DRAGGED_POINT_INDEX !== -1) {
+                PEN__POINTS[PEN__DRAGGED_POINT_INDEX] = { x, y };
                 updatePenDisplay();
-            } else if (isTransforming) {
-                performTransform(x, y);
+            } else if (PEN__IS_TRANSFORMING) {
+                performPenShapeTransform(x, y);
             }
         }
         
@@ -667,7 +779,7 @@ function init() {
 }
 
 function solidifyPath(path) {
-    drawCtx.fillStyle = activeColour.colour;
+    drawCtx.fillStyle = ACTIVE_DRAW_LABEL_COLOUR.colour;
     drawCtx.imageSmoothingEnabled = false; // Disable anti-aliasing to draw sharp circles
 
     // Calculate line width based on draw size and scaling factor, ensure it's not anti-aliased
@@ -806,7 +918,7 @@ function flood(x1, y1, mode=null) {
     // }
 
     // Color conversion for active color
-    let col = activeColour.colour.startsWith("#") ? activeColour.colour.slice(1) : activeColour.colour;
+    let col = ACTIVE_DRAW_LABEL_COLOUR.colour.startsWith("#") ? ACTIVE_DRAW_LABEL_COLOUR.colour.slice(1) : ACTIVE_DRAW_LABEL_COLOUR.colour;
     col = parseInt(col, 16);
     let red = (col >> 16) & 0xFF;
     let green = (col >> 8) & 0xFF;
@@ -824,7 +936,7 @@ function flood(x1, y1, mode=null) {
     console.log(`STARTING PIXEL: ${x1}, ${y1}: ${startPixelValue >> 24}`)
 
     if(mode !== null) {
-        drawCtx.fillStyle = activeColour.colour;
+        drawCtx.fillStyle = ACTIVE_DRAW_LABEL_COLOUR.colour;
     }
 
     while (floodStack.length > 0) {
@@ -946,25 +1058,13 @@ function draw() {
     //drawCtx.globalCompositeOperation = 'source-over';
     switch (INTERACTION_MODE) {
         case "draw":
-            if(leftClicked) {
-
-                if(svgPath) {
-                    scrollX = document.documentElement.scrollLeft;
-                    scrollY = document.documentElement.scrollTop;
-                    const scale = drawCanvas.width / drawCanvas.clientWidth;
-                    const currentPath = svgPath.getAttribute("d");
-                    svgPath.setAttribute("d", `${currentPath} L ${(mouseX/scale)-scrollX} ${(mouseY/scale)-scrollY}`);
-                    // drawPath.push({x: mouseX, y: mouseY});
-                }
-                // drawCtx.globalCompositeOperation = 'source-over'
-                // drawCtx.fillStyle = active.colour; 
-                // drawCircle(drawCtx, mouseX, mouseY, Math.floor((drawDiameter*(drawCanvas.width / drawCanvas.clientWidth))/2)-1)
-
-            } else if(rightClicked) {
-                drawCtx.globalCompositeOperation = 'destination-out' // this clears the canvas
-                drawCircle(drawCtx, mouseX, mouseY, Math.floor((drawDiameter*(drawCanvas.width / drawCanvas.clientWidth))/2)-1)
-                drawCtx.globalCompositeOperation = 'source-over';
-
+            if(leftClicked || rightClicked && svgPath) { // left click is draw, right is erase
+                scrollX = document.documentElement.scrollLeft;
+                scrollY = document.documentElement.scrollTop;
+                const scale = drawCanvas.width / drawCanvas.clientWidth;
+                const currentPath = svgPath.getAttribute("d");
+                svgPath.setAttribute("d", `${currentPath} L ${(mouseX/scale)-scrollX} ${(mouseY/scale)-scrollY}`);
+                // drawPath.push({x: mouseX, y: mouseY});
             }
             break;
         case "fill":
@@ -979,12 +1079,12 @@ init();
 
 
 
-function changeActiveColour(selection) {
-    activeColour = selection
-    drawCtx.fillStyle = activeColour.colour;
+function setDrawColour(selection) {
+    ACTIVE_DRAW_LABEL_COLOUR = selection
+    drawCtx.fillStyle = ACTIVE_DRAW_LABEL_COLOUR.colour;
     console.log("NEW ACTIVE: ", selection)
-    cursor.style.borderColor= activeColour.colour;
-    document.getElementById("cursor-size-slider").style.setProperty('--color', activeColour.colour);
+    cursor.style.borderColor= ACTIVE_DRAW_LABEL_COLOUR.colour;
+    document.getElementById("cursor-size-slider").style.setProperty('--color', ACTIVE_DRAW_LABEL_COLOUR.colour);
 
     if (INTERACTION_MODE === 'pen') {
         updatePenDisplay();
