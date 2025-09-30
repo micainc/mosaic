@@ -11,7 +11,8 @@
     "compile-cpp-win": "g++ -std=c++17 ./resources/slic.cpp -o ./resources/slic_win.exe",
     "compile-cpp-unix": "g++ -std=c++17 ./resources/slic.cpp -o ./resources/slic_unix && chmod +x ./resources/slic_unix",
     "compile-cpp": "npm run compile-cpp-win && npm run compile-cpp-unix",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "reinstall": "rm -rf node_modules && npm i"
   },
   "build": {
     "appId": "com.mica.mosaic",
@@ -19,7 +20,9 @@
     "executableName": "MOSAIC",
     "icon": "./src/public/img/icon",
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "identity": null
     },
     "files": [
