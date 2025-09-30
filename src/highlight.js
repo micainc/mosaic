@@ -168,7 +168,7 @@ function applyActiveColourToHighlighted() {
     // Get current canvas data
     const imageData = drawCtx.getImageData(0, 0, width, height);
     
-    let col = activeColour.colour.startsWith("#") ? activeColour.colour.slice(1) : activeColour.colour;
+    let col = ACTIVE_DRAW_LABEL_COLOUR.colour.startsWith("#") ? ACTIVE_DRAW_LABEL_COLOUR.colour.slice(1) : ACTIVE_DRAW_LABEL_COLOUR.colour;
     col = parseInt(col, 16);
     let red = (col >> 16) & 0xFF;
     let green = (col >> 8) & 0xFF;

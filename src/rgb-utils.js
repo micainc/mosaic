@@ -16,7 +16,7 @@ function hexToRGB(hex) {
   } : null;
 }
 
-function invertHex(hex) {
+function getBlackWhiteContrast(hex) {
   if (hex.indexOf('#') === 0) {
     hex = hex.slice(1);
   }
@@ -39,7 +39,7 @@ function invertHex(hex) {
 
   // if the brightness is low, use white color; if it's high, use black color
   if (brightness < 127) {
-    return '#ffffff';
+    return '#FFFFFF';
   } else {
     return '#000000';
   }
