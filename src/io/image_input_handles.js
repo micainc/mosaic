@@ -73,6 +73,12 @@ function processSegmentationLayer(file) {
                     drawCanvas.width = img.width;
                     drawCanvas.height = img.height;
                     dimensionsSet = true;
+
+                    // Reinitialize anchored mask canvas with new dimensions
+                    if (typeof initAnchoredMaskCanvas === 'function') {
+                        initAnchoredMaskCanvas();
+                    }
+
                     drawCtx.drawImage(img, 0, 0);
                     
                     // ✅ Convert #7F7F7F pixels to #000000
@@ -169,6 +175,11 @@ function processImageLayer(file) {
             if(!dimensionsSet) {
                 drawCanvas.width = tempImg.naturalWidth;
                 drawCanvas.height = tempImg.naturalHeight;
+
+                // Reinitialize anchored mask canvas with new dimensions
+                if (typeof initAnchoredMaskCanvas === 'function') {
+                    initAnchoredMaskCanvas();
+                }
                 
                 const baseImg = document.getElementById('base-image');
                 baseImg.src = displayUrl;

@@ -1,24 +1,24 @@
 // Add these variables at the top with other globals
-var penPoints = [];
+var PEN__POINTS = [];
+var PEN__IS_DRAGGING = false;
+var PEN__DRAGGED_POINT_INDEX = -1;
+var PEN__IS_TRANSFORMING = false;
+
 var penSVGGroup = null;
 var penPolygon = null;
 var penLines = null;
 var penCircles = [];
-var isDraggingPoint = false;
-var draggedPointIndex = -1;
+
 var penPointRadius = 6;
-
-
 var penBoundingBox = null;
 var penTransformHandles = [];
 var penRotationHandle = null;
-var isTransforming = false;
 var transformType = ''; // 'scale-tl', 'scale-tr', 'scale-bl', 'scale-br', 'rotate'
 var transformStartPoint = {x: 0, y: 0};
 var transformCenter = {x: 0, y: 0};
 var originalPenPoints = [];
 var currentRotation = 0;
-var handleSize = 8;
+var HANDLE_SIZE = 6;
 
 
 function initPenMode() {
@@ -31,7 +31,7 @@ function initPenMode() {
 }
 
 function clearPenMode() {
-    penPoints = [];
+    PEN__POINTS = [];
     if (penSVGGroup) {
         while (penSVGGroup.firstChild) {
             penSVGGroup.removeChild(penSVGGroup.firstChild);
@@ -40,8 +40,8 @@ function clearPenMode() {
     penPolygon = null;
     penLines = null;
     penCircles = [];
-    isDraggingPoint = false;
-    draggedPointIndex = -1;
+    PEN__IS_DRAGGING = false;
+    PEN__DRAGGED_POINT_INDEX = -1;
 }
 
 function updatePenDisplay() {
@@ -52,7 +52,7 @@ function updatePenDisplay() {
     penCircles = [];
     penTransformHandles = [];
     
-    if (penPoints.length === 0) return;
+    if (PEN__POINTS.length === 0) return;
     
     const scale = drawCanvas.width / drawCanvas.clientWidth;
     const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
@@ -62,7 +62,7 @@ function updatePenDisplay() {
     let minX = Infinity, minY = Infinity;
     let maxX = -Infinity, maxY = -Infinity;
     
-    penPoints.forEach(point => {
+    PEN__POINTS.forEach(point => {
         minX = Math.min(minX, point.x);
         minY = Math.min(minY, point.y);
         maxX = Math.max(maxX, point.x);
@@ -76,31 +76,31 @@ function updatePenDisplay() {
     };
     
     // Create polygon fill (0.5 opacity)
-    if (penPoints.length >= 3) {
+    if (PEN__POINTS.length >= 3) {
         penPolygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-        const points = penPoints.map(p => 
+        const points = PEN__POINTS.map(p => 
             `${(p.x/scale)-scrollX},${(p.y/scale)-scrollY}`
         ).join(" ");
         penPolygon.setAttribute("points", points);
-        penPolygon.setAttribute("fill", activeColour.colour);
+        penPolygon.setAttribute("fill", ACTIVE_DRAW_LABEL_COLOUR.colour);
         penPolygon.setAttribute("fill-opacity", "0.5");
         penPolygon.setAttribute("stroke", "none");
         penSVGGroup.appendChild(penPolygon);
     }
     
     // Create lines (opacity 1)
-    if (penPoints.length >= 2) {
+    if (PEN__POINTS.length >= 2) {
         penLines = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        let pathData = `M ${(penPoints[0].x/scale)-scrollX} ${(penPoints[0].y/scale)-scrollY}`;
+        let pathData = `M ${(PEN__POINTS[0].x/scale)-scrollX} ${(PEN__POINTS[0].y/scale)-scrollY}`;
         
-        for (let i = 1; i < penPoints.length; i++) {
-            pathData += ` L ${(penPoints[i].x/scale)-scrollX} ${(penPoints[i].y/scale)-scrollY}`;
+        for (let i = 1; i < PEN__POINTS.length; i++) {
+            pathData += ` L ${(PEN__POINTS[i].x/scale)-scrollX} ${(PEN__POINTS[i].y/scale)-scrollY}`;
         }
         
         pathData += " Z";
         
         penLines.setAttribute("d", pathData);
-        penLines.setAttribute("stroke", activeColour.colour);
+        penLines.setAttribute("stroke", ACTIVE_DRAW_LABEL_COLOUR.colour);
         penLines.setAttribute("stroke-width", "2");
         penLines.setAttribute("fill", "none");
         penLines.setAttribute("stroke-opacity", "1");
@@ -131,10 +131,10 @@ function updatePenDisplay() {
     
     corners.forEach(corner => {
         const handle = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        handle.setAttribute("x", (corner.x/scale) - scrollX - handleSize/2);
-        handle.setAttribute("y", (corner.y/scale) - scrollY - handleSize/2);
-        handle.setAttribute("width", handleSize);
-        handle.setAttribute("height", handleSize);
+        handle.setAttribute("x", (corner.x/scale) - scrollX - HANDLE_SIZE/2);
+        handle.setAttribute("y", (corner.y/scale) - scrollY - HANDLE_SIZE/2);
+        handle.setAttribute("width", HANDLE_SIZE);
+        handle.setAttribute("height", HANDLE_SIZE);
         handle.setAttribute("fill", "#ffffff");
         handle.style.cursor = corner.cursor;
         handle.style.pointerEvents = "all";
@@ -172,7 +172,7 @@ function updatePenDisplay() {
     penRotationHandle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     penRotationHandle.setAttribute("cx", (rotateX/scale) - scrollX);
     penRotationHandle.setAttribute("cy", (rotateY/scale) - scrollY);
-    penRotationHandle.setAttribute("r", handleSize/2);
+    penRotationHandle.setAttribute("r", HANDLE_SIZE/2);
     penRotationHandle.setAttribute("fill", "#ffffff");
 
     penRotationHandle.style.cursor = "grab";
@@ -189,12 +189,12 @@ function updatePenDisplay() {
     penSVGGroup.appendChild(penRotationHandle);
     
     // Create point handles
-    penPoints.forEach((point, index) => {
+    PEN__POINTS.forEach((point, index) => {
         const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
         circle.setAttribute("cx", (point.x/scale)-scrollX);
         circle.setAttribute("cy", (point.y/scale)-scrollY);
         circle.setAttribute("r", penPointRadius);
-        circle.setAttribute("fill", activeColour.colour);
+        circle.setAttribute("fill", ACTIVE_DRAW_LABEL_COLOUR.colour);
         circle.setAttribute("stroke", "#ffffff");
         circle.setAttribute("stroke-width", "1");
         circle.style.cursor = "move";
@@ -204,15 +204,15 @@ function updatePenDisplay() {
         circle.addEventListener('mousedown', function(e) {
             if (e.button === 0) {
                 e.stopPropagation();
-                isDraggingPoint = true;
-                draggedPointIndex = index;
+                PEN__IS_DRAGGING = true;
+                PEN__DRAGGED_POINT_INDEX = index;
             }
         });
         
         circle.addEventListener('contextmenu', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            penPoints.splice(index, 1);
+            PEN__POINTS.splice(index, 1);
             updatePenDisplay();
         });
         
@@ -223,7 +223,7 @@ function updatePenDisplay() {
 
 // Transform functions
 function startTransform(type, e) {
-    isTransforming = true;
+    PEN__IS_TRANSFORMING = true;
     transformType = type;
     
     const rect = drawCanvas.getBoundingClientRect();
@@ -232,14 +232,14 @@ function startTransform(type, e) {
         y: (e.clientY - rect.top) * drawCanvas.height / drawCanvas.clientHeight
     };
     
-    originalPenPoints = penPoints.map(p => ({...p}));
+    originalPenPoints = PEN__POINTS.map(p => ({...p}));
     
     if (type === 'rotate') {
         penRotationHandle.style.cursor = "grabbing";
     }
 }
 
-function performTransform(currentX, currentY) {
+function performPenShapeTransform(currentX, currentY) {
     if (transformType.startsWith('scale-')) {
         const corner = transformType.split('-')[1];
         
@@ -293,7 +293,7 @@ function performTransform(currentX, currentY) {
         const scale = Math.max(0.1, Math.min(scaleX, scaleY));
         
         // Transform all points
-        penPoints = originalPenPoints.map(p => ({
+        PEN__POINTS = originalPenPoints.map(p => ({
             x: Math.round(anchorX + (p.x - anchorX) * scale),
             y: Math.round(anchorY + (p.y - anchorY) * scale)
         }));
@@ -324,7 +324,7 @@ function performTransform(currentX, currentY) {
         const cos = Math.cos(deltaAngle);
         const sin = Math.sin(deltaAngle);
         
-        penPoints = originalPenPoints.map(p => {
+        PEN__POINTS = originalPenPoints.map(p => {
             const dx = p.x - centerX;
             const dy = p.y - centerY;
             
@@ -344,9 +344,9 @@ function getPointAtPosition(x, y) {
     const scale = drawCanvas.width / drawCanvas.clientWidth;
     const threshold = penPointRadius * scale * 2;
     
-    for (let i = 0; i < penPoints.length; i++) {
-        const dx = penPoints[i].x - x;
-        const dy = penPoints[i].y - y;
+    for (let i = 0; i < PEN__POINTS.length; i++) {
+        const dx = PEN__POINTS[i].x - x;
+        const dy = PEN__POINTS[i].y - y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
         if (distance <= threshold) {
@@ -357,7 +357,7 @@ function getPointAtPosition(x, y) {
 }
 
 function getLineInsertIndex(x, y) {
-    if (penPoints.length < 2) return -1;
+    if (PEN__POINTS.length < 2) return -1;
     
     const scale = drawCanvas.width / drawCanvas.clientWidth;
     const threshold = 10 * scale; // Distance threshold for line clicking
@@ -365,9 +365,9 @@ function getLineInsertIndex(x, y) {
     let minDistance = Infinity;
     let insertIndex = -1;
     
-    for (let i = 0; i < penPoints.length; i++) {
-        const p1 = penPoints[i];
-        const p2 = penPoints[(i + 1) % penPoints.length];
+    for (let i = 0; i < PEN__POINTS.length; i++) {
+        const p1 = PEN__POINTS[i];
+        const p2 = PEN__POINTS[(i + 1) % PEN__POINTS.length];
         
         const distance = pointToLineDistance(x, y, p1.x, p1.y, p2.x, p2.y);
         
@@ -419,25 +419,25 @@ function pointToLineDistance(px, py, x1, y1, x2, y2) {
 
 
 function rasterizePenShape() {
-    if (penPoints.length < 3) return;
+    if (PEN__POINTS.length < 3) return;
     
     // Save state for undo first
     saveState();
     
     // Create an offscreen canvas
-    const offCanvas = document.createElement('canvas');
+    const offCanvas = new OffscreenCanvas(drawCanvas.width, drawCanvas.height);
     offCanvas.width = drawCanvas.width;
     offCanvas.height = drawCanvas.height;
     const offCtx = offCanvas.getContext('2d');
     
     offCtx.imageSmoothingEnabled = false;
     
-    offCtx.fillStyle = activeColour.colour;
+    offCtx.fillStyle = ACTIVE_DRAW_LABEL_COLOUR.colour;
     offCtx.beginPath();
-    offCtx.moveTo(penPoints[0].x, penPoints[0].y);
+    offCtx.moveTo(PEN__POINTS[0].x, PEN__POINTS[0].y);
     
-    for (let i = 1; i < penPoints.length; i++) {
-        offCtx.lineTo(penPoints[i].x, penPoints[i].y);
+    for (let i = 1; i < PEN__POINTS.length; i++) {
+        offCtx.lineTo(PEN__POINTS[i].x, PEN__POINTS[i].y);
     }
     
     offCtx.closePath();
@@ -448,7 +448,7 @@ function rasterizePenShape() {
     const data = imageData.data;
     
     // Convert active color to RGB
-    let col = activeColour.colour.startsWith("#") ? activeColour.colour.slice(1) : activeColour.colour;
+    let col = ACTIVE_DRAW_LABEL_COLOUR.colour.startsWith("#") ? ACTIVE_DRAW_LABEL_COLOUR.colour.slice(1) : ACTIVE_DRAW_LABEL_COLOUR.colour;
     col = parseInt(col, 16);
     const r = (col >> 16) & 0xFF;
     const g = (col >> 8) & 0xFF;
@@ -473,81 +473,117 @@ function rasterizePenShape() {
     // Copy to main canvas
     drawCtx.imageSmoothingEnabled = false;
     drawCtx.drawImage(offCanvas, 0, 0);
+    reapplyAnchoredMask()
 }
 
 function erasePenShape() {
-    if (penPoints.length < 3) return;
-    
+    if (PEN__POINTS.length < 3) return;
+
     // Save state for undo first
     saveState();
-    
-    // Save current composite operation
-    const previousOperation = drawCtx.globalCompositeOperation;
-    
-    // Set to destination-out to erase pixels
-    drawCtx.globalCompositeOperation = 'destination-out';
-    drawCtx.imageSmoothingEnabled = false;
-    
-    // Draw the shape to erase
-    drawCtx.beginPath();
-    drawCtx.moveTo(penPoints[0].x, penPoints[0].y);
-    
-    for (let i = 1; i < penPoints.length; i++) {
-        drawCtx.lineTo(penPoints[i].x, penPoints[i].y);
+
+    // Create an offscreen canvas to draw the shape
+    const offCanvas = new OffscreenCanvas(drawCanvas.width, drawCanvas.height);
+    offCanvas.width = drawCanvas.width;
+    offCanvas.height = drawCanvas.height;
+    const offCtx = offCanvas.getContext('2d');
+
+    // Disable anti-aliasing
+    offCtx.imageSmoothingEnabled = false;
+
+    // Draw the shape in black (we just need the shape, color doesn't matter)
+    offCtx.fillStyle = '#000000';
+    offCtx.beginPath();
+    offCtx.moveTo(PEN__POINTS[0].x, PEN__POINTS[0].y);
+
+    for (let i = 1; i < PEN__POINTS.length; i++) {
+        offCtx.lineTo(PEN__POINTS[i].x, PEN__POINTS[i].y);
     }
-    
-    drawCtx.closePath();
-    drawCtx.fill();
-    
-    // Restore the previous composite operation
-    drawCtx.globalCompositeOperation = previousOperation;
-    
+
+    offCtx.closePath();
+    offCtx.fill();
+
+    // Get the mask image data
+    const maskData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height);
+    const mask = maskData.data;
+
+    // Get the main canvas image data
+    const imageData = drawCtx.getImageData(0, 0, drawCanvas.width, drawCanvas.height);
+    const data = imageData.data;
+
+    // Process pixels: wherever the mask has ANY value (even partial from anti-aliasing),
+    // completely clear that pixel in the main image
+    for (let i = 0; i < data.length; i += 4) {
+        // Check if this pixel has any opacity in the mask (using the alpha channel)
+        if (mask[i + 3] > 0) {
+            // Completely erase this pixel (set all channels to 0)
+            data[i] = 0;       // Red
+            data[i + 1] = 0;   // Green
+            data[i + 2] = 0;   // Blue
+            data[i + 3] = 0;   // Alpha - completely transparent
+        }
+    }
+
+    // Put the modified image data back
+    drawCtx.putImageData(imageData, 0, 0);
+    reapplyAnchoredMask()
+
     // Clear the pen points after erasing
     clearPenMode();
 }
 
 function cropPenShape() {
-    if (penPoints.length < 3) return;
-    
+    if (PEN__POINTS.length < 3) return;
+
     // Save state for undo first
     saveState();
-    
-    // Create an offscreen canvas to define the mask
-    const maskCanvas = document.createElement('canvas');
+
+    // Create an offscreen canvas to draw the shape that we want to KEEP
+    const maskCanvas = new OffscreenCanvas(drawCanvas.width, drawCanvas.height);
     maskCanvas.width = drawCanvas.width;
     maskCanvas.height = drawCanvas.height;
     const maskCtx = maskCanvas.getContext('2d');
-    
+
+    // Disable anti-aliasing
     maskCtx.imageSmoothingEnabled = false;
-    
-    // Fill the entire canvas with white (what we want to erase)
-    maskCtx.fillStyle = 'white';
-    maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
-    
-    // Cut out the pen shape (what we want to keep) using destination-out
-    maskCtx.globalCompositeOperation = 'destination-out';
+
+    // Draw the pen shape in black (the area we want to keep)
+    maskCtx.fillStyle = '#000000';
     maskCtx.beginPath();
-    maskCtx.moveTo(penPoints[0].x, penPoints[0].y);
-    
-    for (let i = 1; i < penPoints.length; i++) {
-        maskCtx.lineTo(penPoints[i].x, penPoints[i].y);
+    maskCtx.moveTo(PEN__POINTS[0].x, PEN__POINTS[0].y);
+
+    for (let i = 1; i < PEN__POINTS.length; i++) {
+        maskCtx.lineTo(PEN__POINTS[i].x, PEN__POINTS[i].y);
     }
-    
+
     maskCtx.closePath();
     maskCtx.fill();
-    
-    // Now apply this mask to the main canvas
-    // Save current composite operation
-    const previousOperation = drawCtx.globalCompositeOperation;
-    
-    // Use destination-out to erase where the mask is white
-    drawCtx.globalCompositeOperation = 'destination-out';
-    drawCtx.imageSmoothingEnabled = false;
-    drawCtx.drawImage(maskCanvas, 0, 0);
-    
-    // Restore the previous composite operation
-    drawCtx.globalCompositeOperation = previousOperation;
-    
+
+    // Get the mask image data
+    const maskData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+    const mask = maskData.data;
+
+    // Get the main canvas image data
+    const imageData = drawCtx.getImageData(0, 0, drawCanvas.width, drawCanvas.height);
+    const data = imageData.data;
+
+    // Process pixels: clear everything OUTSIDE the pen shape
+    // If the mask has NO opacity (alpha = 0), it means it's outside the shape, so erase it
+    for (let i = 0; i < data.length; i += 4) {
+        // Check if this pixel is OUTSIDE the shape (mask has no opacity)
+        if (mask[i + 3] === 0) {
+            // Completely erase this pixel (set all channels to 0)
+            data[i] = 0;       // Red
+            data[i + 1] = 0;   // Green
+            data[i + 2] = 0;   // Blue
+            data[i + 3] = 0;   // Alpha - completely transparent
+        }
+    }
+
+    // Put the modified image data back
+    drawCtx.putImageData(imageData, 0, 0);
+    reapplyAnchoredMask()
+
     // Clear the pen points after cropping
     clearPenMode();
 }

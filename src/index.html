@@ -26,6 +26,7 @@
                     await loadScript('../node_modules/jquery-ui/dist/jquery-ui.min.js');
                     console.log('jQuery and jQuery UI loaded');
 
+                    await loadScript('./anchoring.js');
                     await loadScript('./loadouts.js');
                     await loadScript('./rgb-utils.js');
                     await loadScript('./classifier.js');
@@ -70,7 +71,7 @@
 
                 <button class="toolbar-button" onclick="undo()" data-tooltip="Undo..."><img width="20px" src="./public/img/undo.png"/></button>
                 <button class="toolbar-button" onclick="openStatsWindow()" data-tooltip="Stats..."><img width="20px" src="./public/img/bar-chart.png"/></button>
-                <button class="toolbar-button tool" onclick="setMode('select', this) " data-tooltip="Select segments of class..."><img width="20px" src="./public/img/pipette.png"/></button>
+                <button class="toolbar-button tool" onclick="setMode('select', this) " data-tooltip="Reclass"><img width="20px" src="./public/img/pipette.png"/></button>
                 <button class="toolbar-button tool selected-tool" onclick="setMode('draw', this)" data-tooltip="Pencil"><img width="20px" src="./public/img/pencil.svg"/></button>
                 <button class="toolbar-button tool" onclick="setMode('pen', this)" data-tooltip="Pen"><img width="20px" src="./public/img/pen.svg"/></button>
                 <button class="toolbar-button tool" onclick="setMode('fill', this)" data-tooltip="Fill"><img width="20px" src="./public/img/bucket.png"/></button>
@@ -85,7 +86,6 @@
                 </div>
                 <div class="toolbar-list" id="labels">
                     <div class="toolbar-list-items hidden"></div>
-
                 </div>
             
             </div>
