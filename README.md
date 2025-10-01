@@ -72,8 +72,8 @@ Expected output
   ```
 ### Troubleshooting Common Issues on Windows
 - npm fails with node-gyp error
-  - You need to install the latest version of Visual Studio including the "Desktop development with C++" workload" 
-  - Steps to resolve the error:
+  - You need to install the latest version of Visual Studio including the "Desktop development with C++" workload" <br>
+    Steps to resolve the error:
     1. Search for "Visual Studio Installer" in the Windows search bar and open it.
     2. Locate your installed version of Visual Studio and click the "Modify" button.
     3. In the Visual Studio Installer, navigate to the **Workloads** tab.
@@ -82,6 +82,14 @@ Optionally, ensure that a recent **Windows SDK** is also selected in the install
     4. Click the "Modify" or "Install" button in the installer to begin the installation process.
     5. Delete node_modules and package-lock.json by running ```rm -rf node_modules package-lock.json```
     6. rerun the install command ```npm i```
+- running `npm start` loads the app but the logs show this error  
+  - **FAILED TO LOAD TFJS-NODE**: Error: The specified module could not be found. \\?~\node_modules\@tensorflow\tfjs-node\lib\napi-v8\tfjs_binding.node <br>
+    Steps to resolve the error:
+    1.  Missing build dependencies on Windows: When a precompiled binary isn't available, tfjs-node will attempt to compile from source. 
+        - Install the Visual Studio Build Tools, including the "Desktop development with C++" workload.
+        - Make sure you have Python installed and configured correctly in your system's PATH.
+    2. This issue, where the tensorflow.dll and tfjs_binding.node files are in different napi-v* folders 
+        - ```cp node_modules/@tensorflow/tfjs-node/lib/napi-v9/tensorflow.dll node_modules/@tensorflow/tfjs-node/lib/napi-v8/```
 
 
 
