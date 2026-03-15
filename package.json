@@ -1,126 +1,30 @@
 {
   "name": "mosaic",
-  "productName": "mosaic",
-  "version": "1.0.3",
+  "private": true,
+  "version": "2.0.0",
   "description": "Generate pixel maps for machine learning projects! Do segmentation and classification FAST!",
-  "main": "main.js",
+  "type": "module",
   "scripts": {
-    "start": "electron .",
-    "package": "electron-builder --dir",
-    "build": "electron-builder build --mac",
-    "compile-cpp-win": "g++ -std=c++17 ./resources/slic.cpp -o ./resources/slic_win.exe",
-    "compile-cpp-unix": "g++ -std=c++17 ./resources/slic.cpp -o ./resources/slic_unix && chmod +x ./resources/slic_unix",
-    "compile-cpp": "npm run compile-cpp-win && npm run compile-cpp-unix",
-    "postinstall": "electron-builder install-app-deps",
-    "reinstall": "rm -rf node_modules && npm i"
-  },
-  "build": {
-    "appId": "com.mica.mosaic",
-    "productName": "MOSAIC",
-    "executableName": "MOSAIC",
-    "icon": "./src/public/img/icon",
-    "mac": {
-      "target": [
-        "dmg"
-      ],
-      "identity": null
-    },
-    "files": [
-      "**/*"
-    ],
-    "asar": {
-      "smartUnpack": true
-    },
-    "asarUnpack": [
-      "**/*.node",
-      "models/**/*",
-      "node_modules/@tensorflow/**/*"
-    ],
-    "extraResources": [
-      {
-        "from": "./cpp",
-        "to": "cpp",
-        "filter": [
-          "slic_unix"
-        ]
-      },
-      {
-        "from": "models",
-        "to": "models",
-        "filter": [
-          "**/*"
-        ]
-      },
-      {
-        "from": "./node_modules/@tensorflow/tfjs-node/deps/lib",
-        "to": "deps/lib"
-      },
-      {
-        "from": "./node_modules/@tensorflow/tfjs-node/lib/napi-v8",
-        "to": "napi-v8"
-      },
-      {
-        "from": "node_modules/@tensorflow/tfjs-core",
-        "to": "node_modules/@tensorflow/tfjs-core"
-      },
-      {
-        "from": "node_modules/@tensorflow/tfjs-layers",
-        "to": "node_modules/@tensorflow/tfjs-layers"
-      },
-      {
-        "from": "node_modules/@tensorflow/tfjs-converter",
-        "to": "node_modules/@tensorflow/tfjs-converter"
-      },
-      {
-        "from": "node_modules/@tensorflow/tfjs-node",
-        "to": "node_modules/@tensorflow/tfjs-node"
-      },
-      {
-        "from": "node_modules/three/build",
-        "to": "three/build"
-      },
-      {
-        "from": "node_modules/three/examples/jsm",
-        "to": "three/examples/jsm"
-      }
-    ],
-    "directories": {
-      "output": "dist"
-    }
-  },
-  "config": {
-    "forge": {
-      "makers": [],
-      "publishers": []
-    }
+    "dev": "vite",
+    "start": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
   },
   "keywords": [],
   "author": "kfilyk <kelvinfilyk@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "@tensorflow/tfjs": "^4.22.0",
-    "@tensorflow/tfjs-converter": "^4.22.0",
-    "@tensorflow/tfjs-core": "^4.22.0",
-    "@tensorflow/tfjs-layers": "^4.22.0",
-    "@tensorflow/tfjs-node": "^4.21.0",
+    "@reduxjs/toolkit": "^2.5.0",
     "chart.js": "^4.4.7",
-    "electron-log": "^5.2.0",
-    "electron-squirrel-startup": "^1.0.1",
-    "electron-store": "^8.1.0",
-    "jquery": "^3.7.1",
-    "jquery-ui": "^1.14.0",
-    "path": "^0.12.7",
-    "three": "^0.172.0"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-redux": "^9.2.0"
   },
   "devDependencies": {
-    "@electron-forge/plugin-auto-unpack-natives": "^7.6.0",
-    "@electron-forge/plugin-fuses": "^7.6.0",
-    "@electron-forge/plugin-webpack": "^7.5.0",
-    "@electron/fuses": "^1.8.0",
-    "css-loader": "^7.1.2",
-    "electron": "^32.1.2",
-    "electron-builder": "^25.1.8",
-    "electron-rebuild": "^3.2.9",
-    "style-loader": "^4.0.0"
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0"
   }
 }
