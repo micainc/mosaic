@@ -144,7 +144,7 @@ const LabelSelector: React.FC = () => {
               >
                 <span>{label}</span>
                 <img
-                  src="/img/anchor.svg"
+                  src={`${import.meta.env.BASE_URL}img/anchor.svg`}
                   alt="Anchor"
                   className={`loadout-label-anchor${isAnchored ? ' active' : ''}`}
                   style={{
