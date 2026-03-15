@@ -43,6 +43,10 @@ button, select {
     opacity: 0.5;
 }
 
+button > img {
+    filter: invert(1);
+}
+
 button:hover, select:hover {
     opacity: 1;
 }
