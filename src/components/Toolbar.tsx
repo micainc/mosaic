@@ -36,7 +36,9 @@ const Toolbar: React.FC = () => {
       )}
 
       <div id="toolbar">
-        <div id="toolbar-paths">
+        <div id="toolbar-left">
+          <span className='app-name'><b>MOSAIC</b></span>
+
           <button
             id="save-segmentation-map"
             className="toolbar-button"
