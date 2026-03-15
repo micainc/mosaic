@@ -1,8 +1,23 @@
+@font-face {                                                                                                                       
+    font-family: 'Geist Mono';                                                                                                     
+    src: url('./fonts/GeistMono.woff2') format('woff2');
+    font-weight: 100 900;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Geist Mono';
+    src: url('./fonts/GeistMono-Italic.woff2') format('woff2');                                                                     
+    font-weight: 100 900;                                                                                                          
+    font-style: italic;                                                                                                            
+}                                                                                                                                  
+           
+
 * {
     -webkit-print-color-adjust: exact !important;
     color-adjust: exact !important;
     print-color-adjust: exact !important;
-    font-size: 13px;
+    font-size: 12px;
     font-family: "IBM Plex Mono";
 }
 
@@ -51,6 +66,13 @@ button:hover, select:hover {
     opacity: 1;
 }
 
+.app-name * {
+    font-size: 16px;
+    padding:0px 8px;
+    opacity:1;
+    font-family: 'Geist Mono' !important;
+}
+
 #toolbar {
     display: flex;
     position: fixed;
@@ -62,9 +84,9 @@ button:hover, select:hover {
     width: 100%;
 }
 
-#toolbar-paths {
+#toolbar-left {
     display: flex;
-    margin-left: 10px;
+    margin-left: 8px;
     border: none;
     align-items: center;
 }
