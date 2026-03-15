@@ -43,10 +43,6 @@ button, select {
     opacity: 0.5;
 }
 
-button:not(#save-segmentation-map) > img {
-    filter: invert(1);
-}
-
 button:hover, select:hover {
     opacity: 1;
 }
