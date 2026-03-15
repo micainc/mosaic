@@ -45,7 +45,7 @@ const Toolbar: React.FC = () => {
             onMouseEnter={showTooltip}
             onMouseLeave={hideTooltip}
           >
-            <img src={`${import.meta.env.BASE_URL}img/save_map.png`} alt="Save Segmentation Map" />
+            <img src={`${import.meta.env.BASE_URL}img/save_map.svg`} alt="Save Segmentation Map" />
           </button>
           <button
             className="toolbar-button"
@@ -54,7 +54,7 @@ const Toolbar: React.FC = () => {
             onMouseEnter={showTooltip}
             onMouseLeave={hideTooltip}
           >
-            <img src={`${import.meta.env.BASE_URL}img/save_folder.png`} alt="Save Tiles" />
+            <img src={`${import.meta.env.BASE_URL}img/download.svg`} alt="Save Tiles" />
           </button>
         </div>
 
