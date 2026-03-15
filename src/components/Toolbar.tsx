@@ -84,7 +84,7 @@ const Toolbar: React.FC = () => {
             onMouseEnter={showTooltip}
             onMouseLeave={hideTooltip}
           >
-            <img src={`${import.meta.env.BASE_URL}img/undo.png`} alt="Undo" />
+            <img src={`${import.meta.env.BASE_URL}img/undo.svg`} alt="Undo" />
           </button>
 
           <button
@@ -94,7 +94,7 @@ const Toolbar: React.FC = () => {
             onMouseEnter={showTooltip}
             onMouseLeave={hideTooltip}
           >
-            <img src={`${import.meta.env.BASE_URL}img/pipette.png`} alt="Reclass" />
+            <img src={`${import.meta.env.BASE_URL}img/pipette.svg`} alt="Reclass" />
           </button>
           <button
             className={`toolbar-button tool${interactionMode === 'draw' ? ' selected-tool' : ''}`}
@@ -121,7 +121,7 @@ const Toolbar: React.FC = () => {
             onMouseEnter={showTooltip}
             onMouseLeave={hideTooltip}
           >
-            <img src={`${import.meta.env.BASE_URL}img/bucket.png`} alt="Fill" />
+            <img src={`${import.meta.env.BASE_URL}img/bucket.svg`} alt="Fill" />
           </button>
 
           <input
