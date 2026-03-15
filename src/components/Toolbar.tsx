@@ -45,7 +45,7 @@ const Toolbar: React.FC = () => {
             onMouseEnter={showTooltip}
             onMouseLeave={hideTooltip}
           >
-            <img src={`${import.meta.env.BASE_URL}img/save_map.svg`} alt="Save Segmentation Map" />
+            <img src={`${import.meta.env.BASE_URL}img/segmentation_map.svg`} alt="Save Segmentation Map" />
           </button>
           <button
             className="toolbar-button"
