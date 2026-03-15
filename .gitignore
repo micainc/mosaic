@@ -91,7 +91,6 @@ typings/
 out/
 outputs/
 models/**
-dist/
 
 #ignore ALL images (png, jpg, jpeg, gif) EXCEPT in the public folder:
 *.png
