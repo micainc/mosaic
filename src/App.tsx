@@ -11,7 +11,7 @@ const App: React.FC = () => {
       <Toolbar />
       {!hasLayers && (
         <span id="no-layers-tip">
-          <img src="/img/drag_and_drop.png" alt="drag and drop" />
+          <img src={`${import.meta.env.BASE_URL}img/drag_and_drop.png`} alt="drag and drop" />
           Drag image layers in...
         </span>
       )}

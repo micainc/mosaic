@@ -45,7 +45,7 @@ const Toolbar: React.FC = () => {
             onMouseEnter={showTooltip}
             onMouseLeave={hideTooltip}
           >
-            <img src="/img/save_map.png" alt="Save Segmentation Map" />
+            <img src={`${import.meta.env.BASE_URL}img/save_map.png`} alt="Save Segmentation Map" />
           </button>
           <button
             className="toolbar-button"
@@ -54,7 +54,7 @@ const Toolbar: React.FC = () => {
             onMouseEnter={showTooltip}
             onMouseLeave={hideTooltip}
           >
-            <img src="/img/save_folder.png" alt="Save Tiles" />
+            <img src={`${import.meta.env.BASE_URL}img/save_folder.png`} alt="Save Tiles" />
           </button>
         </div>
 
@@ -84,7 +84,7 @@ const Toolbar: React.FC = () => {
             onMouseEnter={showTooltip}
             onMouseLeave={hideTooltip}
           >
-            <img src="/img/undo.png" alt="Undo" />
+            <img src={`${import.meta.env.BASE_URL}img/undo.png`} alt="Undo" />
           </button>
 
           <button
@@ -94,7 +94,7 @@ const Toolbar: React.FC = () => {
             onMouseEnter={showTooltip}
             onMouseLeave={hideTooltip}
           >
-            <img src="/img/pipette.png" alt="Reclass" />
+            <img src={`${import.meta.env.BASE_URL}img/pipette.png`} alt="Reclass" />
           </button>
           <button
             className={`toolbar-button tool${interactionMode === 'draw' ? ' selected-tool' : ''}`}
@@ -103,7 +103,7 @@ const Toolbar: React.FC = () => {
             onMouseEnter={showTooltip}
             onMouseLeave={hideTooltip}
           >
-            <img src="/img/pencil.svg" alt="Pencil" />
+            <img src={`${import.meta.env.BASE_URL}img/pencil.svg`} alt="Pencil" />
           </button>
           <button
             className={`toolbar-button tool${interactionMode === 'pen' ? ' selected-tool' : ''}`}
@@ -112,7 +112,7 @@ const Toolbar: React.FC = () => {
             onMouseEnter={showTooltip}
             onMouseLeave={hideTooltip}
           >
-            <img src="/img/pen.svg" alt="Pen" />
+            <img src={`${import.meta.env.BASE_URL}img/pen.svg`} alt="Pen" />
           </button>
           <button
             className={`toolbar-button tool${interactionMode === 'fill' ? ' selected-tool' : ''}`}
@@ -121,7 +121,7 @@ const Toolbar: React.FC = () => {
             onMouseEnter={showTooltip}
             onMouseLeave={hideTooltip}
           >
-            <img src="/img/bucket.png" alt="Fill" />
+            <img src={`${import.meta.env.BASE_URL}img/bucket.png`} alt="Fill" />
           </button>
 
           <input
