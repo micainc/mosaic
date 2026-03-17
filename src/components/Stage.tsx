@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { useAppSelector, useAppDispatch } from '../store';
-import { setCanvasDimensions, setHasLayers, setStatusText, setScale } from '../store/canvasSlice';
+import { setCanvasDimensions, setHasLayers, setStatusText, setScale, setCursorXY } from '../store/canvasSlice';
 import { addLayer, setActiveLayer } from '../store/imageLayersSlice';
 import { setActiveDrawLabelColour } from '../store/labelsSlice';
 import { drawCircle } from '../utils/drawCircle';
@@ -21,7 +21,7 @@ interface PendingSegImport {
   colors: SegMapColorEntry[];
 }
 
-const CanvasWorkspace: React.FC = () => {
+const Stage: React.FC = () => {
   const dispatch = useAppDispatch();
   const [pendingSegImport, setPendingSegImport] = useState<PendingSegImport | null>(null);
 
@@ -995,6 +995,7 @@ const CanvasWorkspace: React.FC = () => {
       offsetYRef.current = me.clientY;
       mouseXRef.current = Math.round((me.clientX - rect.left) * canvas.width / canvas.clientWidth);
       mouseYRef.current = Math.round((me.clientY - rect.top) * canvas.height / canvas.clientHeight);
+      dispatch(setCursorXY({x:mouseXRef.current, y:mouseYRef.current}))
       cursor.style.transform = `translate(${me.clientX + scrollXRef.current - diameter / 2}px, ${me.clientY + scrollYRef.current - diameter / 2}px)`;
     }
 
@@ -1585,4 +1586,4 @@ const CanvasWorkspace: React.FC = () => {
   );
 };
 
-export default CanvasWorkspace;
+export default Stage;

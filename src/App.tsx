@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAppSelector } from './store';
 import Toolbar from './components/Toolbar';
-import CanvasWorkspace from './components/CanvasWorkspace';
+import Stage from './components/Stage';
 
 const App: React.FC = () => {
   const hasLayers = useAppSelector(state => state.canvas.hasLayers);
@@ -15,7 +15,7 @@ const App: React.FC = () => {
           Drag image layers in...
         </span>
       )}
-      <CanvasWorkspace />
+      <Stage />
     </div>
   );
 };

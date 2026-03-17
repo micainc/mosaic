@@ -9,6 +9,8 @@ interface CanvasState {
   canvasHeight: number;
   hasLayers: boolean;
   statusText: string;
+  cursorX: number;
+  cursorY: number;
 }
 
 const initialState: CanvasState = {
@@ -19,6 +21,8 @@ const initialState: CanvasState = {
   canvasHeight: window.innerHeight,
   hasLayers: false,
   statusText: '',
+  cursorX:0,
+  cursorY:0,
 };
 
 const canvasSlice = createSlice({
@@ -44,6 +48,11 @@ const canvasSlice = createSlice({
     setStatusText(state, action: PayloadAction<string>) {
       state.statusText = action.payload;
     },
+    setCursorXY(state, action: PayloadAction<{x: number; y:number}>) {
+      state.cursorX = action.payload.x;
+      state.cursorY = action.payload.y;
+
+    },
   },
 });
 
@@ -54,6 +63,7 @@ export const {
   setCanvasDimensions,
   setHasLayers,
   setStatusText,
+  setCursorXY
 } = canvasSlice.actions;
 
 export default canvasSlice.reducer;
