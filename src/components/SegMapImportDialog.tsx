@@ -73,7 +73,7 @@ const SegMapImportDialog: React.FC<Props> = ({ colors, onConfirm, onCancel }) =>
 
         <div style={{ overflowY: 'auto', flex: 1, marginBottom: 12 }}>
           {sorted.map(entry => {
-            const isTransparent = entry.hex === '#000000' && entry.label === 'undefined';
+            const isTransparent = entry.hex === '#000000' && entry.label === 'omit';
             const textColour = getBlackWhiteContrast(entry.hex);
             return (
               <label

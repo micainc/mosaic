@@ -11,6 +11,8 @@ const Toolbar: React.FC = () => {
   const { interactionMode, drawDiameter, statusText } = useAppSelector(state => state.canvas);
   const { layers, activeLayerName } = useAppSelector(state => state.imageLayers);
   const activeColour = useAppSelector(state => state.labels.activeDrawLabelColour.colour);
+  const cursorX = useAppSelector(state => state.canvas.cursorX)
+  const cursorY = useAppSelector(state => state.canvas.cursorY)
 
   const [tooltip, setTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
 
@@ -79,6 +81,7 @@ const Toolbar: React.FC = () => {
         <div id="toolbar-note">{statusText}</div>
 
         <div id="toolbar-right">
+          <span style={{padding:'0px 8px'}}>{cursorX}, {cursorY}</span> 
           <button
             className="toolbar-button"
             onClick={() => window.dispatchEvent(new CustomEvent('undo'))}
