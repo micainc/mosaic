@@ -1,10 +1,13 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
+import { Popover, ArrowContainer } from 'react-tiny-popover';
 import { useAppSelector, useAppDispatch } from '../store';
 import { setInteractionMode, setDrawDiameter } from '../store/canvasSlice';
-import { setActiveLayer } from '../store/imageLayersSlice';
+import { setActiveLayer, removeLayer, setLayerOpacity } from '../store/imageLayersSlice';
 import type { InteractionMode } from '../types';
 import LoadoutSelector from './LoadoutSelector';
 import LabelSelector from './LabelSelector';
+import './Toolbar.css';
+import { Icon } from './Icon/Icon';
 
 const Toolbar: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -15,6 +18,8 @@ const Toolbar: React.FC = () => {
   const cursorY = useAppSelector(state => state.canvas.cursorY)
 
   const [tooltip, setTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
+  const [popoverLayer, setPopoverLayer] = useState<string | null>(null);
+  const popoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleToolSelect = useCallback((mode: InteractionMode) => {
     dispatch(setInteractionMode(mode));
@@ -63,18 +68,70 @@ const Toolbar: React.FC = () => {
         </div>
 
         <div id="toolbar-layers">
-          {Object.entries(layers).map(([name, layer]) => (
-            <img
+          {Object.entries(layers).map(([name, layer], index) => (
+            <Popover
               key={name}
-              className={`layer-icon${name === activeLayerName ? ' active' : ''}`}
-              src={layer.icon}
-              alt={name}
-              title={name}
-              onClick={() => dispatch(setActiveLayer(name))}
-              data-tooltip={name}
-              onMouseEnter={showTooltip}
-              onMouseLeave={hideTooltip}
-            />
+              isOpen={popoverLayer === name}
+              // isOpen = {index=== 0}
+              positions={['bottom']}
+              align="center"
+              padding={10}
+              onClickOutside={() => setPopoverLayer(null)}
+              containerClassName="layer-popover-container"
+              content={
+                <div
+                  className="layer-controls"
+                  onMouseEnter={() => {
+                    if (popoverTimeout.current) clearTimeout(popoverTimeout.current);
+                  }}
+                  onMouseLeave={() => {
+                    popoverTimeout.current = setTimeout(() => setPopoverLayer(null), 150);
+                  }}
+                >
+                  <div className="layer-controls-row">
+                    <Icon
+                      src={`${import.meta.env.BASE_URL}img/delete.svg`}
+                      colour='#FF0000'
+                      width='0.75em'
+                      height='0.75em'
+                    />
+                    <span className="layer-name">{name}</span>
+                  </div>
+                  <input
+                    type="range"
+                    className="slider"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={layer.opacity}
+                    onChange={(e) => dispatch(setLayerOpacity({ name, opacity: Number(e.target.value) }))}
+                  />
+                  <button
+                    className="layer-delete"
+                    onClick={() => {
+                      dispatch(removeLayer(name));
+                      setPopoverLayer(null);
+                    }}
+                  >
+
+                  </button>
+                </div>
+              }
+            >
+              <img
+                className={`layer-icon${name === activeLayerName ? ' active' : ''}`}
+                src={layer.icon}
+                alt={name}
+                onClick={() => dispatch(setActiveLayer(name))}
+                onMouseEnter={() => {
+                  if (popoverTimeout.current) clearTimeout(popoverTimeout.current);
+                  setPopoverLayer(name);
+                }}
+                onMouseLeave={() => {
+                  popoverTimeout.current = setTimeout(() => setPopoverLayer(null), 150);
+                }}
+              />
+            </Popover>
           ))}
         </div>
 
