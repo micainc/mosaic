@@ -58,6 +58,8 @@ const Stage: React.FC = () => {
   const undoHistoryRef = useRef<ImageData[]>([]);
   const hoveredColourRef = useRef('#000000');
   const isGesturingRef = useRef(false);
+  const middleClickedRef = useRef(false);
+  const panStartRef = useRef({ x: 0, y: 0 });
 
   // ──────────────────── Pen tool refs ────────────────────
   const penPointsRef = useRef<Point[]>([]);
@@ -1194,6 +1196,10 @@ const Stage: React.FC = () => {
           svgPathRef.current = path;
         }
         rightClickedRef.current = true;
+      } else if (e.button === 1) { // middle click — pan
+        e.preventDefault();
+        middleClickedRef.current = true;
+        panStartRef.current = { x: e.clientX, y: e.clientY };
       }
     };
 
@@ -1244,8 +1250,12 @@ const Stage: React.FC = () => {
       rightClickedRef.current = false;
     };
 
-    // --- mouseup on window (pen transform end) ---
+    // --- mouseup on window (pen transform end + middle-click pan) ---
     const onWindowMouseUp = (e: MouseEvent) => {
+      if (e.button === 1) {
+        middleClickedRef.current = false;
+        return;
+      }
       const mode = interactionModeRef.current;
       if (mode === 'pen') {
         if (penIsDraggingRef.current) {
@@ -1298,6 +1308,14 @@ const Stage: React.FC = () => {
 
     // --- mousemove on window ---
     const onWindowMouseMove = (e: MouseEvent) => {
+      if (middleClickedRef.current) {
+        const dx = panStartRef.current.x - e.clientX;
+        const dy = panStartRef.current.y - e.clientY;
+        window.scrollBy(dx, dy);
+        panStartRef.current = { x: e.clientX, y: e.clientY };
+        updateCursor(e);
+        return;
+      }
       const mode = interactionModeRef.current;
       if (mode === 'pen') {
         const rect = canvas.getBoundingClientRect();

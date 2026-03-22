@@ -1,0 +1,124 @@
+.icon {
+    width:1em;
+    height:1em;
+}
+
+/* Inner span's ::before carries the mask + color */
+.icon > span::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-color: var(--icon-color, currentColor);
+    -webkit-mask-image: var(--icon-src);
+    mask-image: var(--icon-src);
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    image-rendering: pixelated
+}
+
+.icon.button > span::before {
+    opacity:0.75;
+}
+
+
+.icon.button {
+    width: 24px;
+    height: 24px;
+    padding: 4px;
+    box-sizing: border-box;
+    cursor: pointer;
+    /* opacity:0.75; */
+    outline: 1px solid #EEEEEE;
+    outline-offset: -1px;
+    /* background:
+        linear-gradient(to bottom, transparent, transparent),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect x='0' y='0' width='2' height='2' fill='%23F2F2F2'/%3E%3Crect x='2' y='2' width='2' height='2' fill='%23F2F2F2'/%3E%3C/svg%3E");
+    background-size: 100% 100%, 4px 4px; */
+}
+
+.icon.button:hover {
+    opacity:1;
+    /* background-color: #EEEEEE; */
+    outline: 1px solid var(--icon-color, currentColor);
+    outline-offset: -1px;
+}
+
+.icon.button:hover > span::before {
+    opacity:1;
+}
+
+.element-bar .icon.icon.button {
+    width:26px;
+    height:26px;
+}
+
+/* ─── Inset: adds padding, SVG shrinks to fit (clips at bounds) ─── */
+.icon.pad0 { padding: 0px; box-sizing: border-box; }
+.icon.pad1 { padding: 1px; box-sizing: border-box; }
+.icon.pad2 { padding: 2px; box-sizing: border-box; }
+.icon.pad4 { padding: 4px; box-sizing: border-box; }
+.icon.pad6 { padding: 6px; box-sizing: border-box; }
+.icon.pad8 { padding: 8px; box-sizing: border-box; }
+
+/* ─── Disabled: checkerboard background, muted icon, no interaction ─── */
+.icon.disabled {
+    pointer-events: none;
+    cursor: default;
+    outline: 1px dotted #F2F2F2;
+    outline-offset: -1px;
+    background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect x='0' y='0' width='2' height='2' fill='%23F2F2F2'/%3E%3Crect x='2' y='2' width='2' height='2' fill='%23F2F2F2'/%3E%3C/svg%3E") repeat;
+    background-size: 4px 4px;
+}
+
+.icon.disabled > span::before {
+    opacity: 0.1;
+    background-color: #000000;
+}
+
+.icon.disabled:hover {
+    opacity: 1;
+    outline: 1px dotted #F2F2F2;
+}
+
+/* ─── Pixelated: crisp rendering for pixel-art PNGs ─── */
+.icon.pixelated > span::before { image-rendering: pixelated; }
+
+/* ─── Scale: transforms the SVG visually (can overflow bounds) ─── */
+.icon.grow-1 > span::before { transform: scale(1.25); }
+.icon.grow-2 > span::before { transform: scale(1.5); }
+
+
+/* DO NOT DELETE THIS - ITS SICK */
+/* Drop shadow on the inner span — follows SVG shape, not clipped by mask */
+
+/* .icon.button:hover > span {
+    filter:
+        drop-shadow(1px 0px 0px var(--icon-color, currentColor))
+        drop-shadow(-1px 0px 0px var(--icon-color, currentColor))
+        drop-shadow(0px 1px 0px var(--icon-color, currentColor))
+        drop-shadow(0px -1px 0px var(--icon-color, currentColor));
+} */
+
+
+
+/* .icon.button:hover > span {
+    filter:
+        drop-shadow(1px 0px 0px #FFFFFF)
+        drop-shadow(-1px 0px 0px #FFFFFF)
+        drop-shadow(0px 1px 0px #FFFFFF)
+        drop-shadow(0px -1px 0px #FFFFFF);
+} */
+
+
+
+
+
+
+
+
+

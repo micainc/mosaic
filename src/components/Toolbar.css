@@ -1,0 +1,32 @@
+.layer-popover-container {
+    outline: 1px solid #7F7F7F;
+    background-color: #000000;
+    z-index: 10;
+}
+
+/* Triangle arrow pointing up at the parent */
+.layer-popover-container::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-bottom: 6px solid #7F7F7F;
+}
+
+.layer-controls {
+    display: flex;
+    flex-direction: column;
+    padding:4px;
+    gap:8px;
+}
+
+.layer-controls-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap:8px;
+}

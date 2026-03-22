@@ -6,6 +6,7 @@ interface LayerMeta {
   width: number;
   height: number;
   type: string;
+  opacity: number;
 }
 
 interface ImageLayersState {
@@ -34,7 +35,7 @@ const imageLayersSlice = createSlice({
       }>
     ) {
       const { name, icon, src, width, height, type } = action.payload;
-      state.layers[name] = { icon, src, width, height, type };
+      state.layers[name] = { icon, src, width, height, type, opacity: 1 };
     },
     setActiveLayer(state, action: PayloadAction<string>) {
       state.activeLayerName = action.payload;
@@ -48,6 +49,18 @@ const imageLayersSlice = createSlice({
       if (nextIndex < 0) nextIndex += keys.length;
       state.activeLayerName = keys[nextIndex];
     },
+    removeLayer(state, action: PayloadAction<string>) {
+      delete state.layers[action.payload];
+      if (state.activeLayerName === action.payload) {
+        const keys = Object.keys(state.layers);
+        state.activeLayerName = keys.length > 0 ? keys[0] : '';
+      }
+    },
+    setLayerOpacity(state, action: PayloadAction<{ name: string; opacity: number }>) {
+      if (state.layers[action.payload.name]) {
+        state.layers[action.payload.name].opacity = action.payload.opacity;
+      }
+    },
     clearLayers(state) {
       state.layers = {};
       state.activeLayerName = '';
@@ -55,7 +68,7 @@ const imageLayersSlice = createSlice({
   },
 });
 
-export const { addLayer, setActiveLayer, cycleActiveLayer, clearLayers } =
+export const { addLayer, setActiveLayer, cycleActiveLayer, clearLayers, removeLayer, setLayerOpacity } =
   imageLayersSlice.actions;
 
 export default imageLayersSlice.reducer;
