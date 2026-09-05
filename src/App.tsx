@@ -1,13 +1,18 @@
 import React from 'react';
-import { useAppSelector } from './store';
+import { useAppSelector } from './redux/store';
 import Toolbar from './components/Toolbar';
 import Stage from './components/Stage';
+import Polygons from './components/Polygons/Polygons';
+import Tooltip from './components/Tooltip/Tooltip';
+import { useKeys } from './hooks/useKeys';
 
 const App: React.FC = () => {
   const hasLayers = useAppSelector(state => state.canvas.hasLayers);
+  useKeys();
 
   return (
     <div className="app">
+      <Tooltip/>
       <Toolbar />
       {!hasLayers && (
         <span id="no-layers-tip">
@@ -16,6 +21,7 @@ const App: React.FC = () => {
         </span>
       )}
       <Stage />
+      <Polygons />
     </div>
   );
 };

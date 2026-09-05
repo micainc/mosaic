@@ -29,6 +29,7 @@ const canvasSlice = createSlice({
   name: 'canvas',
   initialState,
   reducers: {
+
     setInteractionMode(state, action: PayloadAction<InteractionMode>) {
       state.interactionMode = action.payload;
     },

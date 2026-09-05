@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useAppSelector, useAppDispatch } from '../store';
-import { setActiveDrawLabelColour, toggleAnchoredColour, setColourLabelMap } from '../store/labelsSlice';
+import { useAppSelector } from '../redux/store';
+import { useDispatch } from 'react-redux';
+
+import { setActiveDrawLabelColour, toggleAnchoredColour, setColourLabelMap } from '../redux/labelsSlice';
 import { drawColors, mapLabelsToColors } from '../utils/drawColors';
 import { getBlackWhiteContrast } from '../utils/rgbUtils';
 
 const LabelSelector: React.FC = () => {
-  const dispatch = useAppDispatch();
+  const dispatch = useDispatch();
   const { loadouts, activeLoadout, colourLabelMap, activeDrawLabelColour, anchoredColours } = useAppSelector(state => state.labels);
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState('');

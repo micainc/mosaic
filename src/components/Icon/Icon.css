@@ -31,13 +31,6 @@
     padding: 4px;
     box-sizing: border-box;
     cursor: pointer;
-    /* opacity:0.75; */
-    outline: 1px solid #EEEEEE;
-    outline-offset: -1px;
-    /* background:
-        linear-gradient(to bottom, transparent, transparent),
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect x='0' y='0' width='2' height='2' fill='%23F2F2F2'/%3E%3Crect x='2' y='2' width='2' height='2' fill='%23F2F2F2'/%3E%3C/svg%3E");
-    background-size: 100% 100%, 4px 4px; */
 }
 
 .icon.button:hover {
@@ -56,13 +49,38 @@
     height:26px;
 }
 
+/* ─── Outset: SVG expands outside bounds ─── */
+
+.icon.outset-10 > span::before { transform: scale(2); }
+.icon.outset-8 > span::before { transform: scale(1.8); }
+.icon.outset-6 > span::before { transform: scale(1.6); }
+.icon.outset-5 > span::before { transform: scale(1.5); }
+.icon.outset-4 > span::before { transform: scale(1.4); }
+.icon.outset-2 > span::before { transform: scale(1.2); }
+.icon.outset-1 > span::before { transform: scale(1.1); }
+
 /* ─── Inset: adds padding, SVG shrinks to fit (clips at bounds) ─── */
-.icon.pad0 { padding: 0px; box-sizing: border-box; }
-.icon.pad1 { padding: 1px; box-sizing: border-box; }
-.icon.pad2 { padding: 2px; box-sizing: border-box; }
-.icon.pad4 { padding: 4px; box-sizing: border-box; }
-.icon.pad6 { padding: 6px; box-sizing: border-box; }
-.icon.pad8 { padding: 8px; box-sizing: border-box; }
+.icon.inset-0 { padding: 0px; box-sizing: border-box; }
+.icon.inset-1 { padding: 1px; box-sizing: border-box; }
+.icon.inset-2 { padding: 2px; box-sizing: border-box; }
+.icon.inset-3 { padding: 3px; box-sizing: border-box; }
+
+.icon.inset-4 { padding: 4px; box-sizing: border-box; }
+.icon.inset-5 { padding: 5px; box-sizing: border-box; }
+.icon.inset-6 { padding: 6px; box-sizing: border-box; }
+.icon.inset-7 { padding: 7px; box-sizing: border-box; }
+
+.icon.inset-8 { padding: 8px; box-sizing: border-box; }
+.icon.inset-9 { padding: 9px; box-sizing: border-box; }
+.icon.inset-10 { padding: 10px; box-sizing: border-box; }
+
+.icon.fit { 
+    width: auto; 
+    height: 100%; 
+    aspect-ratio: 1/1; 
+}   
+
+
 
 /* ─── Disabled: checkerboard background, muted icon, no interaction ─── */
 .icon.disabled {
@@ -85,13 +103,9 @@
     outline: 1px dotted #F2F2F2;
 }
 
-/* ─── Pixelated: crisp rendering for pixel-art PNGs ─── */
-.icon.pixelated > span::before { image-rendering: pixelated; }
-
 /* ─── Scale: transforms the SVG visually (can overflow bounds) ─── */
 .icon.grow-1 > span::before { transform: scale(1.25); }
 .icon.grow-2 > span::before { transform: scale(1.5); }
-
 
 /* DO NOT DELETE THIS - ITS SICK */
 /* Drop shadow on the inner span — follows SVG shape, not clipped by mask */

@@ -1,16 +1,18 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
-import { useAppSelector, useAppDispatch } from '../store';
-import { setCanvasDimensions, setHasLayers, setStatusText, setScale, setCursorXY } from '../store/canvasSlice';
-import { addLayer, setActiveLayer } from '../store/imageLayersSlice';
-import { setActiveDrawLabelColour } from '../store/labelsSlice';
+import { useAppSelector } from '../redux/store';
+import { setCanvasDimensions, setHasLayers, setStatusText, setScale, setCursorXY, setInteractionMode } from '../redux/canvasSlice';
+import { addLayer, setActiveLayer } from '../redux/imageLayersSlice';
+import { addPolygon, toggleSelected } from '../redux/polygonsSlice';
 import { drawCircle } from '../utils/drawCircle';
 import { floodFill } from '../utils/floodFill';
 import { rgbToHex } from '../utils/rgbUtils';
 import { createHighlightMask, applyActiveColourToHighlighted } from '../utils/highlight';
 import { updateAnchoredMask, reapplyAnchoredMask } from '../utils/anchoring';
 import { getFilename, getCommonSubstring, downloadBlob, downloadDataUrl } from '../utils/fileUtils';
+import { canvasRegistry } from '../canvasRegistry';
 import SegMapImportDialog, { SegMapColorEntry } from './SegMapImportDialog';
-import type { Point } from '../types';
+import type { PointType } from '../types';
+import { useDispatch } from 'react-redux';
 
 const HANDLE_SIZE = 6;
 const PEN_POINT_RADIUS = 6;
@@ -22,7 +24,7 @@ interface PendingSegImport {
 }
 
 const Stage: React.FC = () => {
-  const dispatch = useAppDispatch();
+  const dispatch = useDispatch();
   const [pendingSegImport, setPendingSegImport] = useState<PendingSegImport | null>(null);
 
   // Redux state
@@ -47,7 +49,7 @@ const Stage: React.FC = () => {
   const drawCtxRef = useRef<CanvasRenderingContext2D | null>(null);
   const leftClickedRef = useRef(false);
   const rightClickedRef = useRef(false);
-  const drawPathRef = useRef<Point[]>([]);
+  const drawPathRef = useRef<PointType[]>([]);
   const svgPathRef = useRef<SVGPathElement | null>(null);
   const mouseXRef = useRef(0);
   const mouseYRef = useRef(0);
@@ -62,15 +64,15 @@ const Stage: React.FC = () => {
   const panStartRef = useRef({ x: 0, y: 0 });
 
   // ──────────────────── Pen tool refs ────────────────────
-  const penPointsRef = useRef<Point[]>([]);
+  const penPointsRef = useRef<PointType[]>([]);
   const penIsDraggingRef = useRef(false);
   const penDraggedPointIndexRef = useRef(-1);
   const penIsTransformingRef = useRef(false);
   const penSVGGroupRef = useRef<SVGGElement | null>(null);
   const transformTypeRef = useRef('');
-  const transformStartPointRef = useRef<Point>({ x: 0, y: 0 });
-  const transformCenterRef = useRef<Point>({ x: 0, y: 0 });
-  const originalPenPointsRef = useRef<Point[]>([]);
+  const transformStartPointRef = useRef<PointType>({ x: 0, y: 0 });
+  const transformCenterRef = useRef<PointType>({ x: 0, y: 0 });
+  const originalPenPointsRef = useRef<PointType[]>([]);
 
   // ──────────────────── Highlight ref ────────────────────
   const highlightedMaskRef = useRef<Uint32Array | null>(null);
@@ -154,8 +156,8 @@ const Stage: React.FC = () => {
   }, []);
 
   // --- Parse SVG path → point array ---
-  const parseSVGPathToPoints = useCallback((pathData: string, canvasScale: number): Point[] => {
-    const points: Point[] = [];
+  const parseSVGPathToPoints = useCallback((pathData: string, canvasScale: number): PointType[] => {
+    const points: PointType[] = [];
     const commands = pathData.match(/[MLZ]\s*[\d\s,.-]+/g);
     if (!commands) return points;
 
@@ -270,7 +272,7 @@ const Stage: React.FC = () => {
   );
 
   // --- Solidify path (fill gaps between points) ---
-  const solidifyPath = useCallback((path: Point[]): Point[] => {
+  const solidifyPath = useCallback((path: PointType[]): PointType[] => {
     const ctx = drawCtxRef.current;
     const canvas = drawCanvasRef.current;
     if (!ctx || !canvas || path.length < 2) return path;
@@ -279,7 +281,7 @@ const Stage: React.FC = () => {
     ctx.imageSmoothingEnabled = false;
 
     const lineWidth = Math.ceil(drawDiameterRef.current * (canvas.width / canvas.clientWidth));
-    const points: Point[] = [];
+    const points: PointType[] = [];
 
     for (let i = 0; i < path.length - 1; i++) {
       points.push({ x: path[i].x, y: path[i].y });
@@ -433,10 +435,17 @@ const Stage: React.FC = () => {
     updatePenDisplayRef.current();
   }, []);
 
-  // --- updatePenDisplay ---
-  const updatePenDisplay = useCallback(() => {
+
+
+
+
+
+
+  // DRAW POLYGONS
+  const drawPenPolygon = useCallback(() => {
     const svg = svgCanvasRef.current;
     let group = penSVGGroupRef.current;
+    console.log("GROUP: ", group)
     if (!svg || !group) return;
 
     // Clear existing elements
@@ -578,7 +587,7 @@ const Stage: React.FC = () => {
   }, [startTransform]);
 
   // Wire the ref so performPenShapeTransform can call updatePenDisplay indirectly.
-  useEffect(() => { updatePenDisplayRef.current = updatePenDisplay; }, [updatePenDisplay]);
+  useEffect(() => { updatePenDisplayRef.current = drawPenPolygon; }, [drawPenPolygon]);
 
   // --- initPenMode ---
   const initPenMode = useCallback(() => {
@@ -592,7 +601,7 @@ const Stage: React.FC = () => {
     }
   }, []);
 
-  // --- clearPenMode ---
+  // removes active pen points and ceases SVG display
   const clearPenMode = useCallback(() => {
     penPointsRef.current = [];
     const g = penSVGGroupRef.current;
@@ -603,48 +612,19 @@ const Stage: React.FC = () => {
     transformTypeRef.current = '';
   }, []);
 
-  // --- rasterizePenShape ---
-  const rasterizePenShape = useCallback(() => {
+
+  // --- commitPenPolygon: persist the pen shape as a vector (no rasterize) ---
+  const commitPenPolygon = useCallback(() => {
     const pts = penPointsRef.current;
     if (pts.length < 3) return;
-    const ctx = drawCtxRef.current;
-    const canvas = drawCanvasRef.current;
-    if (!ctx || !canvas) return;
-
-    saveState();
-
-    const offCanvas = new OffscreenCanvas(canvas.width, canvas.height);
-    const offCtx = offCanvas.getContext('2d')!;
-    offCtx.imageSmoothingEnabled = false;
-    offCtx.fillStyle = activeColourRef.current.colour;
-    offCtx.beginPath();
-    offCtx.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) offCtx.lineTo(pts[i].x, pts[i].y);
-    offCtx.closePath();
-    offCtx.fill();
-
-    // Quantize anti-aliased pixels
-    const imageData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height);
-    const data = imageData.data;
-    let col: string | number = activeColourRef.current.colour.startsWith('#') ? activeColourRef.current.colour.slice(1) : activeColourRef.current.colour;
-    col = parseInt(col, 16);
-    const r = (col >> 16) & 0xFF;
-    const g = (col >> 8) & 0xFF;
-    const b = col & 0xFF;
-
-    for (let i = 0; i < data.length; i += 4) {
-      if (data[i + 3] > 0) {
-        data[i] = r;
-        data[i + 1] = g;
-        data[i + 2] = b;
-        data[i + 3] = 255;
-      }
-    }
-    offCtx.putImageData(imageData, 0, 0);
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(offCanvas, 0, 0);
-    doReapplyAnchoredMask();
-  }, [saveState, doReapplyAnchoredMask]);
+    dispatch(addPolygon({
+      id:  crypto.randomUUID(),
+      label: activeColourRef.current.label,
+      colour: activeColourRef.current.colour,
+      points: pts.map((p) => ({ x: p.x, y: p.y })),
+    }));
+    clearPenMode();
+  }, [dispatch, clearPenMode, setInteractionMode]);
 
   // --- erasePenShape ---
   const erasePenShape = useCallback(() => {
@@ -1002,7 +982,7 @@ const Stage: React.FC = () => {
     }
 
     // Check distinct enough for draw path
-    function isDistinct(p1: Point, p0: Point): boolean {
+    function isDistinct(p1: PointType, p0: PointType): boolean {
       const dx = p1.x - p0.x;
       const dy = p1.y - p0.y;
       return Math.sqrt(dx * dx + dy * dy) > diameter;
@@ -1097,6 +1077,14 @@ const Stage: React.FC = () => {
     if (!ctx) return;
     drawCtxRef.current = ctx;
 
+    // Publish for non-component consumers (see src/canvasRegistry.ts).
+    // saveState and doReapplyAnchoredMask are useCallback([]) — stable for the
+    // component's life, so publishing once at mount is safe.
+    canvasRegistry.draw = canvas;
+    canvasRegistry.drawCtx = ctx;
+    canvasRegistry.saveState = saveState;
+    canvasRegistry.reapplyAnchoredMask = doReapplyAnchoredMask;
+
     // Initial dimensions
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -1139,32 +1127,39 @@ const Stage: React.FC = () => {
           svgScaleGroupRef.current?.appendChild(path);
           svgPathRef.current = path;
 
-        } else if (mode === 'select') {
+        } else if (mode === 'pipette') {
           const imgData = ctx.getImageData(mouseXRef.current, mouseYRef.current, 1, 1);
           const pixel = imgData.data;
           const selectedColour = rgbToHex(pixel[0], pixel[1], pixel[2]);
           highlightedMaskRef.current = createHighlightMask(ctx, canvas.width, canvas.height, selectedColour);
           const label = colourLabelMapRef.current[selectedColour];
           if (label) {
-            dispatch(setStatusText(label + ' selected .'));
+            dispatch(setStatusText(label + ' pipetted...'));
           }
 
         } else if (mode === 'pen') {
           e.preventDefault();
           if (cursorText) cursorText.style.display = 'none';
+          // addPolygon({
+          //   id: crypto.randomUUID(), 
+          //   label: activeColourRef.current.label,
+          //   colour: activeColourRef.current.colour,
 
+          // });
+          // check if a pen point is being clicked on
           const clickedPointIndex = getPointAtPosition(x, y);
           if (clickedPointIndex !== -1) {
             penIsDraggingRef.current = true;
             penDraggedPointIndexRef.current = clickedPointIndex;
           } else {
+            // check if a line seg is being clicked on
             const insertIndex = getLineInsertIndex(x, y);
             if (insertIndex !== -1) {
               penPointsRef.current.splice(insertIndex, 0, { x, y });
             } else {
               penPointsRef.current.push({ x, y });
             }
-            updatePenDisplay();
+            drawPenPolygon();
           }
         }
         // fill mode: just pushes to drawPath (fill happens on mouseup)
@@ -1175,7 +1170,7 @@ const Stage: React.FC = () => {
           const clickedPointIndex = getPointAtPosition(x, y);
           if (clickedPointIndex !== -1) {
             penPointsRef.current.splice(clickedPointIndex, 1);
-            updatePenDisplay();
+            drawPenPolygon();
           }
         } else if (mode === 'draw') {
           drawPathRef.current.push({ x: mouseXRef.current, y: mouseYRef.current });
@@ -1324,7 +1319,7 @@ const Stage: React.FC = () => {
 
         if (penIsDraggingRef.current && penDraggedPointIndexRef.current !== -1) {
           penPointsRef.current[penDraggedPointIndexRef.current] = { x, y };
-          updatePenDisplay();
+          drawPenPolygon();
         } else if (penIsTransformingRef.current) {
           performPenShapeTransform(x, y);
         }
@@ -1335,7 +1330,7 @@ const Stage: React.FC = () => {
     // --- scroll on window ---
     const onWindowScroll = (event: Event) => {
       const mode = interactionModeRef.current;
-      if (mode === 'pen') updatePenDisplay();
+      if (mode === 'pen') drawPenPolygon();
       leftClickedRef.current = false;
       rightClickedRef.current = false;
       updateCursor(event);
@@ -1412,7 +1407,9 @@ const Stage: React.FC = () => {
       dispatch(setHasLayers(true));
     };
 
-    // --- keyboard events ---
+
+
+   // NOTE: CONSOLIDATE INTO USEKEYS SCRIPT
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
         e.preventDefault();
@@ -1460,12 +1457,33 @@ const Stage: React.FC = () => {
 
       // Pen mode shortcuts
       if (interactionModeRef.current === 'pen') {
-        if (e.key === 'Enter') { e.preventDefault(); rasterizePenShape(); }
-        else if (e.key === 'Escape') { e.preventDefault(); clearPenMode(); }
-        else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); erasePenShape(); }
-        else if (e.key === 'c') { cropPenShape(); }
-      }
+
+        if (e.key === 'Enter') { 
+          e.preventDefault(); 
+          // rasterizePenShape(); 
+          commitPenPolygon();
+
+        }
+        else if (e.key === 'Escape') { e.preventDefault(); 
+          clearPenMode(); 
+        }else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); erasePenShape(); 
+          
+        } else if (e.key === 'c') { cropPenShape(); }
+      }       
+
     };
+
+
+
+
+
+
+
+
+
+
+
+
 
     const onKeyUp = (e: KeyboardEvent) => {
       e.preventDefault();
@@ -1529,6 +1547,11 @@ const Stage: React.FC = () => {
     // ═══════════ CLEANUP ═══════════
     return () => {
       cancelAnimationFrame(animId);
+
+      canvasRegistry.draw = null;
+      canvasRegistry.drawCtx = null;
+      canvasRegistry.saveState = null;
+      canvasRegistry.reapplyAnchoredMask = null;
 
       canvas.removeEventListener('mousedown', onMouseDown);
       canvas.removeEventListener('mouseup', onMouseUp);
