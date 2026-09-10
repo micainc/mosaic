@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useAppSelector, useAppDispatch } from '../store';
-import { setActiveDrawLabelColour, toggleAnchoredColour, setColourLabelMap } from '../store/labelsSlice';
+import { useAppSelector } from '../redux/store';
+import { useDispatch } from 'react-redux';
+
+import { setActiveLabel, toggleAnchoredColour, setColourLabelMap } from '../redux/labelsSlice';
 import { drawColors, mapLabelsToColors } from '../utils/drawColors';
 import { getBlackWhiteContrast } from '../utils/rgbUtils';
+import { ico } from '../utils/icons';
 
 const LabelSelector: React.FC = () => {
-  const dispatch = useAppDispatch();
-  const { loadouts, activeLoadout, colourLabelMap, activeDrawLabelColour, anchoredColours } = useAppSelector(state => state.labels);
+  const dispatch = useDispatch();
+  const { loadouts, activeLoadout, activeLabel, colourLabelMap, anchoredColours } = useAppSelector(state => state.labels);
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [usedLabels, setUsedLabels] = useState<Set<string>>(new Set());
@@ -70,7 +73,9 @@ const LabelSelector: React.FC = () => {
   }, [isOpen]);
 
   const handleSelectLabel = (label: string, colour: string) => {
-    dispatch(setActiveDrawLabelColour({ colour, label }));
+    // dispatch(setActiveDrawLabelColour({ colour, label }));
+    dispatch(setActiveLabel({ colour, label }));
+
     setUsedLabels(prev => new Set(prev).add(label));
     setIsOpen(false);
     setSearchText('');
@@ -81,9 +86,7 @@ const LabelSelector: React.FC = () => {
     dispatch(toggleAnchoredColour({ colour, label }));
   };
 
-  const activeColour = activeDrawLabelColour.colour;
-  const activeLabel = activeDrawLabelColour.label;
-  const contrastColour = activeColour ? getBlackWhiteContrast(activeColour) : '#FFFFFF';
+  const contrastColour = getBlackWhiteContrast(activeLabel.colour);
 
   return (
     <div className="toolbar-list" id="labels" ref={dropdownRef}>
@@ -91,13 +94,13 @@ const LabelSelector: React.FC = () => {
       <div
         className="loadout-label selected"
         style={{
-          backgroundColor: activeColour || '#000',
+          backgroundColor: activeLabel.colour || '#000',
           color: contrastColour,
           cursor: 'pointer',
         }}
         onClick={() => setIsOpen(!isOpen)}
       >
-        <span>{activeLabel || 'Select label'}</span>
+        <span>{activeLabel.label || 'Select label'}</span>
       </div>
 
       {/* Dropdown */}
@@ -125,7 +128,7 @@ const LabelSelector: React.FC = () => {
             const textColour = getBlackWhiteContrast(colour);
             const isAnchored = !!anchoredColours[colour];
             const isUsed = usedLabels.has(label);
-            const isActive = colour === activeColour;
+            const isActive = colour === activeLabel.colour;
             const needsInvert = textColour === '#000000';
 
             return (
@@ -144,7 +147,7 @@ const LabelSelector: React.FC = () => {
               >
                 <span>{label}</span>
                 <img
-                  src={`${import.meta.env.BASE_URL}img/anchor.svg`}
+                  src={ico(`anchor.svg`)}
                   alt="Anchor"
                   className={`loadout-label-anchor${isAnchored ? ' active' : ''}`}
                   style={{

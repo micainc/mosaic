@@ -1,0 +1,44 @@
+.polygon-container:has(.icon-fill:hover) .polygon{
+    fill-opacity: 0.5 !important;
+}
+
+.polygon-container:has(.icon-erase:hover) .polygon{
+    fill-opacity: 1 !important;
+    fill:#000000;
+}
+
+.polygon {
+    z-index: 3;
+    /* opacity:0.75; */
+}
+
+
+.polygon:not(.selected):hover {
+    fill-opacity: 0.5 !important;
+
+    /* stroke-width: 2; */
+    fill:#FFFFFF40;
+}
+
+.polygon-vertex:hover {
+    fill:#FFFFFF;
+    /* outline: 1px solid #FFFFFF;
+    outline-offset: 2px; */
+}
+
+.polygon-corner-handle:hover {
+        fill:#FFFFFF;
+
+}
+
+.polygon-controls {
+
+    position:relative; 
+    overflow: visible;
+    pointer-events: auto;
+    white-space: nowrap;
+
+}
+.polygon-controls * {
+    margin-right:16px;
+}

@@ -1,0 +1,53 @@
+.stats {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    overflow: auto;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+.stats-empty {
+    opacity: 0.6;
+}
+
+.stats-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.stats-table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.stats-table tr {
+    display: flex;
+    flex-direction: row;
+    gap:8px;
+}
+.stats-table td {
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.stats-swatch {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    outline: 1px solid white;
+    outline-offset: -1px;
+}
+
+.stats-label {
+    width: 100%;
+    text-align: left;
+
+}
+
+.stats-percent {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}

@@ -5,7 +5,7 @@ interface LabelsState {
   loadouts: Record<string, string[]>;
   activeLoadout: string;
   colourLabelMap: Record<string, string>;
-  activeDrawLabelColour: { colour: string; label: string };
+  activeLabel: { colour: string; label: string };
   anchoredColours: Record<string, string>;
 }
 
@@ -13,7 +13,7 @@ const initialState: LabelsState = {
   loadouts: defaultLoadouts,
   activeLoadout: 'minerals',
   colourLabelMap: {},
-  activeDrawLabelColour: { colour: '#000000', label: '' },
+  activeLabel: { colour: '#000000', label: '' },
   anchoredColours: {},
 };
 
@@ -27,11 +27,12 @@ const labelsSlice = createSlice({
     setColourLabelMap(state, action: PayloadAction<Record<string, string>>) {
       state.colourLabelMap = action.payload;
     },
-    setActiveDrawLabelColour(
+
+    setActiveLabel(
       state,
       action: PayloadAction<{ colour: string; label: string }>
     ) {
-      state.activeDrawLabelColour = action.payload;
+      state.activeLabel = action.payload;
     },
     toggleAnchoredColour(
       state,
@@ -53,7 +54,7 @@ const labelsSlice = createSlice({
 export const {
   setActiveLoadout,
   setColourLabelMap,
-  setActiveDrawLabelColour,
+  setActiveLabel,
   toggleAnchoredColour,
   clearAnchoredColours,
 } = labelsSlice.actions;

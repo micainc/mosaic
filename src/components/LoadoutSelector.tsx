@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { useAppSelector, useAppDispatch } from '../store';
-import { setActiveLoadout, setColourLabelMap } from '../store/labelsSlice';
+import { useAppSelector } from '../redux/store';
+import { setActiveLoadout, setColourLabelMap } from '../redux/labelsSlice';
 import { drawColors, mapLabelsToColors } from '../utils/drawColors';
+import { useDispatch } from 'react-redux';
 
 const LoadoutSelector: React.FC = () => {
-  const dispatch = useAppDispatch();
+  const dispatch = useDispatch();
   const { loadouts, activeLoadout } = useAppSelector(state => state.labels);
   const [isOpen, setIsOpen] = useState(false);
 

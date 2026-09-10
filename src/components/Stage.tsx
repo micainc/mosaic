@@ -1,16 +1,18 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
-import { useAppSelector, useAppDispatch } from '../store';
-import { setCanvasDimensions, setHasLayers, setStatusText, setScale, setCursorXY } from '../store/canvasSlice';
-import { addLayer, setActiveLayer } from '../store/imageLayersSlice';
-import { setActiveDrawLabelColour } from '../store/labelsSlice';
+import { useAppSelector } from '../redux/store';
+import { setCanvasDimensions, setHasLayers, setStatusText, setScale, setCursorXY, setInteractionMode } from '../redux/canvasSlice';
+import { addLayer, setActiveLayer } from '../redux/imageLayersSlice';
+// import { addPolygon, toggleSelected } from '../redux/polygonsSlice';
 import { drawCircle } from '../utils/drawCircle';
 import { floodFill } from '../utils/floodFill';
 import { rgbToHex } from '../utils/rgbUtils';
 import { createHighlightMask, applyActiveColourToHighlighted } from '../utils/highlight';
 import { updateAnchoredMask, reapplyAnchoredMask } from '../utils/anchoring';
 import { getFilename, getCommonSubstring, downloadBlob, downloadDataUrl } from '../utils/fileUtils';
+import { canvasRegistry } from '../canvasRegistry';
 import SegMapImportDialog, { SegMapColorEntry } from './SegMapImportDialog';
-import type { Point } from '../types';
+import type { PointType } from '../types';
+import { useDispatch } from 'react-redux';
 
 const HANDLE_SIZE = 6;
 const PEN_POINT_RADIUS = 6;
@@ -22,14 +24,14 @@ interface PendingSegImport {
 }
 
 const Stage: React.FC = () => {
-  const dispatch = useAppDispatch();
+  const dispatch = useDispatch();
   const [pendingSegImport, setPendingSegImport] = useState<PendingSegImport | null>(null);
 
   // Redux state
   const interactionMode = useAppSelector((s) => s.canvas.interactionMode);
   const drawDiameter = useAppSelector((s) => s.canvas.drawDiameter);
   const scale = useAppSelector((s) => s.canvas.scale);
-  const activeDrawLabelColour = useAppSelector((s) => s.labels.activeDrawLabelColour);
+  const activeLabel = useAppSelector((s) => s.labels.activeLabel);
   const colourLabelMap = useAppSelector((s) => s.labels.colourLabelMap);
   const anchoredColours = useAppSelector((s) => s.labels.anchoredColours);
   const layers = useAppSelector((s) => s.imageLayers.layers);
@@ -47,7 +49,7 @@ const Stage: React.FC = () => {
   const drawCtxRef = useRef<CanvasRenderingContext2D | null>(null);
   const leftClickedRef = useRef(false);
   const rightClickedRef = useRef(false);
-  const drawPathRef = useRef<Point[]>([]);
+  const drawPathRef = useRef<PointType[]>([]);
   const svgPathRef = useRef<SVGPathElement | null>(null);
   const mouseXRef = useRef(0);
   const mouseYRef = useRef(0);
@@ -60,17 +62,6 @@ const Stage: React.FC = () => {
   const isGesturingRef = useRef(false);
   const middleClickedRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0 });
-
-  // ──────────────────── Pen tool refs ────────────────────
-  const penPointsRef = useRef<Point[]>([]);
-  const penIsDraggingRef = useRef(false);
-  const penDraggedPointIndexRef = useRef(-1);
-  const penIsTransformingRef = useRef(false);
-  const penSVGGroupRef = useRef<SVGGElement | null>(null);
-  const transformTypeRef = useRef('');
-  const transformStartPointRef = useRef<Point>({ x: 0, y: 0 });
-  const transformCenterRef = useRef<Point>({ x: 0, y: 0 });
-  const originalPenPointsRef = useRef<Point[]>([]);
 
   // ──────────────────── Highlight ref ────────────────────
   const highlightedMaskRef = useRef<Uint32Array | null>(null);
@@ -91,7 +82,7 @@ const Stage: React.FC = () => {
   const interactionModeRef = useRef(interactionMode);
   const drawDiameterRef = useRef(drawDiameter);
   const scaleRef = useRef(scale);
-  const activeColourRef = useRef(activeDrawLabelColour);
+  const activeColourRef = useRef(activeLabel);
   const colourLabelMapRef = useRef(colourLabelMap);
   const anchoredColoursRef = useRef(anchoredColours);
   const layersRef = useRef(layers);
@@ -100,7 +91,7 @@ const Stage: React.FC = () => {
   useEffect(() => { interactionModeRef.current = interactionMode; }, [interactionMode]);
   useEffect(() => { drawDiameterRef.current = drawDiameter; }, [drawDiameter]);
   useEffect(() => { scaleRef.current = scale; }, [scale]);
-  useEffect(() => { activeColourRef.current = activeDrawLabelColour; }, [activeDrawLabelColour]);
+  useEffect(() => { activeColourRef.current = activeLabel; }, [activeLabel]);
   useEffect(() => { colourLabelMapRef.current = colourLabelMap; }, [colourLabelMap]);
   useEffect(() => { anchoredColoursRef.current = anchoredColours; }, [anchoredColours]);
   useEffect(() => { layersRef.current = layers; }, [layers]);
@@ -154,8 +145,8 @@ const Stage: React.FC = () => {
   }, []);
 
   // --- Parse SVG path → point array ---
-  const parseSVGPathToPoints = useCallback((pathData: string, canvasScale: number): Point[] => {
-    const points: Point[] = [];
+  const parseSVGPathToPoints = useCallback((pathData: string, canvasScale: number): PointType[] => {
+    const points: PointType[] = [];
     const commands = pathData.match(/[MLZ]\s*[\d\s,.-]+/g);
     if (!commands) return points;
 
@@ -270,7 +261,7 @@ const Stage: React.FC = () => {
   );
 
   // --- Solidify path (fill gaps between points) ---
-  const solidifyPath = useCallback((path: Point[]): Point[] => {
+  const solidifyPath = useCallback((path: PointType[]): PointType[] => {
     const ctx = drawCtxRef.current;
     const canvas = drawCanvasRef.current;
     if (!ctx || !canvas || path.length < 2) return path;
@@ -279,7 +270,7 @@ const Stage: React.FC = () => {
     ctx.imageSmoothingEnabled = false;
 
     const lineWidth = Math.ceil(drawDiameterRef.current * (canvas.width / canvas.clientWidth));
-    const points: Point[] = [];
+    const points: PointType[] = [];
 
     for (let i = 0; i < path.length - 1; i++) {
       points.push({ x: path[i].x, y: path[i].y });
@@ -303,432 +294,22 @@ const Stage: React.FC = () => {
     return points;
   }, []);
 
-  // ──────────────────── PEN TOOL HELPERS ────────────────────
-
-  const getPointAtPosition = useCallback((x: number, y: number): number => {
-    const canvas = drawCanvasRef.current;
-    if (!canvas) return -1;
-    const canvasScale = canvas.width / canvas.clientWidth;
-    const threshold = PEN_POINT_RADIUS * canvasScale * 2;
-
-    for (let i = 0; i < penPointsRef.current.length; i++) {
-      const dx = penPointsRef.current[i].x - x;
-      const dy = penPointsRef.current[i].y - y;
-      if (Math.sqrt(dx * dx + dy * dy) <= threshold) return i;
-    }
-    return -1;
-  }, []);
-
-  const pointToLineDistance = useCallback(
-    (px: number, py: number, x1: number, y1: number, x2: number, y2: number): number => {
-      const A = px - x1;
-      const B = py - y1;
-      const C = x2 - x1;
-      const D = y2 - y1;
-      const dot = A * C + B * D;
-      const lenSq = C * C + D * D;
-      let param = -1;
-      if (lenSq !== 0) param = dot / lenSq;
-      let xx: number, yy: number;
-      if (param < 0) { xx = x1; yy = y1; }
-      else if (param > 1) { xx = x2; yy = y2; }
-      else { xx = x1 + param * C; yy = y1 + param * D; }
-      const dxr = px - xx;
-      const dyr = py - yy;
-      return Math.sqrt(dxr * dxr + dyr * dyr);
-    },
-    [],
-  );
-
-  const getLineInsertIndex = useCallback(
-    (x: number, y: number): number => {
-      const pts = penPointsRef.current;
-      if (pts.length < 2) return -1;
-      const canvas = drawCanvasRef.current;
-      if (!canvas) return -1;
-      const canvasScale = canvas.width / canvas.clientWidth;
-      const threshold = 10 * canvasScale;
-
-      let minDistance = Infinity;
-      let insertIndex = -1;
-
-      for (let i = 0; i < pts.length; i++) {
-        const p1 = pts[i];
-        const p2 = pts[(i + 1) % pts.length];
-        const d = pointToLineDistance(x, y, p1.x, p1.y, p2.x, p2.y);
-        if (d < threshold && d < minDistance) {
-          minDistance = d;
-          insertIndex = i + 1;
-        }
-      }
-      return insertIndex;
-    },
-    [pointToLineDistance],
-  );
-
-  // --- startTransform ---
-  const startTransform = useCallback((type: string, e: MouseEvent) => {
-    penIsTransformingRef.current = true;
-    transformTypeRef.current = type;
-
-    const canvas = drawCanvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    transformStartPointRef.current = {
-      x: (e.clientX - rect.left) * canvas.width / canvas.clientWidth,
-      y: (e.clientY - rect.top) * canvas.height / canvas.clientHeight,
-    };
-    originalPenPointsRef.current = penPointsRef.current.map((p) => ({ ...p }));
-  }, []);
-
-  // Forward-declare updatePenDisplay so that performPenShapeTransform can call it.
-  // We will assign the actual implementation via a ref.
-  const updatePenDisplayRef = useRef<() => void>(() => {});
-
-  // --- performPenShapeTransform ---
-  const performPenShapeTransform = useCallback((currentX: number, currentY: number) => {
-    const tType = transformTypeRef.current;
-    const origPts = originalPenPointsRef.current;
-
-    if (tType.startsWith('scale-')) {
-      const corner = tType.split('-')[1];
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      origPts.forEach((p) => { minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y); });
-      const originalWidth = maxX - minX;
-      const originalHeight = maxY - minY;
-      if (originalWidth === 0 || originalHeight === 0) return;
-
-      let scaleX = 1, scaleY = 1, anchorX = minX, anchorY = minY;
-      switch (corner) {
-        case 'tl': scaleX = (maxX - currentX) / originalWidth; scaleY = (maxY - currentY) / originalHeight; anchorX = maxX; anchorY = maxY; break;
-        case 'tr': scaleX = (currentX - minX) / originalWidth; scaleY = (maxY - currentY) / originalHeight; anchorX = minX; anchorY = maxY; break;
-        case 'bl': scaleX = (maxX - currentX) / originalWidth; scaleY = (currentY - minY) / originalHeight; anchorX = maxX; anchorY = minY; break;
-        case 'br': scaleX = (currentX - minX) / originalWidth; scaleY = (currentY - minY) / originalHeight; anchorX = minX; anchorY = minY; break;
-      }
-      const uniformScale = Math.max(0.1, Math.min(scaleX, scaleY));
-      penPointsRef.current = origPts.map((p) => ({
-        x: Math.round(anchorX + (p.x - anchorX) * uniformScale),
-        y: Math.round(anchorY + (p.y - anchorY) * uniformScale),
-      }));
-    } else if (tType === 'rotate') {
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      origPts.forEach((p) => { minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y); });
-      const centerX = (minX + maxX) / 2;
-      const centerY = (minY + maxY) / 2;
-      const angle1 = Math.atan2(transformStartPointRef.current.y - centerY, transformStartPointRef.current.x - centerX);
-      const angle2 = Math.atan2(currentY - centerY, currentX - centerX);
-      const deltaAngle = angle2 - angle1;
-      const cos = Math.cos(deltaAngle);
-      const sin = Math.sin(deltaAngle);
-
-      penPointsRef.current = origPts.map((p) => {
-        const dx = p.x - centerX;
-        const dy = p.y - centerY;
-        return {
-          x: Math.round(centerX + dx * cos - dy * sin),
-          y: Math.round(centerY + dx * sin + dy * cos),
-        };
-      });
-    }
-    updatePenDisplayRef.current();
-  }, []);
-
-  // --- updatePenDisplay ---
-  const updatePenDisplay = useCallback(() => {
-    const svg = svgCanvasRef.current;
-    let group = penSVGGroupRef.current;
-    if (!svg || !group) return;
-
-    // Clear existing elements
-    while (group.firstChild) group.removeChild(group.firstChild);
-
-    const pts = penPointsRef.current;
-    if (pts.length === 0) return;
-
-    const canvas = drawCanvasRef.current;
-    if (!canvas) return;
-    const canvasScale = canvas.width / canvas.clientWidth;
-    const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
-    const scrollY = window.pageYOffset || document.documentElement.scrollTop;
-
-    // Bounding box
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    pts.forEach((p) => { minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y); });
-    transformCenterRef.current = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
-
-    const colour = activeColourRef.current.colour;
-
-    // Polygon fill (50% opacity)
-    if (pts.length >= 3) {
-      const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-      const pointsStr = pts.map((p) => `${(p.x / canvasScale) - scrollX},${(p.y / canvasScale) - scrollY}`).join(' ');
-      polygon.setAttribute('points', pointsStr);
-      polygon.setAttribute('fill', colour);
-      polygon.setAttribute('fill-opacity', '0.5');
-      polygon.setAttribute('stroke', 'none');
-      group.appendChild(polygon);
-    }
-
-    // Lines
-    if (pts.length >= 2) {
-      const lines = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      let pathData = `M ${(pts[0].x / canvasScale) - scrollX} ${(pts[0].y / canvasScale) - scrollY}`;
-      for (let i = 1; i < pts.length; i++) {
-        pathData += ` L ${(pts[i].x / canvasScale) - scrollX} ${(pts[i].y / canvasScale) - scrollY}`;
-      }
-      pathData += ' Z';
-      lines.setAttribute('d', pathData);
-      lines.setAttribute('stroke', colour);
-      lines.setAttribute('stroke-width', '2');
-      lines.setAttribute('fill', 'none');
-      lines.setAttribute('stroke-opacity', '1');
-      lines.style.pointerEvents = 'stroke';
-      lines.style.cursor = 'crosshair';
-      group.appendChild(lines);
-    }
-
-    // Bounding box rect (dashed white)
-    const bbRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bbRect.setAttribute('x', String((minX / canvasScale) - scrollX));
-    bbRect.setAttribute('y', String((minY / canvasScale) - scrollY));
-    bbRect.setAttribute('width', String((maxX - minX) / canvasScale));
-    bbRect.setAttribute('height', String((maxY - minY) / canvasScale));
-    bbRect.setAttribute('fill', 'none');
-    bbRect.setAttribute('stroke', '#ffffff');
-    bbRect.setAttribute('stroke-width', '1');
-    bbRect.setAttribute('stroke-dasharray', '5,5');
-    group.appendChild(bbRect);
-
-    // Corner scale handles
-    const corners = [
-      { id: 'scale-tl', x: minX, y: minY, cursor: 'nw-resize' },
-      { id: 'scale-tr', x: maxX, y: minY, cursor: 'ne-resize' },
-      { id: 'scale-bl', x: minX, y: maxY, cursor: 'sw-resize' },
-      { id: 'scale-br', x: maxX, y: maxY, cursor: 'se-resize' },
-    ];
-    corners.forEach((corner) => {
-      const handle = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      handle.setAttribute('x', String((corner.x / canvasScale) - scrollX - HANDLE_SIZE / 2));
-      handle.setAttribute('y', String((corner.y / canvasScale) - scrollY - HANDLE_SIZE / 2));
-      handle.setAttribute('width', String(HANDLE_SIZE));
-      handle.setAttribute('height', String(HANDLE_SIZE));
-      handle.setAttribute('fill', '#ffffff');
-      handle.style.cursor = corner.cursor;
-      handle.style.pointerEvents = 'all';
-      handle.addEventListener('mousedown', (e: Event) => {
-        const me = e as MouseEvent;
-        if (me.button === 0) { me.preventDefault(); me.stopPropagation(); startTransform(corner.id, me); }
-      });
-      group.appendChild(handle);
-    });
-
-    // Rotation handle line
-    const rotateX = (minX + maxX) / 2;
-    const rotateLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    rotateLine.setAttribute('x1', String((rotateX / canvasScale) - scrollX));
-    rotateLine.setAttribute('y1', String((minY / canvasScale) - scrollY));
-    rotateLine.setAttribute('x2', String((rotateX / canvasScale) - scrollX));
-    rotateLine.setAttribute('y2', String((minY / canvasScale) - scrollY));
-    rotateLine.setAttribute('stroke', '#ffffff7f');
-    rotateLine.setAttribute('stroke-width', '1');
-    group.appendChild(rotateLine);
-
-    // Rotation handle circle
-    const rotationCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    rotationCircle.setAttribute('cx', String((rotateX / canvasScale) - scrollX));
-    rotationCircle.setAttribute('cy', String((minY / canvasScale) - scrollY));
-    rotationCircle.setAttribute('r', String(HANDLE_SIZE / 2));
-    rotationCircle.setAttribute('fill', '#ffffff');
-    rotationCircle.style.cursor = 'grab';
-    rotationCircle.style.pointerEvents = 'fill';
-    rotationCircle.addEventListener('mousedown', (e: Event) => {
-      const me = e as MouseEvent;
-      if (me.button === 0) { me.preventDefault(); me.stopPropagation(); startTransform('rotate', me); }
-    });
-    group.appendChild(rotationCircle);
-
-    // Vertex circles
-    pts.forEach((point, index) => {
-      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      circle.setAttribute('cx', String((point.x / canvasScale) - scrollX));
-      circle.setAttribute('cy', String((point.y / canvasScale) - scrollY));
-      circle.setAttribute('r', String(PEN_POINT_RADIUS));
-      circle.setAttribute('fill', colour);
-      circle.setAttribute('stroke', '#ffffff');
-      circle.setAttribute('stroke-width', '1');
-      circle.style.cursor = 'move';
-      circle.style.pointerEvents = 'fill';
-
-      circle.addEventListener('mousedown', (e: Event) => {
-        const me = e as MouseEvent;
-        if (me.button === 0) {
-          me.stopPropagation();
-          penIsDraggingRef.current = true;
-          penDraggedPointIndexRef.current = index;
-        }
-      });
-      circle.addEventListener('contextmenu', (e: Event) => {
-        e.preventDefault();
-        (e as MouseEvent).stopPropagation?.();
-        penPointsRef.current.splice(index, 1);
-        updatePenDisplayRef.current();
-      });
-      group.appendChild(circle);
-    });
-  }, [startTransform]);
-
-  // Wire the ref so performPenShapeTransform can call updatePenDisplay indirectly.
-  useEffect(() => { updatePenDisplayRef.current = updatePenDisplay; }, [updatePenDisplay]);
-
-  // --- initPenMode ---
-  const initPenMode = useCallback(() => {
-    const svg = svgCanvasRef.current;
-    if (!svg) return;
-    if (!penSVGGroupRef.current) {
-      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-      g.setAttribute('id', 'pen-group');
-      svg.appendChild(g);
-      penSVGGroupRef.current = g;
-    }
-  }, []);
-
-  // --- clearPenMode ---
-  const clearPenMode = useCallback(() => {
-    penPointsRef.current = [];
-    const g = penSVGGroupRef.current;
-    if (g) { while (g.firstChild) g.removeChild(g.firstChild); }
-    penIsDraggingRef.current = false;
-    penDraggedPointIndexRef.current = -1;
-    penIsTransformingRef.current = false;
-    transformTypeRef.current = '';
-  }, []);
-
-  // --- rasterizePenShape ---
-  const rasterizePenShape = useCallback(() => {
-    const pts = penPointsRef.current;
-    if (pts.length < 3) return;
-    const ctx = drawCtxRef.current;
-    const canvas = drawCanvasRef.current;
-    if (!ctx || !canvas) return;
-
-    saveState();
-
-    const offCanvas = new OffscreenCanvas(canvas.width, canvas.height);
-    const offCtx = offCanvas.getContext('2d')!;
-    offCtx.imageSmoothingEnabled = false;
-    offCtx.fillStyle = activeColourRef.current.colour;
-    offCtx.beginPath();
-    offCtx.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) offCtx.lineTo(pts[i].x, pts[i].y);
-    offCtx.closePath();
-    offCtx.fill();
-
-    // Quantize anti-aliased pixels
-    const imageData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height);
-    const data = imageData.data;
-    let col: string | number = activeColourRef.current.colour.startsWith('#') ? activeColourRef.current.colour.slice(1) : activeColourRef.current.colour;
-    col = parseInt(col, 16);
-    const r = (col >> 16) & 0xFF;
-    const g = (col >> 8) & 0xFF;
-    const b = col & 0xFF;
-
-    for (let i = 0; i < data.length; i += 4) {
-      if (data[i + 3] > 0) {
-        data[i] = r;
-        data[i + 1] = g;
-        data[i + 2] = b;
-        data[i + 3] = 255;
-      }
-    }
-    offCtx.putImageData(imageData, 0, 0);
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(offCanvas, 0, 0);
-    doReapplyAnchoredMask();
-  }, [saveState, doReapplyAnchoredMask]);
-
-  // --- erasePenShape ---
-  const erasePenShape = useCallback(() => {
-    const pts = penPointsRef.current;
-    if (pts.length < 3) return;
-    const ctx = drawCtxRef.current;
-    const canvas = drawCanvasRef.current;
-    if (!ctx || !canvas) return;
-
-    saveState();
-
-    const offCanvas = new OffscreenCanvas(canvas.width, canvas.height);
-    const offCtx = offCanvas.getContext('2d')!;
-    offCtx.imageSmoothingEnabled = false;
-    offCtx.fillStyle = '#000000';
-    offCtx.beginPath();
-    offCtx.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) offCtx.lineTo(pts[i].x, pts[i].y);
-    offCtx.closePath();
-    offCtx.fill();
-
-    const maskData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height).data;
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
-
-    for (let i = 0; i < data.length; i += 4) {
-      if (maskData[i + 3] > 0) {
-        data[i] = 0; data[i + 1] = 0; data[i + 2] = 0; data[i + 3] = 0;
-      }
-    }
-    ctx.putImageData(imageData, 0, 0);
-    doReapplyAnchoredMask();
-    clearPenMode();
-  }, [saveState, doReapplyAnchoredMask, clearPenMode]);
-
-  // --- cropPenShape ---
-  const cropPenShape = useCallback(() => {
-    const pts = penPointsRef.current;
-    if (pts.length < 3) return;
-    const ctx = drawCtxRef.current;
-    const canvas = drawCanvasRef.current;
-    if (!ctx || !canvas) return;
-
-    saveState();
-
-    const maskCanvas = new OffscreenCanvas(canvas.width, canvas.height);
-    const maskCtx = maskCanvas.getContext('2d')!;
-    maskCtx.imageSmoothingEnabled = false;
-    maskCtx.fillStyle = '#000000';
-    maskCtx.beginPath();
-    maskCtx.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) maskCtx.lineTo(pts[i].x, pts[i].y);
-    maskCtx.closePath();
-    maskCtx.fill();
-
-    const mask = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height).data;
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
-
-    for (let i = 0; i < data.length; i += 4) {
-      if (mask[i + 3] === 0) {
-        data[i] = 0; data[i + 1] = 0; data[i + 2] = 0; data[i + 3] = 0;
-      }
-    }
-    ctx.putImageData(imageData, 0, 0);
-    doReapplyAnchoredMask();
-    clearPenMode();
-  }, [saveState, doReapplyAnchoredMask, clearPenMode]);
 
   // ──────────────────── convertGrayToTransparent ────────────────────
-  const convertGrayToTransparent = useCallback(() => {
-    const ctx = drawCtxRef.current;
-    const canvas = drawCanvasRef.current;
-    if (!ctx || !canvas) return;
+  // const convertGrayToTransparent = useCallback(() => {
+  //   const ctx = drawCtxRef.current;
+  //   const canvas = drawCanvasRef.current;
+  //   if (!ctx || !canvas) return;
 
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
-    for (let i = 0; i < data.length; i += 4) {
-      if (data[i] === 127 && data[i + 1] === 127 && data[i + 2] === 127 && data[i + 3] !== 0) {
-        data[i] = 0; data[i + 1] = 0; data[i + 2] = 0; data[i + 3] = 0;
-      }
-    }
-    ctx.putImageData(imageData, 0, 0);
-  }, []);
+  //   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  //   const data = imageData.data;
+  //   for (let i = 0; i < data.length; i += 4) {
+  //     if (data[i] === 127 && data[i + 1] === 127 && data[i + 2] === 127 && data[i + 3] !== 0) {
+  //       data[i] = 0; data[i + 1] = 0; data[i + 2] = 0; data[i + 3] = 0;
+  //     }
+  //   }
+  //   ctx.putImageData(imageData, 0, 0);
+  // }, []);
 
   // ──────────────────── Image layer loading ────────────────────
 
@@ -1002,7 +583,7 @@ const Stage: React.FC = () => {
     }
 
     // Check distinct enough for draw path
-    function isDistinct(p1: Point, p0: Point): boolean {
+    function isDistinct(p1: PointType, p0: PointType): boolean {
       const dx = p1.x - p0.x;
       const dy = p1.y - p0.y;
       return Math.sqrt(dx * dx + dy * dy) > diameter;
@@ -1052,8 +633,8 @@ const Stage: React.FC = () => {
     const maskCtx = anchoredMaskCtxRef.current;
     const canvas = drawCanvasRef.current;
     if (!ctx || !maskCtx || !canvas) return;
-    updateAnchoredMask(ctx, maskCtx as CanvasRenderingContext2D, canvas.width, canvas.height, anchoredColours, activeDrawLabelColour.colour);
-  }, [anchoredColours, activeDrawLabelColour]);
+    updateAnchoredMask(ctx, maskCtx as CanvasRenderingContext2D, canvas.width, canvas.height, anchoredColours, activeLabel.colour);
+  }, [anchoredColours, activeLabel]);
 
   // ──────────────────────────────────────────────────────────
   //  Highlight → reclass: when active colour changes while mask exists
@@ -1066,12 +647,12 @@ const Stage: React.FC = () => {
         drawCanvasRef.current.width,
         drawCanvasRef.current.height,
         highlightedMaskRef.current,
-        activeDrawLabelColour.colour,
+        activeLabel.colour,
       );
       highlightedMaskRef.current = null;
       clearSvgGroup();
     }
-  }, [activeDrawLabelColour, saveState, clearSvgGroup]);
+  }, [activeLabel, saveState, clearSvgGroup]);
 
   // ──────────────────────────────────────────────────────────
   //  Active layer change → update base image
@@ -1096,6 +677,14 @@ const Stage: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     drawCtxRef.current = ctx;
+
+    // Publish for non-component consumers (see src/canvasRegistry.ts).
+    // saveState and doReapplyAnchoredMask are useCallback([]) — stable for the
+    // component's life, so publishing once at mount is safe.
+    canvasRegistry.draw = canvas;
+    canvasRegistry.drawCtx = ctx;
+    canvasRegistry.saveState = saveState;
+    canvasRegistry.reapplyAnchoredMask = doReapplyAnchoredMask;
 
     // Initial dimensions
     canvas.width = window.innerWidth;
@@ -1139,45 +728,22 @@ const Stage: React.FC = () => {
           svgScaleGroupRef.current?.appendChild(path);
           svgPathRef.current = path;
 
-        } else if (mode === 'select') {
+        } else if (mode === 'pipette') {
           const imgData = ctx.getImageData(mouseXRef.current, mouseYRef.current, 1, 1);
           const pixel = imgData.data;
           const selectedColour = rgbToHex(pixel[0], pixel[1], pixel[2]);
           highlightedMaskRef.current = createHighlightMask(ctx, canvas.width, canvas.height, selectedColour);
           const label = colourLabelMapRef.current[selectedColour];
           if (label) {
-            dispatch(setStatusText(label + ' selected .'));
+            dispatch(setStatusText(label + ' pipetted...'));
           }
 
-        } else if (mode === 'pen') {
-          e.preventDefault();
-          if (cursorText) cursorText.style.display = 'none';
-
-          const clickedPointIndex = getPointAtPosition(x, y);
-          if (clickedPointIndex !== -1) {
-            penIsDraggingRef.current = true;
-            penDraggedPointIndexRef.current = clickedPointIndex;
-          } else {
-            const insertIndex = getLineInsertIndex(x, y);
-            if (insertIndex !== -1) {
-              penPointsRef.current.splice(insertIndex, 0, { x, y });
-            } else {
-              penPointsRef.current.push({ x, y });
-            }
-            updatePenDisplay();
-          }
-        }
+        } 
         // fill mode: just pushes to drawPath (fill happens on mouseup)
 
       } else if (e.button === 2 && !leftClickedRef.current) { // right click
         const mode = interactionModeRef.current;
-        if (mode === 'pen') {
-          const clickedPointIndex = getPointAtPosition(x, y);
-          if (clickedPointIndex !== -1) {
-            penPointsRef.current.splice(clickedPointIndex, 1);
-            updatePenDisplay();
-          }
-        } else if (mode === 'draw') {
+        if (mode === 'draw') {
           drawPathRef.current.push({ x: mouseXRef.current, y: mouseYRef.current });
           scrollXRef.current = document.documentElement.scrollLeft;
           scrollYRef.current = document.documentElement.scrollTop;
@@ -1207,7 +773,7 @@ const Stage: React.FC = () => {
     const onMouseUp = (e: MouseEvent) => {
       const mode = interactionModeRef.current;
 
-      if (mode === 'pen' && !penIsDraggingRef.current) return;
+      // if (mode === 'pen' && !penIsDraggingRef.current) return;
 
       if (leftClickedRef.current) {
         switch (mode) {
@@ -1225,12 +791,6 @@ const Stage: React.FC = () => {
               if (pathData) drawSVGPathToCanvas(pathData);
             }
             break;
-          case 'pen':
-            penIsDraggingRef.current = false;
-            penDraggedPointIndexRef.current = -1;
-            // Don't reset drawPath etc for pen
-            leftClickedRef.current = false;
-            return;
           default:
             break;
         }
@@ -1255,18 +815,6 @@ const Stage: React.FC = () => {
       if (e.button === 1) {
         middleClickedRef.current = false;
         return;
-      }
-      const mode = interactionModeRef.current;
-      if (mode === 'pen') {
-        if (penIsDraggingRef.current) {
-          penIsDraggingRef.current = false;
-          penDraggedPointIndexRef.current = -1;
-        }
-        if (penIsTransformingRef.current) {
-          penIsTransformingRef.current = false;
-          transformTypeRef.current = '';
-          originalPenPointsRef.current = penPointsRef.current.map((p) => ({ ...p }));
-        }
       }
     };
 
@@ -1316,26 +864,14 @@ const Stage: React.FC = () => {
         updateCursor(e);
         return;
       }
-      const mode = interactionModeRef.current;
-      if (mode === 'pen') {
-        const rect = canvas.getBoundingClientRect();
-        const x = Math.round((e.clientX - rect.left) * canvas.width / canvas.clientWidth);
-        const y = Math.round((e.clientY - rect.top) * canvas.height / canvas.clientHeight);
 
-        if (penIsDraggingRef.current && penDraggedPointIndexRef.current !== -1) {
-          penPointsRef.current[penDraggedPointIndexRef.current] = { x, y };
-          updatePenDisplay();
-        } else if (penIsTransformingRef.current) {
-          performPenShapeTransform(x, y);
-        }
-      }
       updateCursor(e);
     };
 
     // --- scroll on window ---
     const onWindowScroll = (event: Event) => {
       const mode = interactionModeRef.current;
-      if (mode === 'pen') updatePenDisplay();
+      // if (mode === 'pen') drawPenPolygon();
       leftClickedRef.current = false;
       rightClickedRef.current = false;
       updateCursor(event);
@@ -1359,10 +895,13 @@ const Stage: React.FC = () => {
 
     // --- gesture events (Mac trackpad) ---
     const onGestureStart = (e: Event) => {
+      e.stopPropagation();
       e.preventDefault();
       isGesturingRef.current = true;
     };
     const onGestureChange = (e: any) => {
+            e.stopPropagation();
+
       e.preventDefault();
       if (isGesturingRef.current) {
         let newScale = scaleRef.current * e.scale;
@@ -1373,6 +912,8 @@ const Stage: React.FC = () => {
       }
     };
     const onGestureEnd = (e: Event) => {
+            e.stopPropagation();
+
       e.preventDefault();
       isGesturingRef.current = false;
     };
@@ -1412,7 +953,9 @@ const Stage: React.FC = () => {
       dispatch(setHasLayers(true));
     };
 
-    // --- keyboard events ---
+
+
+   // NOTE: CONSOLIDATE INTO USEKEYS SCRIPT
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
         e.preventDefault();
@@ -1456,16 +999,20 @@ const Stage: React.FC = () => {
             dispatch(setActiveLayer(keys[newIdx]));
           }
         }
-      }
-
-      // Pen mode shortcuts
-      if (interactionModeRef.current === 'pen') {
-        if (e.key === 'Enter') { e.preventDefault(); rasterizePenShape(); }
-        else if (e.key === 'Escape') { e.preventDefault(); clearPenMode(); }
-        else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); erasePenShape(); }
-        else if (e.key === 'c') { cropPenShape(); }
-      }
+      }   
     };
+
+
+
+
+
+
+
+
+
+
+
+
 
     const onKeyUp = (e: KeyboardEvent) => {
       e.preventDefault();
@@ -1486,14 +1033,14 @@ const Stage: React.FC = () => {
     canvas.addEventListener('mouseup', onMouseUp);
     canvas.addEventListener('mouseleave', onMouseLeave);
     canvas.addEventListener('mouseenter', onMouseEnter);
-    canvas.addEventListener('wheel', onWheel, { passive: false });
+    window.addEventListener('wheel', onWheel, { passive: false });
     canvas.addEventListener('contextmenu', onContextMenu);
     canvas.addEventListener('dragenter', catchDrag);
     canvas.addEventListener('dragover', catchDrag);
     canvas.addEventListener('drop', onDrop);
-    canvas.addEventListener('gesturestart', onGestureStart);
-    canvas.addEventListener('gesturechange', onGestureChange);
-    canvas.addEventListener('gestureend', onGestureEnd);
+    window.addEventListener('gesturestart', onGestureStart);
+    window.addEventListener('gesturechange', onGestureChange);
+    window.addEventListener('gestureend', onGestureEnd);
 
     window.addEventListener('mousemove', onWindowMouseMove);
     window.addEventListener('mouseup', onWindowMouseUp);
@@ -1530,18 +1077,23 @@ const Stage: React.FC = () => {
     return () => {
       cancelAnimationFrame(animId);
 
+      canvasRegistry.draw = null;
+      canvasRegistry.drawCtx = null;
+      canvasRegistry.saveState = null;
+      canvasRegistry.reapplyAnchoredMask = null;
+
       canvas.removeEventListener('mousedown', onMouseDown);
       canvas.removeEventListener('mouseup', onMouseUp);
       canvas.removeEventListener('mouseleave', onMouseLeave);
       canvas.removeEventListener('mouseenter', onMouseEnter);
-      canvas.removeEventListener('wheel', onWheel);
+      window.removeEventListener('wheel', onWheel);
       canvas.removeEventListener('contextmenu', onContextMenu);
       canvas.removeEventListener('dragenter', catchDrag);
       canvas.removeEventListener('dragover', catchDrag);
       canvas.removeEventListener('drop', onDrop);
-      canvas.removeEventListener('gesturestart', onGestureStart);
-      canvas.removeEventListener('gesturechange', onGestureChange);
-      canvas.removeEventListener('gestureend', onGestureEnd);
+      window.removeEventListener('gesturestart', onGestureStart);
+      window.removeEventListener('gesturechange', onGestureChange);
+      window.removeEventListener('gestureend', onGestureEnd);
 
       window.removeEventListener('mousemove', onWindowMouseMove);
       window.removeEventListener('mouseup', onWindowMouseUp);
@@ -1556,19 +1108,6 @@ const Stage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // mount-only
 
-  // ──────────────────────────────────────────────────────────
-  //  Pen mode init/cleanup when interactionMode changes
-  // ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (interactionMode === 'pen') {
-      initPenMode();
-    } else {
-      // If leaving pen mode, clean up
-      clearPenMode();
-    }
-  }, [interactionMode, initPenMode, clearPenMode]);
-
-  // ──────────────────── RENDER ────────────────────
   return (
     <>
       <div id="cursor" ref={cursorRef}>
@@ -1593,6 +1132,7 @@ const Stage: React.FC = () => {
       >
         <g transform="scale(1)" id="svg-scale-group" ref={svgScaleGroupRef}></g>
       </svg>
+
       {pendingSegImport && (
         <SegMapImportDialog
           colors={pendingSegImport.colors}

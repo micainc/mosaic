@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { getBlackWhiteContrast } from '../utils/rgbUtils';
+import { useTooltip } from './Tooltip/useTooltip';
 
 export interface SegMapColorEntry {
   hex: string;       // e.g. '#3F007F'
@@ -20,6 +21,7 @@ const SegMapImportDialog: React.FC<Props> = ({ colors, onConfirm, onCancel }) =>
     return init;
   });
 
+  const {showTooltip} = useTooltip();
   const allChecked = colors.every(c => checked[c.hex]);
 
   const handleToggle = (hex: string) => {
