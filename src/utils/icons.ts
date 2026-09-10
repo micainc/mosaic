@@ -1,0 +1,1 @@
+export const ico = (file: string) => `${import.meta.env.BASE_URL}icons/${file}`;

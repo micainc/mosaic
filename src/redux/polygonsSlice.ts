@@ -1,6 +1,6 @@
-import { createSelector, createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { PolygonType } from '../types';
-import { RootState } from './store';
+
 
 interface PolygonsState {
   polygons: PolygonType[];
@@ -20,7 +20,7 @@ const polygonsSlice = createSlice({
     addPolygon(state, action: PayloadAction<PolygonType>) {
       const polyId = action.payload.id
       state.polygons.push(action.payload);
-      state.selected.push(polyId)
+      state.selected = [polyId]
     },
     updatePolygon(state, action: PayloadAction<Partial<PolygonType> & {id:string}>) {
       const poly = state.polygons.find(p => p.id === action.payload.id);
@@ -61,17 +61,8 @@ const polygonsSlice = createSlice({
     clearSelection(state) {
       state.selected = [];
     },
+
   },
-  selectors: {
-    getPolygonById: (state, id: string) => state.polygons.find(p => p.id === id),
-    getSelectedPolygons: createSelector(
-      [(state: PolygonsState) => state.polygons, (state: PolygonsState) => state.selected],
-      (polygons, selected) => {
-        const ids = new Set(selected);
-        return polygons.filter(p => ids.has(p.id));
-      },
-    ),
-  }
 });
 
 
@@ -90,8 +81,6 @@ export const {
   clearSelection,
   
 } = polygonsSlice.actions;
-
-export const { getPolygonById, getSelectedPolygons } = polygonsSlice.selectors;
 
 export default polygonsSlice.reducer;
 

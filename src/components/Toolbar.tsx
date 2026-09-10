@@ -10,12 +10,13 @@ import './Toolbar.css';
 import { Icon } from './Icon/Icon';
 import { useTooltip } from './Tooltip/useTooltip';
 import { useDispatch } from 'react-redux';
+import { ico } from '../utils/icons';
 
 const Toolbar: React.FC = () => {
   const dispatch = useDispatch();
   const { interactionMode, drawDiameter, statusText } = useAppSelector(state => state.canvas);
   const { layers, activeLayerName } = useAppSelector(state => state.imageLayers);
-  const activeColour = useAppSelector(state => state.labels.activeDrawLabelColour.colour);
+  const activeColour = useAppSelector(state => state.labels.activeLabel.colour);
   const cursorX = useAppSelector(state => state.canvas.cursorX)
   const cursorY = useAppSelector(state => state.canvas.cursorY)
 
@@ -50,7 +51,7 @@ const Toolbar: React.FC = () => {
             data-tooltip="Download segmentation map..."
             onMouseEnter={showTooltip('"Download segmentation map..."')}
           >
-            <img src={`${import.meta.env.BASE_URL}img/segmentation_map.svg`} alt="Save Segmentation Map" />
+            <img src={ico('segmentation_map.svg')} alt="Save Segmentation Map" />
           </button>
           <button
             className="toolbar-button"
@@ -58,7 +59,7 @@ const Toolbar: React.FC = () => {
             data-tooltip="Download segmentation map tiles..."
             onMouseEnter={showTooltip('Download segmentation map tiles...')}
           >
-            <img src={`${import.meta.env.BASE_URL}img/download.svg`} alt="Save Tiles" />
+            <img src={ico('download.svg')} alt="Save Tiles" />
           </button>
         </div>
 
@@ -85,7 +86,7 @@ const Toolbar: React.FC = () => {
                 >
                   <div className="layer-controls-row">
                     <Icon
-                      src={`${import.meta.env.BASE_URL}img/delete.svg`}
+                      src={ico('delete.svg')}
                       colour='#FF0000'
                       width='0.75em'
                       height='0.75em'
@@ -139,7 +140,7 @@ const Toolbar: React.FC = () => {
             classes={`button fit inset-8`}
             onClick={() => window.dispatchEvent(new CustomEvent('undo'))}
             onMouseEnter={showTooltip('Undo')}
-            src={`${import.meta.env.BASE_URL}img/undo.svg`}
+            src={ico('undo.svg')}
           />
 
 
@@ -147,42 +148,42 @@ const Toolbar: React.FC = () => {
             classes={`button fit inset-8 ${interactionMode === 'pipette' ? ' selected-tool' : ''}`}
             onClick={() => handleToolSelect('pipette')}
             onMouseEnter={showTooltip('Reclass')}
-            src={`${import.meta.env.BASE_URL}img/pipette.svg`}
+            src={ico('pipette.svg')}
           />
 
           <Icon
             classes={`button fit inset-8 ${interactionMode === 'draw' ? ' selected-tool' : ''}`}
             onClick={() => handleToolSelect('draw')}
             onMouseEnter={showTooltip('Pencil')}
-            src={`${import.meta.env.BASE_URL}img/pencil.svg`}
+            src={ico('pencil.svg')}
           />
 
           <Icon
             classes={`button fit inset-8 ${interactionMode === 'pen' ? ' selected-tool' : ''}`}
             onClick={() => handleToolSelect('pen')}
             onMouseEnter={showTooltip('Pen')}
-            src={`${import.meta.env.BASE_URL}img/pen.svg`}
+            src={ico('pen.svg')}
           />
 
           {/* <Icon
             classes={`button fit inset-8 ${interactionMode === 'stats' ? ' selected-tool' : ''}`}
             onClick={() => handleToolSelect('stats')}
             onMouseEnter={showTooltip('Stats')}
-            src={`${import.meta.env.BASE_URL}img/stats.svg`}
+            src={ico('stats.svg')}
           /> */}
 
           <Icon
             classes={`button fit inset-8 ${interactionMode === 'fill' ? ' selected-tool' : ''}`}
             onClick={() => handleToolSelect('fill')}
             onMouseEnter={showTooltip('Fill')}
-            src={`${import.meta.env.BASE_URL}img/bucket.svg`}
+            src={ico('bucket.svg')}
           />
 
           <Icon
             classes={`button fit inset-8 ${interactionMode === 'roi' ? ' selected-tool' : ''}`}
             onClick={() => handleToolSelect('roi')}
             onMouseEnter={showTooltip('ROI')}
-            src={`${import.meta.env.BASE_URL}img/crop.svg`}
+            src={ico('crop.svg')}
           />
 
           <input

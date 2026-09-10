@@ -1,15 +1,24 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useDispatch } from 'react-redux';
-import { updatePolygon } from '../../redux/polygonsSlice';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointType, PolygonType } from '../../types';
+import './Polygon.css'
 import {
+  erasePolygon,
   getBounds,
   getInsertIndex,
+  rasterizePolygon,
   rotatePoints,
   scalePoints,
   translatePoints,
   type ScaleCorner,
 } from './utils';
+import { usePolygons } from './usePolygons';
+import { useLabels } from '../Labels/useLabels';
+import { useCanvas } from '../Canvas/useCanvas';
+import { Icon } from '../Icon/Icon';
+import { useTooltip } from '../Tooltip/useTooltip';
+import { ico } from '../../utils/icons';
+import Window from '../Window/Window';
+import Stats from '../Stats/Stats';
 
 // Screen-pixel sizes, matched to Stage's in-progress pen handles so a committed
 // polygon looks and behaves like the one you just drew.
@@ -28,9 +37,6 @@ type Gesture =
 export interface PolygonProps {
   polygon: PolygonType;
   selected: boolean;
-  /** Handles are live: the tool is 'select' AND this polygon is selected. */
-  editable: boolean;
-  /** Fill accepts clicks (selection) even when not editable. */
   clickable: boolean;
   /** viewBox units per screen pixel — keeps handles a constant on-screen size at any zoom. */
   unit: number;
@@ -53,11 +59,15 @@ export interface PolygonProps {
  * overlay re-render on every frame of a drag.
  */
 const Polygon: React.FC<PolygonProps> = ({
-  polygon, selected, editable, clickable, unit, toLocal, onSelect,
+  polygon, selected, clickable, unit, toLocal, onSelect,
 }) => {
-  const dispatch = useDispatch();
+  const {label} = useLabels();
+  const {updatePolygon} = usePolygons();
+  const {mode} = useCanvas();
   const [gesture, setGesture] = useState<Gesture | null>(null);
   const [draft, setDraft] = useState<PointType[] | null>(null);
+  const [statsOpen, setStatsOpen] = useState(false);
+  const {showTooltip} = useTooltip();
 
   // Mirrored so the gesture effect's pointerup can read the final draft without
   // re-subscribing on every mousemove.
@@ -68,10 +78,6 @@ const Polygon: React.FC<PolygonProps> = ({
   const { minX, minY, maxX, maxY } = getBounds(points);
   const centerX = (minX + maxX)/2;
   const centerY = (minY + maxY)/2;
-
-  const commit = useCallback((next: PointType[]) => {
-    dispatch(updatePolygon({ id: polygon.id, points: next }));
-  }, [dispatch, polygon.id]);
 
   // ─── Drag loop: bound to the window so the pointer can leave the shape ───
   useEffect(() => {
@@ -100,7 +106,7 @@ const Polygon: React.FC<PolygonProps> = ({
     };
 
     const onUp = () => {
-      if (draftRef.current) commit(draftRef.current);
+      if (draftRef.current) updatePolygon(polygon.id, {points: draftRef.current});
       setDraft(null);
       setGesture(null);
     };
@@ -111,7 +117,7 @@ const Polygon: React.FC<PolygonProps> = ({
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
     };
-  }, [gesture, toLocal, commit, polygon.points]);
+  }, [gesture, toLocal, polygon.points]);
 
   // ─── Handlers ───
 
@@ -119,29 +125,31 @@ const Polygon: React.FC<PolygonProps> = ({
     if (!clickable || e.button !== 0) return;
     e.stopPropagation();
     const additive = e.metaKey || e.ctrlKey || e.shiftKey;
+    console.log("ADDITIVE: ", additive)
     onSelect(polygon.id, additive);
     // Only an already-selected polygon moves, so the first click just selects.
-    if (editable && !additive) {
+    if (clickable && selected && !additive) {
       setGesture({ kind: 'move', origin: points, start: toLocal(e.clientX, e.clientY) });
     }
   };
 
   /** Click near an edge inserts a vertex there — the committed twin of Stage's getLineInsertIndex. */
   const onEdgePointerDown = (e: React.PointerEvent) => {
-    if (!editable || e.button !== 0) return;
+    if (!(clickable && selected) || e.button !== 0) return;
     const p = toLocal(e.clientX, e.clientY);
     const index = getInsertIndex(points, p, EDGE_HIT_WIDTH * unit);
     if (index === -1) return;
     e.stopPropagation();
     const next = [...points];
     next.splice(index, 0, p);
-    commit(next);
+    updatePolygon(polygon.id, {points: next})
     setGesture({ kind: 'vertex', index });
     setDraft(next);
   };
 
   const onVertexPointerDown = (index: number) => (e: React.PointerEvent) => {
     if (e.button !== 0) return;
+    e.preventDefault();
     e.stopPropagation();
     setGesture({ kind: 'vertex', index });
   };
@@ -151,7 +159,7 @@ const Polygon: React.FC<PolygonProps> = ({
     e.preventDefault();
     e.stopPropagation();
     if (points.length <= MIN_VERTICES) return;
-    commit(points.filter((_, i) => i !== index));
+    updatePolygon(polygon.id, {points: points.filter((_, i) => i !== index)})
   };
 
   const onHandlePointerDown = (corner: ScaleCorner) => (e: React.PointerEvent) => {
@@ -178,28 +186,92 @@ const Polygon: React.FC<PolygonProps> = ({
   const rotateX = (minX + maxX) / 2;
   const rotateY = minY - 24 * unit;
 
+  // const patternId = `checker-${polygon.id}`;
+  // const cell = 6 * unit; // 6 screen px per square at any zoom
+const ICON_PX = 20; // on-screen size, constant across zoom
+const iconSize = useMemo(() => ICON_PX * unit, [unit]);
+
   return (
-    <g>
+    <>
+    { statsOpen &&
+      <Window
+        classes='ui-dark'
+        title='STATS'
+        zoom = {1}
+        onClose={() => setStatsOpen(false)}
+        // dims={{w:500, h:500}}
+      >
+        <Stats points={points} name={polygon.label || polygon.id} />
+      </Window>
+
+    }
+    <g className='polygon-container'>
+      {/* <defs>
+        <pattern id={patternId} patternUnits="userSpaceOnUse" width={cell * 2} height={cell * 2}>
+          <rect width={cell} height={cell} fill={label.colour} />
+          <rect x={cell} y={cell} width={cell} height={cell} fill={label.colour} />
+        </pattern>
+      </defs> */}
+    {selected && mode !== 'pen' &&
+      <foreignObject
+        className='polygon-controls'
+        x={minX}
+        y={minY - iconSize - 4 * unit}
+        width={iconSize*3}
+        height={iconSize}
+      >
+        <Icon
+          src={ico('bucket.svg')}
+          classes="button fit icon-fill"
+          color='#FFFFFF'
+          onPointerDown={e => e.stopPropagation()}
+          onClick={() => rasterizePolygon(points, label.colour)}
+          onMouseEnter={showTooltip(`<b>FILL</b><br><dim>ENTER</dim>`, {direction:'top'})}
+        />
+        <Icon
+          src={ico('eraser.svg')}
+          classes="button fit icon-erase"
+          color='#FFFFFF'
+          onPointerDown={e => e.stopPropagation()}
+          onClick={() => erasePolygon(points)}
+          onMouseEnter={showTooltip(`<b>ERASE</b><br><dim>SHIFT+ENTER</dim>`, {direction:'top'})}
+        />
+
+        <Icon
+          src={ico('stats.svg')}
+          classes="button fit"
+          color='#FFFFFF'
+          onPointerDown={e => e.stopPropagation()}
+          onClick={() => setStatsOpen(prev => !prev)}
+          onMouseEnter={showTooltip(`<b>STATS</b><br>`, {direction:'top'})}
+        />
+      
+      </foreignObject>
+      }
       <polygon
+        className={`polygon ${selected ? 'selected' : ''}`}
         points={pointsStr}
-        fill={polygon.colour}
-        fillOpacity={0.5}
-        stroke={polygon.colour}
+        fill={mode === 'pen' ? '#FFFFFF40' : selected ? /*`url(#${patternId})`*/ label.colour : 'transparent'}
+        fillOpacity={0}
+        stroke={selected ? '#FFFFFF' : '#FFFFFF80'}
         strokeWidth={1}
+        // strokeDasharray={(mode === 'pen' && selected) ? "4,4" : undefined}
+
         vectorEffect="non-scaling-stroke"
         style={{
           pointerEvents: clickable ? 'auto' : 'none',
-          cursor: editable ? 'move' : clickable ? 'pointer' : undefined,
+          cursor: (clickable && selected) ? 'move' : clickable ? 'pointer' : undefined,
+          zIndex: 3
         }}
         onPointerDown={onFillPointerDown}
       />
-      {selected && (
+      {/* {selected && (
         <text
           x={centerX}
           y={centerY}
           textAnchor="middle"
           dominantBaseline="central"
-          fill="#ffffff"
+          fill="#FFFFFF"
           stroke={polygon.colour}
           strokeWidth={2 * unit}
           paintOrder="stroke"
@@ -207,16 +279,19 @@ const Polygon: React.FC<PolygonProps> = ({
         >
           {polygon.id}
         </text>
-      )}
-      {editable && (
+      )} */}
+      {selected && (
         <>
+
+
           {/* Invisible fat stroke ABOVE the fill so edge clicks insert rather than move. */}
           <polygon
+            className='polygon-edge'
             points={pointsStr}
             fill="none"
             stroke="transparent"
             strokeWidth={EDGE_HIT_WIDTH * unit}
-            style={{ pointerEvents: 'stroke', cursor: 'crosshair' }}
+            style={{ pointerEvents: 'stroke', cursor: 'cell' }}
             onPointerDown={onEdgePointerDown}
           />
 
@@ -224,9 +299,9 @@ const Polygon: React.FC<PolygonProps> = ({
             x={minX} y={minY}
             width={maxX - minX} height={maxY - minY}
             fill="none"
-            stroke="#ffffff"
+            stroke="#ffffff40"
             strokeWidth={1}
-            strokeDasharray="5,5"
+            // strokeDasharray="1,4"
             vectorEffect="non-scaling-stroke"
             style={{ pointerEvents: 'none' }}
           />
@@ -247,12 +322,16 @@ const Polygon: React.FC<PolygonProps> = ({
 
           {corners.map(c => (
             <rect
+              className='polygon-corner-handle'
               key={c.id}
               x={c.x - (HANDLE_SIZE * unit) / 2}
               y={c.y - (HANDLE_SIZE * unit) / 2}
               width={HANDLE_SIZE * unit}
               height={HANDLE_SIZE * unit}
-              fill="#ffffff"
+              // fill="#ffffff"
+              fill="transparent"
+              stroke="#ffffff"
+
               style={{ pointerEvents: 'all', cursor: c.cursor }}
               onPointerDown={onHandlePointerDown(c.id)}
             />
@@ -260,9 +339,10 @@ const Polygon: React.FC<PolygonProps> = ({
 
           {points.map((p, i) => (
             <circle
+              className='polygon-vertex'
               key={i}
               cx={p.x} cy={p.y} r={VERTEX_RADIUS * unit}
-              fill={polygon.colour}
+              fill='transparent'
               stroke="#ffffff"
               strokeWidth={1}
               vectorEffect="non-scaling-stroke"
@@ -274,6 +354,7 @@ const Polygon: React.FC<PolygonProps> = ({
         </>
       )}
     </g>
+    </>
   );
 };
 

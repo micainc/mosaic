@@ -1,30 +1,20 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppSelector } from '../../redux/store';
-import { selectOnly, toggleSelected } from '../../redux/polygonsSlice';
 import { useDispatch } from 'react-redux';
-import type { PointType } from '../../types';
+import { usePolygons } from './usePolygons';
+import { PolygonType, PointType } from '../../types';
 import Polygon from './Polygon';
 
-/**
- * Declarative overlay for COMMITTED polygons (persist-as-vectors).
- *
- * Lives in canvas/content space: an absolutely-positioned <svg> with a
- * viewBox in intrinsic canvas pixels, so stored points render 1:1 with the
- * image and scroll/zoom with it — no scroll or scale math (unlike the
- * fixed #svg-canvas used for the in-progress pen handles).
- *
- * The in-progress pen polygon still lives in Stage's imperative SVG; this
- * only draws polygons already in the store. Per-shape rendering and editing
- * live in Polygon.tsx; this owns the shared viewBox, the coordinate mapping,
- * and the handle-size unit that every child needs.
- */
 const Polygons: React.FC = () => {
   const dispatch = useDispatch();
-  const polygons = useAppSelector(s => s.polygons.polygons);
-  const selected = useAppSelector(s => s.polygons.selected);
+  const { polygons, selected, addPolygon, updatePolygon, getPolygonById, deselectAllPolygons, toggleSelectedPolygon, onlySelectPolygon} = usePolygons();
   const width = useAppSelector(s => s.canvas.canvasWidth);
   const height = useAppSelector(s => s.canvas.canvasHeight);
   const scale = useAppSelector(s => s.canvas.scale);
+  const activeLabel = useAppSelector((s) => s.labels.activeLabel);
+
+  // const [draft, setDraft] = useState<string>();
+
   const interactionMode = useAppSelector(s => s.canvas.interactionMode);
 
   const svgRef = React.useRef<SVGSVGElement>(null);
@@ -33,12 +23,24 @@ const Polygons: React.FC = () => {
   const clickable = interactionMode === 'select';
   const selectedSet = React.useMemo(() => new Set(selected), [selected]);
 
-  /**
-   * viewBox units per screen pixel. Handles are specified in screen px but drawn
-   * in viewBox space, so they'd balloon with zoom without this correction.
-   * Read off the live CTM rather than derived from `scale`, since the mapping
-   * also depends on the container width.
-   */
+
+useEffect(() => {
+  if(interactionMode === 'pen') {
+    // console.log("FLAG 2")
+    addPolygon({
+      id:  crypto.randomUUID(),
+      label: activeLabel.label,
+      colour: activeLabel.colour,
+      points: [],
+    })
+  } else {
+      console.log("FLAG 3")
+      deselectAllPolygons();
+  }
+
+}, [interactionMode])
+
+ 
   const [unit, setUnit] = React.useState(1);
   React.useLayoutEffect(() => {
     const svg = svgRef.current;
@@ -65,29 +67,47 @@ const Polygons: React.FC = () => {
   }, []);
 
   const handleSelect = React.useCallback((id: string, additive: boolean) => {
-    dispatch(additive ? toggleSelected(id) : selectOnly(id));
+    if(additive) toggleSelectedPolygon(id) 
+    else onlySelectPolygon(id);
   }, [dispatch]);
 
-  // Always mounted (even with zero polygons) so zoomAround's `.mosaic-canvas`
-  // sweep keeps its inline width in sync — a late mount would miss past zooms.
-  // No width/height attrs: .mosaic-canvas sets width (and zoomAround rewrites it on
-  // wheel), so height must stay auto or the viewBox letterboxes out of alignment.
+
+    const handleMouseDown = useCallback((e: React.MouseEvent) => {
+      if (interactionMode === 'pen' && selected[0]) {
+        const pts = [...(getPolygonById(selected[0])?.points ?? [])]
+        if (e.button === 0) { // left click
+
+          e.preventDefault();
+          e.stopPropagation();
+          const {x, y} = toLocal(e.clientX, e.clientY)
+                  console.log("FLAG XY:", x + ", "+ y)
+
+          updatePolygon(selected[0], {points:[...pts, {x, y}]})
+
+        } else if(e.button === 2){
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
+    }, [polygons, selected, interactionMode, activeLabel]);
+
   return (
     <svg
       ref={svgRef}
       className="mosaic-canvas"
       id="polygon-overlay"
       viewBox={`0 0 ${width} ${height}`}
-      style={{ zIndex: 3, height: 'auto', pointerEvents: 'none' }}
+      style={{ zIndex: 2, height: 'auto', pointerEvents: interactionMode === 'pen' ? 'all' : 'none', cursor:'crosshair'}}
+      onMouseDown={(e) => handleMouseDown(e)}
     >
+
       {polygons.map(poly => {
         const isSelected = selectedSet.has(poly.id);
         return (
           <Polygon
             key={poly.id}
             polygon={poly}
-            selected={true}
-            editable={clickable && isSelected}
+            selected={isSelected}
             clickable={clickable}
             unit={unit}
             toLocal={toLocal}

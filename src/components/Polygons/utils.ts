@@ -1,6 +1,6 @@
 import type { PointType } from '../../types';
 import { canvasRegistry } from '../../canvasRegistry';
-import { hexToRGB } from '../../utils/rgbUtils';
+import { hexToRGB, rgbToHex } from '../../utils/rgbUtils';
 
 export interface Bounds {
   minX: number;
@@ -183,4 +183,90 @@ export function rasterizePolygon(points: PointType[], colour: string): boolean {
   ctx.drawImage(offCanvas, 0, 0);
   canvasRegistry.reapplyAnchoredMask?.();
   return true;
+}
+
+
+  // --- erasePenShape ---
+  export function erasePolygon(points: PointType[]) {
+    const canvas = canvasRegistry.draw;
+    const ctx = canvasRegistry.drawCtx;
+    if (!canvas || !ctx || points.length < 3) return false;
+
+    canvasRegistry.saveState?.();
+
+    const offCanvas = new OffscreenCanvas(canvas.width, canvas.height);
+    const offCtx = offCanvas.getContext('2d')!;
+    offCtx.imageSmoothingEnabled = false;
+    offCtx.fillStyle = '#000000';
+    offCtx.beginPath();
+    offCtx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) offCtx.lineTo(points[i].x, points[i].y);
+    offCtx.closePath();
+    offCtx.fill();
+
+    const maskData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height).data;
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+      if (maskData[i + 3] > 0) {
+        data[i] = 0; data[i + 1] = 0; data[i + 2] = 0; data[i + 3] = 0;
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
+    canvasRegistry.reapplyAnchoredMask?.();
+    return true;
+  };
+
+export type PolygonStats = {
+  /** Pixels inside the polygon. */
+  total: number;
+  /** Inside pixels with no class painted (alpha 0). */
+  unclassified: number;
+  /** Painted inside pixels, keyed by hex colour. */
+  counts: Record<string, number>;
+};
+
+/**
+ * Count the class colour of every draw-canvas pixel under a polygon.
+ * Rasterizes the polygon to an offscreen mask, then tallies the draw canvas
+ * where the mask is set. Returns null if the canvas isn't mounted.
+ */
+export function polygonStats(points: PointType[]): PolygonStats | null {
+  const canvas = canvasRegistry.draw;
+  const ctx = canvasRegistry.drawCtx;
+  if (!canvas || !ctx || points.length < 3) return null;
+
+  const { minX, minY, maxX, maxY } = getBounds(points);
+  const x0 = Math.max(0, Math.floor(minX));
+  const y0 = Math.max(0, Math.floor(minY));
+  const w = Math.min(canvas.width, Math.ceil(maxX) + 1) - x0;
+  const h = Math.min(canvas.height, Math.ceil(maxY) + 1) - y0;
+  if (w <= 0 || h <= 0) return { total: 0, unclassified: 0, counts: {} };
+
+  // Mask only the bounding box — no need to scan the whole canvas.
+  const off = new OffscreenCanvas(w, h);
+  const offCtx = off.getContext('2d')!;
+  offCtx.imageSmoothingEnabled = false;
+  offCtx.fillStyle = '#000';
+  offCtx.beginPath();
+  offCtx.moveTo(points[0].x - x0, points[0].y - y0);
+  for (let i = 1; i < points.length; i++) offCtx.lineTo(points[i].x - x0, points[i].y - y0);
+  offCtx.closePath();
+  offCtx.fill();
+
+  const mask = offCtx.getImageData(0, 0, w, h).data;
+  const px = ctx.getImageData(x0, y0, w, h).data;
+
+  const counts: Record<string, number> = {};
+  let total = 0;
+  let unclassified = 0;
+  for (let i = 0; i < mask.length; i += 4) {
+    if (mask[i + 3] === 0) continue;
+    total++;
+    if (px[i + 3] === 0) { unclassified++; continue; }
+    const hex = rgbToHex(px[i], px[i + 1], px[i + 2]);
+    counts[hex] = (counts[hex] ?? 0) + 1;
+  }
+  return { total, unclassified, counts };
 }

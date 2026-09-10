@@ -3,6 +3,14 @@ import { useCallback, useRef, useEffect } from 'react';
 import {  show, setTarget} from '../../redux/tooltipSlice';
 import { TooltipTargetType } from '../../types';
 
+export type TooltipDirection = 'top' | 'bottom' | 'left' | 'right';
+
+type TooltipProps = {
+  direction?: 'top' | 'bottom' | 'left' | 'right';
+  event?: React.MouseEvent | React.FocusEvent;
+};
+
+
 export const useTooltip = () => {
   const dispatch = useDispatch();
   const memoizedCallbacks = useRef(new Map<string, (e: React.MouseEvent | React.FocusEvent) => void>());
@@ -108,17 +116,11 @@ export const useTooltip = () => {
 
 
 
-  const showTooltip = useCallback((
-    text: string,
-    event?: React.MouseEvent | React.FocusEvent,
-    direction?: 'top' | 'bottom' | 'left' | 'right',
-  ) => {
-    // If second parameter is an event, use direct behavior
-    if (event && typeof event === 'object' && 'currentTarget' in event) {
-
-      _showTooltip(text, event, direction);
-      return;
-    }
+const showTooltip = useCallback((text: string, { direction, event }: TooltipProps = {}) => {
+  if (event) {
+    _showTooltip(text, event, direction);
+    return;
+  }
 
     const key = `${text}-${direction ?? ''}`;
 

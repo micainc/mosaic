@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
 import { store } from '../redux/store';
-import { deleteSelected, selectAll, clearSelection, getSelectedPolygons } from '../redux/polygonsSlice';
 import { setInteractionMode } from '../redux/canvasSlice';
 import { useDispatch } from 'react-redux';
-import { rasterizePolygon } from '../components/Polygons/utils';
+import { erasePolygon, rasterizePolygon } from '../components/Polygons/utils';
+import { usePolygons } from '../components/Polygons/usePolygons';
+import { useLabels } from '../components/Labels/useLabels';
 
 /**
  * The single global keyboard handler for app-level (Redux) shortcuts.
@@ -16,9 +17,13 @@ import { rasterizePolygon } from '../components/Polygons/utils';
  */
 export function useKeys() {
   const dispatch = useDispatch();
-
+  const {getSelectedPolygons, deselectAllPolygons, deleteSelectedPolygons, selectAllPolygons} = usePolygons();
+  const selected = getSelectedPolygons();
+  const {label } = useLabels();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      console.log("KEY: ", e.key)
+
       // 1. never hijack keys while the user is typing
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
@@ -28,7 +33,8 @@ export function useKeys() {
       // callback, and a hook call outside render throws "Invalid hook call".
       const state = store.getState();
       const { interactionMode } = state.canvas;
-      const selected = getSelectedPolygons(state);
+
+
 
       const mod = e.metaKey || e.ctrlKey;
 
@@ -39,27 +45,33 @@ export function useKeys() {
         case 'mod+a':
           // Replaces the native "select all text", so the default has to go.
           e.preventDefault();
-          store.dispatch(selectAll());
+          selectAllPolygons();
           break;
 
         case 'escape':
+
           // Pen mode owns Escape (clears the in-progress polygon) — let Stage handle it.
           if (interactionMode !== 'pen' && selected.length) {
-            store.dispatch(clearSelection());
+            deselectAllPolygons();
           }
           dispatch(setInteractionMode('select'));
           break;
 
         case 'enter':
+          // console.log("SELECTED: ", selected)
           // Pen mode owns Enter (rasterizes the in-progress shape) — let Stage handle it.
           if (interactionMode !== 'pen' && selected.length) {
             e.preventDefault();
             // Non-destructive: the vectors stay in the store, Delete removes them.
             // Re-running is harmless — it repaints the same flat colour.
-            selected.forEach(p => rasterizePolygon(p.points, p.colour));
+            selected.forEach(p => rasterizePolygon(p.points, label.colour));
           } else if(interactionMode === 'pen') {
             dispatch(setInteractionMode('select'))
           }
+          break;
+        case 'shift+enter':
+          selected.forEach(p => erasePolygon(p.points));
+
           break;
 
         case 'delete':
@@ -67,7 +79,7 @@ export function useKeys() {
           // Pen mode owns Delete (erases the pen shape) — let Stage handle it.
           if (interactionMode !== 'pen' && selected.length) {
             e.preventDefault();
-            store.dispatch(deleteSelected());
+            deleteSelectedPolygons();
           }
           break;
       }
@@ -75,5 +87,5 @@ export function useKeys() {
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [dispatch]); // dispatch is stable, so this still binds once
+  }, [dispatch, selected, label]); // dispatch is stable, so this still binds once
 }
