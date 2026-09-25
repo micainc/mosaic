@@ -2,7 +2,6 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { useAppSelector } from '../redux/store';
 import { setCanvasDimensions, setHasLayers, setStatusText, setScale, setCursorXY, setInteractionMode } from '../redux/canvasSlice';
 import { addLayer, setActiveLayer } from '../redux/imageLayersSlice';
-// import { addPolygon, toggleSelected } from '../redux/polygonsSlice';
 import { drawCircle } from '../utils/drawCircle';
 import { floodFill } from '../utils/floodFill';
 import { rgbToHex } from '../utils/rgbUtils';
@@ -1115,10 +1114,9 @@ const Stage: React.FC = () => {
       </div>
       <img
         className="mosaic-canvas"
-        id="base-image"
         ref={baseImageRef}
-        style={{ position: 'absolute' }}
         alt=""
+        // style={{zIndex:0}}
       />
       <canvas
         className="mosaic-canvas"

@@ -1,0 +1,58 @@
+.report {
+    position: relative;
+    background-color: white;
+    color: black;
+    overflow: hidden;
+}
+
+.report .react-grid-layout {
+    width: 100%;
+    height: 100%;
+}
+
+/* .report .react-grid-layout:hover .react-grid-item {
+    background-color: #00000017;
+    outline: 1px dashed #00000020 !important;
+    outline-offset: -1px !important;
+} */
+
+.react-grid-item {
+    outline: 1px solid #00000017 !important;
+    outline-offset: -1px !important;
+    /* background-color: #00000017; */
+}
+
+
+.report-item {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+
+/* Fills whatever the title bar leaves; children are absolutely positioned
+   inside it so replaced elements (img, svg) can't push the tile open. */
+.report-body {
+    position: relative;
+    flex: 1 1 0;
+    min-height: 0;
+}
+
+.report-image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: scale-down;
+    /* object-fit: contain; */
+    image-rendering: pixelated;
+}
+
+/* .report .stats-table {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding: 4px 6px;
+    box-sizing: border-box;
+} */

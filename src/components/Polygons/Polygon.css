@@ -9,16 +9,35 @@
 
 .polygon {
     z-index: 3;
+
     /* opacity:0.75; */
 }
 
 
-.polygon:not(.selected):hover {
+/* .polygon:not(.selected):hover {
+    fill-opacity: 0.5 !important;
+    fill:#FFFFFF40;
+} */
+
+.polygon:hover {
     fill-opacity: 0.5 !important;
 
     /* stroke-width: 2; */
     fill:#FFFFFF40;
 }
+
+.polygon.selected {
+    fill-opacity: 0.5 !important;
+    fill:#FFFFFF40;
+}
+
+.polygon.selected:hover {
+    stroke-width: 2;
+    /* mix-blend-mode: multiply !important; */
+
+    /* stroke-dasharray: 4,4; */
+}
+
 
 .polygon-vertex:hover {
     fill:#FFFFFF;
@@ -32,13 +51,19 @@
 }
 
 .polygon-controls {
-
+    display:flex;
+    flex-direction: row;
     position:relative; 
-    overflow: visible;
     pointer-events: auto;
     white-space: nowrap;
-
+    height:20px;
+    padding:4px;
+    gap:2px;
 }
-.polygon-controls * {
+/* .polygon-controls * {
     margin-right:16px;
+} */
+
+#polygon-overlay {
+    cursor: crosshair;
 }

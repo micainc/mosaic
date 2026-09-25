@@ -1,0 +1,35 @@
+.inputbox {
+    background-color: #FFFFFF10;
+    /* border: 1px solid transparent; */
+    border: unset;
+    /* overflow: visible; */
+    border-radius: 0px;
+    color:white;
+    outline: 1px solid #FFFFFF20;
+    outline-offset: -1px;
+    /* height:20px; */
+    padding:0px 4px ;
+    /* box-shadow: 0 2px 0 0 white; */
+}
+
+.inputbox:hover {
+    outline-color: white;
+}
+
+.inputbox:focus-visible {
+    /* outline: unset !important; */
+    /* border: 1px solid #FFFFFF; */
+    background-color: #FFFFFF20;
+}
+
+.inputbox::placeholder{
+    font-style: italic;
+    opacity: 0.5;
+}
+
+.inputbox:hover::placeholder{
+    opacity: 1;
+}
+
+
+

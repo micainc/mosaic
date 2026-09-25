@@ -1,0 +1,30 @@
+/* Two flex children, a label and a line. Orientation and label side are pure layout,
+   so the same component fits any corner of an image or report tile. */
+.scale-bar {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    color: inherit;
+    font-size: 10px;
+    line-height: 1;
+    white-space: nowrap;
+    pointer-events: none;
+    user-select: none;
+}
+
+.scale-bar-line {
+    background-color: currentColor;
+    flex: none;
+}
+
+.scale-bar-label {
+    flex: none;
+}
+
+/* Horizontal: label above or below the line. */
+.scale-bar.horizontal { flex-direction: column; }
+.scale-bar.horizontal.label-bottom { flex-direction: column-reverse; }
+
+/* Vertical: label beside the line. */
+.scale-bar.vertical { flex-direction: row-reverse; }
+.scale-bar.vertical.label-left { flex-direction: row; }

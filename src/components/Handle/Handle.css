@@ -16,13 +16,13 @@
 }
 
 .chevron-handle:hover::before {
-    background-color: #0047E07F;
+    background-color: #FFFFFF7F;
     outline: 2px solid white;
 
 }
 
 .chevron-handle:active::before {
-    background-color: #0047E0;
+    background-color: #FFFFFF;
 }
 
 .chevron-handle-bottom,
@@ -85,12 +85,12 @@
 
 .chevron-handle:hover .resize-chevron {
     display: block;
-    --icon-color: #0047E07F;
+    --icon-color: #FFFFFF7F;
 }
 
 .chevron-handle:active .resize-chevron {
     display: block;
-    --icon-color: #0047E0;
+    --icon-color: #FFFFFF;
 }
 
 .chevron-handle-bottom .resize-chevron:last-child { transform: translateY(-2px); }
@@ -155,18 +155,18 @@
 
 .edge-handle-bottom { 
     bottom: -4px; 
-    box-shadow: inset 0 1px 0 0 #0047E0;
+    box-shadow: inset 0 1px 0 0 #FFFFFF;
 
 }
 .edge-handle-top { 
     top: -4px;
-    box-shadow: inset 0 -1px 0 0 #0047E0;
+    box-shadow: inset 0 -1px 0 0 #FFFFFF;
 }
 
-.edge-handle-bottom:hover { box-shadow: inset 0 1px 0 0 #0047E0, inset 0 4px 0 0 #0047E0; }
-.edge-handle-bottom:active { box-shadow: inset 0 1px 0 0 #0047E0, inset 0 4px 0 0 #0047E0; }
-.edge-handle-top:hover { box-shadow: inset 0 -1px 0 0 #0047E0, inset 0 -4px 0 0 #0047E0; }
-.edge-handle-top:active { box-shadow: inset 0 -1px 0 0 #0047E0, inset 0 -4px 0 0 #0047E0; }
+.edge-handle-bottom:hover { box-shadow: inset 0 1px 0 0 #FFFFFF, inset 0 4px 0 0 #FFFFFF; }
+.edge-handle-bottom:active { box-shadow: inset 0 1px 0 0 #FFFFFF, inset 0 4px 0 0 #FFFFFF; }
+.edge-handle-top:hover { box-shadow: inset 0 -1px 0 0 #FFFFFF, inset 0 -4px 0 0 #FFFFFF; }
+.edge-handle-top:active { box-shadow: inset 0 -1px 0 0 #FFFFFF, inset 0 -4px 0 0 #FFFFFF; }
 
 /* Left / Right — vertical bars */
 .edge-handle-left,
@@ -179,37 +179,37 @@
 
 .edge-handle-right { 
     right: 0; 
-     box-shadow: inset -1px 0 0 0 #0047E0;
+     box-shadow: inset -1px 0 0 0 #FFFFFF;
 
 }
 .edge-handle-left { 
     left: 0; 
-    box-shadow: inset 1px 0 0 0 #0047E0;
+    box-shadow: inset 1px 0 0 0 #FFFFFF;
 
 }
 
-.edge-handle-right:hover { box-shadow: inset -1px 0 0 0 #0047E0, 2px 0 0 0 #0047E0; }
-.edge-handle-right:active { box-shadow: inset -1px 0 0 0 #0047E0, 2px 0 0 0 #0047E0; }
-.edge-handle-left:hover { box-shadow: inset 1px 0 0 0 #0047E0, -2px 0 0 0 #0047E0; }
-.edge-handle-left:active { box-shadow: inset 1px 0 0 0 #0047E0, -2px 0 0 0 #0047E0; }
+.edge-handle-right:hover { box-shadow: inset -1px 0 0 0 #FFFFFF, 2px 0 0 0 #FFFFFF; }
+.edge-handle-right:active { box-shadow: inset -1px 0 0 0 #FFFFFF, 2px 0 0 0 #FFFFFF; }
+.edge-handle-left:hover { box-shadow: inset 1px 0 0 0 #FFFFFF, -2px 0 0 0 #FFFFFF; }
+.edge-handle-left:active { box-shadow: inset 1px 0 0 0 #FFFFFF, -2px 0 0 0 #FFFFFF; }
 
 /* 
-.edge-handle-right:hover { box-shadow: inset -2px 0 0 0 #0047E0; }
-.edge-handle-right:active { box-shadow: inset -2px 0 0 0 #0047E0; }
-.edge-handle-left:hover { box-shadow: inset 2px 0 0 0 #0047E0; }
-.edge-handle-left:active { box-shadow: inset 2px 0 0 0 #0047E0; } */
+.edge-handle-right:hover { box-shadow: inset -2px 0 0 0 #FFFFFF; }
+.edge-handle-right:active { box-shadow: inset -2px 0 0 0 #FFFFFF; }
+.edge-handle-left:hover { box-shadow: inset 2px 0 0 0 #FFFFFF; }
+.edge-handle-left:active { box-shadow: inset 2px 0 0 0 #FFFFFF; } */
 
 
 
 
-/* .edge-handle-right:hover { box-shadow: inset -2px 0 0 0 #0047E0; }
-.edge-handle-right:active { box-shadow: inset -2px 0 0 0 #0047E0; }
-.edge-handle-left:hover { box-shadow: inset 2px 0 0 0 #0047E0; }
-.edge-handle-left:active { box-shadow: inset 2px 0 0 0 #0047E0; }
+/* .edge-handle-right:hover { box-shadow: inset -2px 0 0 0 #FFFFFF; }
+.edge-handle-right:active { box-shadow: inset -2px 0 0 0 #FFFFFF; }
+.edge-handle-left:hover { box-shadow: inset 2px 0 0 0 #FFFFFF; }
+.edge-handle-left:active { box-shadow: inset 2px 0 0 0 #FFFFFF; }
 
   .edge-handle-chevron {
       position: absolute;
-      --icon-color: #0047E0;
+      --icon-color: #FFFFFF;
       width: 8px;
       height: 8px;
       pointer-events: none;

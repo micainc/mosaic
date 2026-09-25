@@ -4,7 +4,6 @@ import canvasSlice from './canvasSlice';
 import tooltipSlice from './tooltipSlice';
 import imageLayersSlice from './imageLayersSlice';
 import labelsSlice from './labelsSlice';
-import roiSlice from './roiSlice';
 import polygonsSlice from './polygonsSlice';
 export const store = configureStore({
   reducer: {
@@ -12,7 +11,6 @@ export const store = configureStore({
     canvas: canvasSlice,
     imageLayers: imageLayersSlice,
     labels: labelsSlice,
-    rois: roiSlice,
     polygons: polygonsSlice,
   },
 });

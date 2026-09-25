@@ -19,6 +19,8 @@ import { useTooltip } from '../Tooltip/useTooltip';
 import { ico } from '../../utils/icons';
 import Window from '../Window/Window';
 import Stats from '../Stats/Stats';
+import { InputBox } from '../InputBox/InputBox';
+import { useAppSelector } from '../../redux/store';
 
 // Screen-pixel sizes, matched to Stage's in-progress pen handles so a committed
 // polygon looks and behaves like the one you just drew.
@@ -61,8 +63,10 @@ export interface PolygonProps {
 const Polygon: React.FC<PolygonProps> = ({
   polygon, selected, clickable, unit, toLocal, onSelect,
 }) => {
+    // const scale = useAppSelector(s => s.canvas.scale);
+  
   const {label} = useLabels();
-  const {updatePolygon} = usePolygons();
+  const {updatePolygon, toggleSelectedPolygon} = usePolygons();
   const {mode} = useCanvas();
   const [gesture, setGesture] = useState<Gesture | null>(null);
   const [draft, setDraft] = useState<PointType[] | null>(null);
@@ -186,25 +190,90 @@ const Polygon: React.FC<PolygonProps> = ({
   const rotateX = (minX + maxX) / 2;
   const rotateY = minY - 24 * unit;
 
-  // const patternId = `checker-${polygon.id}`;
-  // const cell = 6 * unit; // 6 screen px per square at any zoom
-const ICON_PX = 20; // on-screen size, constant across zoom
-const iconSize = useMemo(() => ICON_PX * unit, [unit]);
+  const hole = VERTEX_RADIUS * unit + 2 * unit; // vertex square plus a 1px ring each side
 
   return (
     <>
-    { statsOpen &&
+    { statsOpen && 
       <Window
-        classes='ui-dark'
+        classes={`ui-dark ${draft ? 'pending' : ''}` }
         title='STATS'
+        origin= {{x: minX/unit, y:minY/unit}}
         zoom = {1}
         onClose={() => setStatsOpen(false)}
+        resizable={true}
         // dims={{w:500, h:500}}
       >
         <Stats points={points} name={polygon.label || polygon.id} />
       </Window>
 
     }
+
+    {selected && mode !== 'pen' &&
+      <Window
+        origin= {{x: minX/unit, y:minY/unit}}
+        width = {'max-content'}
+        height ={'max-content'}
+        classes='ui-dark'
+        title='CTRLS'
+        zoom = {1}
+        onClose={() => toggleSelectedPolygon(polygon.id)}
+      >
+        <div
+          className='polygon-controls'
+          
+        >
+          <InputBox 
+            defaultValue={polygon.name} 
+            onKeyDown={e => { 
+              // console.log("E KEY: ", e.key)
+              // e.preventDefault();
+              e.stopPropagation();
+              if (e.key === 'Enter') e.currentTarget.blur(); 
+              if (e.key === 'Escape') {
+                e.currentTarget.value = polygon.name ?? '';
+                e.currentTarget.blur(); 
+              }
+            }}
+            onBlur={e => {
+              const name = e.currentTarget.value.trim();
+              if (name !== (polygon.name ?? '')) updatePolygon(polygon.id, { name });
+            }}
+            placeholder={'Name'}
+          />
+
+
+          <Icon
+            src={ico('bucket.svg')}
+            classes="button fit icon-fill inset-2"
+            color='#FFFFFF'
+            onPointerDown={e => e.stopPropagation()}
+            onClick={() => rasterizePolygon(points, label.colour)}
+            onMouseEnter={showTooltip(`<b>FILL</b><br><dim>ENTER</dim>`, {direction:'top'})}
+          />
+          <Icon
+            src={ico('eraser.svg')}
+            classes="button fit icon-erase inset-2"
+            color='#FFFFFF'
+            onPointerDown={e => e.stopPropagation()}
+            onClick={() => erasePolygon(points)}
+            onMouseEnter={showTooltip(`<b>ERASE</b><br><dim>SHIFT+ENTER</dim>`, {direction:'top'})}
+          />
+
+          <Icon
+            src={ico('pie_chart.svg')}
+            classes="button fit inset-2"
+            color='#FFFFFF'
+            onPointerDown={e => e.stopPropagation()}
+            onClick={() => setStatsOpen(prev => !prev)}
+            onMouseEnter={showTooltip(`<b>STATS</b><br>`, {direction:'top'})}
+          />
+        
+        </div>
+      </Window>
+    }
+
+
     <g className='polygon-container'>
       {/* <defs>
         <pattern id={patternId} patternUnits="userSpaceOnUse" width={cell * 2} height={cell * 2}>
@@ -212,7 +281,7 @@ const iconSize = useMemo(() => ICON_PX * unit, [unit]);
           <rect x={cell} y={cell} width={cell} height={cell} fill={label.colour} />
         </pattern>
       </defs> */}
-    {selected && mode !== 'pen' &&
+    {/* {selected && mode !== 'pen' &&
       <foreignObject
         className='polygon-controls'
         x={minX}
@@ -220,6 +289,25 @@ const iconSize = useMemo(() => ICON_PX * unit, [unit]);
         width={iconSize*3}
         height={iconSize}
       >
+        <InputBox 
+          defaultValue={polygon.name} 
+          onKeyDown={e => { 
+            // console.log("E KEY: ", e.key)
+            // e.preventDefault();
+            e.stopPropagation();
+            if (e.key === 'Enter') e.currentTarget.blur(); 
+            if (e.key === 'Escape') {
+              e.currentTarget.value = polygon.name ?? '';
+              e.currentTarget.blur(); 
+            }
+          }}
+          onBlur={e => {
+            const name = e.currentTarget.value.trim();
+            if (name !== (polygon.name ?? '')) updatePolygon(polygon.id, { name });
+          }}
+        />
+
+
         <Icon
           src={ico('bucket.svg')}
           classes="button fit icon-fill"
@@ -247,39 +335,81 @@ const iconSize = useMemo(() => ICON_PX * unit, [unit]);
         />
       
       </foreignObject>
-      }
+      } */}
+
+        <defs>
+          <mask id={`vertex-holes-${polygon.id}`} maskUnits="userSpaceOnUse" x="0" y="0" width="100%" height="100%">
+            <rect x="0" y="0" width="100%" height="100%" fill="white" />
+            {points.map((p, i) => (
+              <rect key={i} x={p.x - hole / 2} y={p.y - hole / 2} width={hole} height={hole} fill="black" />
+            ))}
+          </mask>
+        </defs>
+
+      {selected && (mode !== 'pen') &&
+        <polygon
+          className={`polygon`}
+          mask={selected ? `url(#vertex-holes-${polygon.id})` : undefined}
+
+          points={pointsStr}
+          fill={'transparent'}
+          fillOpacity={0}
+          stroke={'#FFFFFF'}
+          strokeWidth={2.5}
+          strokeDasharray={'4,8'}
+
+          vectorEffect="non-scaling-stroke"
+          style={{
+            pointerEvents: 'none',
+            cursor: (clickable && selected) ? 'move' : clickable ? 'pointer' : undefined,
+            zIndex: 2,
+            transformBox: 'fill-box',
+            transformOrigin: 'center',
+            // transform:' translate(-50%, -50%) scale(1.25, 1.25)'
+          }}
+          onPointerDown={onFillPointerDown}
+        />
+        }
       <polygon
         className={`polygon ${selected ? 'selected' : ''}`}
+                        mask={selected ? `url(#vertex-holes-${polygon.id})` : undefined}
+
         points={pointsStr}
         fill={mode === 'pen' ? '#FFFFFF40' : selected ? /*`url(#${patternId})`*/ label.colour : 'transparent'}
         fillOpacity={0}
-        stroke={selected ? '#FFFFFF' : '#FFFFFF80'}
-        strokeWidth={1}
+        stroke={selected ? '#FFFFFFC0' : '#FFFFFFC0'}
+        strokeWidth={selected ? 2 : 1.5}
+        strokeDasharray={(mode === 'pen' || !selected ) ? '2,2' : undefined}
         // strokeDasharray={(mode === 'pen' && selected) ? "4,4" : undefined}
 
         vectorEffect="non-scaling-stroke"
         style={{
           pointerEvents: clickable ? 'auto' : 'none',
           cursor: (clickable && selected) ? 'move' : clickable ? 'pointer' : undefined,
-          zIndex: 3
+          zIndex: 3,
+          mixBlendMode:'multiply'
         }}
         onPointerDown={onFillPointerDown}
       />
-      {/* {selected && (
+
+
+      
+
+      {selected && (
         <text
-          x={centerX}
-          y={centerY}
-          textAnchor="middle"
+          x={minX}
+          y={minY - 12*unit}
+          textAnchor="start"
           dominantBaseline="central"
           fill="#FFFFFF"
-          stroke={polygon.colour}
-          strokeWidth={2 * unit}
+          // stroke={polygon.colour}
+          // strokeWidth={2}
           paintOrder="stroke"
-          style={{ fontSize: 8*unit, pointerEvents: 'none', userSelect: 'none' }}
+          style={{ fontSize: 12*unit, pointerEvents: 'none', userSelect: 'none', fontWeight:'bolder'}}
         >
-          {polygon.id}
+          {(polygon.name || '--')+' '+centerX + ", " + centerY }
         </text>
-      )} */}
+      )}
       {selected && (
         <>
 
@@ -299,23 +429,34 @@ const iconSize = useMemo(() => ICON_PX * unit, [unit]);
             x={minX} y={minY}
             width={maxX - minX} height={maxY - minY}
             fill="none"
-            stroke="#ffffff40"
+            stroke="#ffffff"
             strokeWidth={1}
-            // strokeDasharray="1,4"
+            strokeDasharray="1,4"
             vectorEffect="non-scaling-stroke"
-            style={{ pointerEvents: 'none' }}
+            style={{ 
+              pointerEvents: 'none', 
+              // transformBox:'fill-box',
+              // transform:'scale(1.25)',
+              // transformOrigin:'center'
+            }}
           />
 
           <line
             x1={rotateX} y1={minY} x2={rotateX} y2={rotateY}
-            stroke="#ffffff7f"
+            fill="none"
             strokeWidth={1}
+            stroke="#ffffff7F"
+
             vectorEffect="non-scaling-stroke"
             style={{ pointerEvents: 'none' }}
           />
           <circle
             cx={rotateX} cy={rotateY} r={(HANDLE_SIZE / 2) * unit}
-            fill="#ffffff"
+            stroke="#ffffff"
+            strokeWidth={1}
+            fill="none"
+            vectorEffect="non-scaling-stroke"
+
             style={{ pointerEvents: 'fill', cursor: 'grab' }}
             onPointerDown={onRotatePointerDown}
           />
@@ -331,26 +472,36 @@ const iconSize = useMemo(() => ICON_PX * unit, [unit]);
               // fill="#ffffff"
               fill="transparent"
               stroke="#ffffff"
+              vectorEffect="non-scaling-stroke"
 
               style={{ pointerEvents: 'all', cursor: c.cursor }}
               onPointerDown={onHandlePointerDown(c.id)}
             />
           ))}
 
+
+
           {points.map((p, i) => (
-            <circle
+            <rect
               className='polygon-vertex'
+                mask={selected ? `url(#vertex-holes-${polygon.id})` : undefined}
               key={i}
-              cx={p.x} cy={p.y} r={VERTEX_RADIUS * unit}
-              fill='transparent'
+              x={p.x - (VERTEX_RADIUS * unit)/2} 
+              y={p.y - (VERTEX_RADIUS * unit)/2} 
+              width={VERTEX_RADIUS * unit}
+              height={VERTEX_RADIUS * unit}
+
+              // fill='#ffffff'
               stroke="#ffffff"
-              strokeWidth={1}
+              strokeWidth={6}
               vectorEffect="non-scaling-stroke"
               style={{ pointerEvents: 'fill', cursor: 'move' }}
               onPointerDown={onVertexPointerDown(i)}
               onContextMenu={onVertexContextMenu(i)}
             />
           ))}
+
+
         </>
       )}
     </g>

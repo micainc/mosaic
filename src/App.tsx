@@ -4,6 +4,7 @@ import Toolbar from './components/Toolbar';
 import Stage from './components/Stage';
 import Polygons from './components/Polygons/Polygons';
 import Tooltip from './components/Tooltip/Tooltip';
+import Rulers from './components/Scaling/Rulers';
 import { useKeys } from './hooks/useKeys';
 import { ico } from './utils/icons';
 
@@ -22,6 +23,7 @@ const App: React.FC = () => {
         </span>
       )}
       <Stage />
+      <Rulers />
       <Polygons />
       <div id='foreground'/>
     </div>

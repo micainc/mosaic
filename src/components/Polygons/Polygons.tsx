@@ -12,7 +12,8 @@ const Polygons: React.FC = () => {
   const height = useAppSelector(s => s.canvas.canvasHeight);
   const scale = useAppSelector(s => s.canvas.scale);
   const activeLabel = useAppSelector((s) => s.labels.activeLabel);
-
+  const isDragging = useRef(false);
+  const isLeftClicking = useRef(false);
   // const [draft, setDraft] = useState<string>();
 
   const interactionMode = useAppSelector(s => s.canvas.interactionMode);
@@ -28,6 +29,8 @@ useEffect(() => {
   if(interactionMode === 'pen') {
     // console.log("FLAG 2")
     addPolygon({
+      name: '',
+      pixels: 0,
       id:  crypto.randomUUID(),
       label: activeLabel.label,
       colour: activeLabel.colour,
@@ -72,24 +75,54 @@ useEffect(() => {
   }, [dispatch]);
 
 
-    const handleMouseDown = useCallback((e: React.MouseEvent) => {
-      if (interactionMode === 'pen' && selected[0]) {
-        const pts = [...(getPolygonById(selected[0])?.points ?? [])]
-        if (e.button === 0) { // left click
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (interactionMode === 'pen' && selected[0]) {
+      const pts = [...(getPolygonById(selected[0])?.points ?? [])]
+      if (e.button === 0) { // left click
+        isLeftClicking.current = true;
+        e.preventDefault();
+        e.stopPropagation();
+        const {x, y} = toLocal(e.clientX, e.clientY)
+                console.log("FLAG XY:", x + ", "+ y)
 
-          e.preventDefault();
-          e.stopPropagation();
-          const {x, y} = toLocal(e.clientX, e.clientY)
-                  console.log("FLAG XY:", x + ", "+ y)
+        updatePolygon(selected[0], {points:[...pts, {x, y}]})
 
-          updatePolygon(selected[0], {points:[...pts, {x, y}]})
-
-        } else if(e.button === 2){
-          e.preventDefault();
-          e.stopPropagation();
-        }
+      } else if(e.button === 2){
+        e.preventDefault();
+        e.stopPropagation();
       }
-    }, [polygons, selected, interactionMode, activeLabel]);
+    }
+  }, [polygons, selected, interactionMode, activeLabel]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (interactionMode === 'pen' && selected[0]) {
+      const pts = [...(getPolygonById(selected[0])?.points ?? [])]
+      //  console.log("MOUSE MOVING: ", e.button)
+      if (isLeftClicking.current) { // left click
+        const p0 = pts[0];
+        const p1 = toLocal(e.clientX, e.clientY)
+
+        if(pts.length === 1) {
+          isDragging.current = true;
+
+          // console.log("LEFT CLICK + MOUSE MOVING => CREATING RECTANGLE...", pts)
+          e.preventDefault();
+          e.stopPropagation();
+
+          updatePolygon(selected[0], {points:[p0, {x: p0.x, y: p1.y}, p1, {x: p1.x, y: p0.y}]});
+
+
+        } else if(isDragging.current) {
+          updatePolygon(selected[0], {points:[p0, {x: p0.x, y: p1.y}, p1, {x: p1.x, y: p0.y}]});
+        }
+
+      }
+      // } else if(e.button === 2){
+      //   e.preventDefault();
+      //   e.stopPropagation();
+      // }
+    }
+  }, [polygons, selected, interactionMode, activeLabel]);
 
   return (
     <svg
@@ -97,8 +130,13 @@ useEffect(() => {
       className="mosaic-canvas"
       id="polygon-overlay"
       viewBox={`0 0 ${width} ${height}`}
-      style={{ zIndex: 2, height: 'auto', pointerEvents: interactionMode === 'pen' ? 'all' : 'none', cursor:'crosshair'}}
-      onMouseDown={(e) => handleMouseDown(e)}
+      style={{ zIndex: 2, height: 'auto', pointerEvents: interactionMode === 'pen' ? 'all' : 'none'}}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={() => {
+        isLeftClicking.current = false;
+        isDragging.current= false
+      }}
     >
 
       {polygons.map(poly => {

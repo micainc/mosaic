@@ -5,11 +5,13 @@ import { PolygonType } from '../types';
 interface PolygonsState {
   polygons: PolygonType[];
   selected: string[];  // multiselectable polygons - selectable ids
+  square:boolean;
 }
 
 const initialState: PolygonsState = {
   polygons:[],
   selected:[],
+  square: false,
 };
 
 const polygonsSlice = createSlice({
