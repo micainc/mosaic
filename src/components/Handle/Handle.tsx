@@ -12,9 +12,10 @@ interface HandleProps {
   maxWidth?: number;
   minHeight?: number;
   maxHeight?: number;
+  onHandle?:(handling:boolean) => void;
 }
 
-export function Handle({classes, targetRef, resize = 'bottom', minWidth = 50, maxWidth = Infinity, minHeight = 50, maxHeight = Infinity }: HandleProps) {
+export function Handle({classes, targetRef, resize = 'bottom', minWidth = 50, maxWidth = Infinity, minHeight = 50, maxHeight = Infinity , onHandle}: HandleProps) {
   const parsedSides: Side[] = resize.split(/\s+/).filter((s): s is Side => ['top', 'bottom', 'left', 'right'].includes(s));
   const category = classes?.includes('chevron-handle') ? 'chevron-handle' : 'edge-handle'
   const startX = useRef(0);
@@ -27,6 +28,9 @@ export function Handle({classes, targetRef, resize = 'bottom', minWidth = 50, ma
     const el = targetRef.current;
     if (!el) return;
 
+    if(onHandle) onHandle(true)
+    el.classList.add('handle-resizing')
+  
     startX.current = e.clientX;
     startY.current = e.clientY;
     startWidth.current = el.offsetWidth;
@@ -51,11 +55,16 @@ export function Handle({classes, targetRef, resize = 'bottom', minWidth = 50, ma
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', cleanup);
       window.removeEventListener('scroll', cleanup);
+
+      el.classList.remove('handle-resizing')
+      if(onHandle) onHandle(false)
+
     };
 
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', cleanup);
     window.addEventListener('scroll', cleanup);
+
   }, [targetRef, minWidth, maxWidth, minHeight, maxHeight]);
 
   return (

@@ -11,6 +11,7 @@ import { Icon } from './Icon/Icon';
 import { useTooltip } from './Tooltip/useTooltip';
 import { useDispatch } from 'react-redux';
 import { ico } from '../utils/icons';
+import { ScaleControls } from './Scaling/ScaleControls';
 
 const Toolbar: React.FC = () => {
   const dispatch = useDispatch();
@@ -19,6 +20,8 @@ const Toolbar: React.FC = () => {
   const activeColour = useAppSelector(state => state.labels.activeLabel.colour);
   const cursorX = useAppSelector(state => state.canvas.cursorX)
   const cursorY = useAppSelector(state => state.canvas.cursorY)
+  const width = useAppSelector(state => state.canvas.canvasWidth)
+  const height = useAppSelector(state => state.canvas.canvasHeight)
 
   const {showTooltip} = useTooltip();
   const [tooltip, setTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
@@ -134,7 +137,9 @@ const Toolbar: React.FC = () => {
         <div id="toolbar-note">{statusText} | {interactionMode}</div>
 
         <div id="toolbar-right">
-          <span style={{padding:'0px 8px'}}>{cursorX}, {cursorY}</span> 
+
+
+          <ScaleControls/>
 
           <Icon
             classes={`button fit inset-8`}
@@ -165,26 +170,19 @@ const Toolbar: React.FC = () => {
             src={ico('pen.svg')}
           />
 
-          {/* <Icon
-            classes={`button fit inset-8 ${interactionMode === 'stats' ? ' selected-tool' : ''}`}
-            onClick={() => handleToolSelect('stats')}
-            onMouseEnter={showTooltip('Stats')}
-            src={ico('stats.svg')}
-          /> */}
-
           <Icon
             classes={`button fit inset-8 ${interactionMode === 'fill' ? ' selected-tool' : ''}`}
             onClick={() => handleToolSelect('fill')}
             onMouseEnter={showTooltip('Fill')}
             src={ico('bucket.svg')}
           />
-
+{/* 
           <Icon
             classes={`button fit inset-8 ${interactionMode === 'roi' ? ' selected-tool' : ''}`}
             onClick={() => handleToolSelect('roi')}
             onMouseEnter={showTooltip('ROI')}
             src={ico('crop.svg')}
-          />
+          /> */}
 
           <input
             className="slider"

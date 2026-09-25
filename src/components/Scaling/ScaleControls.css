@@ -1,0 +1,86 @@
+
+.scale-controls {
+    display: flex;
+    flex-direction: row;
+    border-right: 1px solid #FFFFFF80;
+    border-left: 1px solid #FFFFFF80;
+    padding: 0px 4px;
+    gap:8px;
+    margin-right: 4px;
+}
+
+.scale-controls-xy {
+    display: flex;
+    flex-direction: column;
+    align-items:center;
+    justify-content: center;
+    font-size: 12px ;
+    gap:0px;
+}
+
+.scale-controls-px, .scale-controls-u {
+    display: flex;
+    flex-direction: column;
+    gap:2px;
+    align-items:end;
+    justify-content: center;
+    /* font-size: 14px ; */
+
+}
+
+.scale-controls-px *, .scale-controls-u * {
+    font-size: 10px ;
+    color:#C0C0C0;
+}
+
+
+
+.scale-controls-clickable {
+    cursor: pointer;
+    display: flex;
+    /* font-weight: bolder; */
+}
+
+.scale-controls-clickable:hover {
+    filter: brightness(1.25);
+    outline: 1px solid #FFFFFFC0;
+    outline-offset: 2px;
+} 
+
+.scale-controls-clickable span {
+    color: #FFFFFF !important;
+    background-color: #4CaF80;
+    padding: 0px 4px;
+}
+
+.scale-controls-clickable:hover span {
+    color: #FFFFFF;
+}
+
+.unit-selection-container {
+    padding: 4px 4px;
+        font-size: 12px;
+
+}
+
+.unit-selection-container span {
+    color: #C0C0C0;
+}
+
+.scale-controls-input {
+    width: 56px;
+}
+
+.scale-controls-select {
+    background-color: #FFFFFF10;
+    color: white;
+    border: unset;
+    outline: 1px solid #FFFFFF80;
+    outline-offset: -1px;
+    padding: 0px 4px;
+}
+
+.scale-controls-select option {
+    background-color: #000000;
+    color: white;
+}

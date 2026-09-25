@@ -20,10 +20,12 @@ export type PointType = {
 }
 
 export type PolygonType = {
+  name: string;
   id: string;
   label: string;
   colour: string;
   points: PointType[];
+  pixels: number;
 }
 // export interface Grain {
 //   size: number;

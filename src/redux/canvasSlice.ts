@@ -1,6 +1,18 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { InteractionMode } from '../types';
 
+/** Units the scale bar can display lengths in. px and % need no calibration. */
+export type DisplayUnit = 'px' | '%' | 'nm' | 'µm' | 'mm' | 'mil' | 'in';
+
+/** Micrometres per unit, for converting from the stored µm/px factor. */
+export const UNIT_IN_UM: Record<Exclude<DisplayUnit, 'px' | '%'>, number> = {
+  nm: 0.001,
+  'µm': 1,
+  mm: 1000,
+  mil: 25.4,
+  in: 25400,
+};
+
 interface CanvasState {
   interactionMode: InteractionMode;
   drawDiameter: number;
@@ -11,6 +23,9 @@ interface CanvasState {
   statusText: string;
   cursorX: number;
   cursorY: number;
+  /** Physical size of one pixel in micrometres. Null = uncalibrated. */
+  pixelSize: number | null;
+  displayUnit: DisplayUnit;
 }
 
 const initialState: CanvasState = {
@@ -23,6 +38,8 @@ const initialState: CanvasState = {
   statusText: '',
   cursorX:0,
   cursorY:0,
+  pixelSize: 1,
+  displayUnit: '%',
 };
 
 const canvasSlice = createSlice({
@@ -54,6 +71,12 @@ const canvasSlice = createSlice({
       state.cursorY = action.payload.y;
 
     },
+    setPixelSize(state, action: PayloadAction<number | null>) {
+      state.pixelSize = action.payload;
+    },
+    setDisplayUnit(state, action: PayloadAction<DisplayUnit>) {
+      state.displayUnit = action.payload;
+    },
   },
 });
 
@@ -64,7 +87,9 @@ export const {
   setCanvasDimensions,
   setHasLayers,
   setStatusText,
-  setCursorXY
+  setCursorXY,
+  setPixelSize,
+  setDisplayUnit,
 } = canvasSlice.actions;
 
 export default canvasSlice.reducer;
