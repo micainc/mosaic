@@ -1,6 +1,6 @@
 import { createSelector, createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-import { AMALGAM_COLOURS, QEMSCAN_COLOURS, BOLIDEN_LEGEND_COLOURS } from '../data/loadouts';
+import { AMALGAM_COLOURS, QEMSCAN_COLOURS, BOLIDEN_LEGEND_COLOURS, LEGACY_COLOURS } from '../data/loadouts';
 import { LabelColourMap, MineralRecord } from '../types';
 
 export type LABEL_ID = number;
@@ -36,6 +36,7 @@ const initialState: LabelsState = {
     AMALGAM: AMALGAM_COLOURS,
     QEMSCAN: QEMSCAN_COLOURS,
     BOLIDEN: BOLIDEN_LEGEND_COLOURS,
+    LEGACY: LEGACY_COLOURS,
   },
   activeLoadout: 'AMALGAM',
   activeLabel: DEFAULT_LABEL.AMALGAM,

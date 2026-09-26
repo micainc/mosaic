@@ -330,7 +330,7 @@ const Polygon: React.FC<PolygonProps> = ({
         fill={mode === 'pen' ? '#FFFFFF40' : selected ? /*`url(#${patternId})`*/ activeLabel.colour : 'transparent'}
         fillOpacity={0}
         stroke={selected ? '#FFFFFFC0' : '#FFFFFFC0'}
-        strokeWidth={selected ? 2 : 1.5}
+        strokeWidth={selected ? 2.5: 2}
         strokeDasharray={(mode === 'pen' || !selected ) ? '2,2' : undefined}
         // strokeDasharray={(mode === 'pen' && selected) ? "4,4" : undefined}
 
