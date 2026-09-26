@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { useAppSelector } from '../../redux/store';
+import { rdxo } from '../../redux/store';
 import { UNIT_IN_UM, type DisplayUnit } from '../../redux/canvasSlice';
 import { canvasRegistry } from '../../canvasRegistry';
 import './Rulers.css';
@@ -117,13 +117,13 @@ export const Rulers: React.FC = () => {
   const leftRef = useRef<HTMLCanvasElement>(null);
   const raf = useRef(0);
 
-  const pixelSize = useAppSelector(s => s.canvas.pixelSize);
-  const unit = useAppSelector(s => s.canvas.displayUnit);
-  const cursorX = useAppSelector(s => s.canvas.cursorX);
-  const cursorY = useAppSelector(s => s.canvas.cursorY);
-  const scale = useAppSelector(s => s.canvas.scale);
-  const canvasWidth = useAppSelector(s => s.canvas.canvasWidth);
-  const canvasHeight = useAppSelector(s => s.canvas.canvasHeight);
+  const pixelSize = rdxo(s => s.canvas.pixelSize);
+  const unit = rdxo(s => s.canvas.displayUnit);
+  const cursorX = rdxo(s => s.canvas.cursorX);
+  const cursorY = rdxo(s => s.canvas.cursorY);
+  const scale = rdxo(s => s.canvas.scale);
+  const canvasWidth = rdxo(s => s.canvas.canvasWidth);
+  const canvasHeight = rdxo(s => s.canvas.canvasHeight);
 
   const physical = unit !== 'px' && unit !== '%' && pixelSize !== null && pixelSize > 0;
   const labelUnit: DisplayUnit = physical ? unit : unit === '%' ? '%' : 'px';

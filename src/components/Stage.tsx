@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
-import { useAppSelector } from '../redux/store';
+import { rdxo } from '../redux/store';
 import { setCanvasDimensions, setHasLayers, setStatusText, setScale, setCursorXY, setInteractionMode } from '../redux/canvasSlice';
 import { addLayer, setActiveLayer } from '../redux/imageLayersSlice';
+import { selectActiveLabel, selectColourLabelMap, selectAnchoredByColour } from '../redux/labelsSlice';
 import { drawCircle } from '../utils/drawCircle';
 import { floodFill } from '../utils/floodFill';
 import { rgbToHex } from '../utils/rgbUtils';
@@ -27,14 +28,14 @@ const Stage: React.FC = () => {
   const [pendingSegImport, setPendingSegImport] = useState<PendingSegImport | null>(null);
 
   // Redux state
-  const interactionMode = useAppSelector((s) => s.canvas.interactionMode);
-  const drawDiameter = useAppSelector((s) => s.canvas.drawDiameter);
-  const scale = useAppSelector((s) => s.canvas.scale);
-  const activeLabel = useAppSelector((s) => s.labels.activeLabel);
-  const colourLabelMap = useAppSelector((s) => s.labels.colourLabelMap);
-  const anchoredColours = useAppSelector((s) => s.labels.anchoredColours);
-  const layers = useAppSelector((s) => s.imageLayers.layers);
-  const activeLayerName = useAppSelector((s) => s.imageLayers.activeLayerName);
+  const interactionMode = rdxo((s) => s.canvas.interactionMode);
+  const drawDiameter = rdxo((s) => s.canvas.drawDiameter);
+  const scale = rdxo((s) => s.canvas.scale);
+  const activeLabel = rdxo(selectActiveLabel);
+  const colourLabelMap = rdxo(selectColourLabelMap);
+  const anchoredColours = rdxo(selectAnchoredByColour);
+  const layers = rdxo((s) => s.imageLayers.layers);
+  const activeLayerName = rdxo((s) => s.imageLayers.activeLayerName);
 
   // ──────────────────── DOM refs ────────────────────
   const drawCanvasRef = useRef<HTMLCanvasElement>(null);

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { useAppSelector } from '../../redux/store';
+import { rdxo } from '../../redux/store';
 import { setPixelSize, setDisplayUnit, UNIT_IN_UM, type DisplayUnit } from '../../redux/canvasSlice';
 import '../InputBox/InputBox.css';
 import './ScaleControls.css';
@@ -30,12 +30,12 @@ const fmt = (v: number): string => {
 
 export const ScaleControls = React.memo(() => {
     const dispatch = useDispatch();
-    const cursorX = useAppSelector(state => state.canvas.cursorX);
-    const cursorY = useAppSelector(state => state.canvas.cursorY);
-    const width = useAppSelector(state => state.canvas.canvasWidth);
-    const height = useAppSelector(state => state.canvas.canvasHeight);
-    const pixelSize = useAppSelector(state => state.canvas.pixelSize);
-    const unit = useAppSelector(state => state.canvas.displayUnit);
+    const cursorX = rdxo(state => state.canvas.cursorX);
+    const cursorY = rdxo(state => state.canvas.cursorY);
+    const width = rdxo(state => state.canvas.canvasWidth);
+    const height = rdxo(state => state.canvas.canvasHeight);
+    const pixelSize = rdxo(state => state.canvas.pixelSize);
+    const unit = rdxo(state => state.canvas.displayUnit);
     const [isConversionPopupOpen, setIsConversionPopupOpen] = useState(false);
 
     const commitPixelSize = (raw: string) => {

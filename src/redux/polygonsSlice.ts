@@ -1,16 +1,15 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSelector, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { PolygonType } from '../types';
-
 
 interface PolygonsState {
   polygons: PolygonType[];
   selected: string[];  // multiselectable polygons - selectable ids
-  square:boolean;
+  square: boolean;
 }
 
 const initialState: PolygonsState = {
-  polygons:[],
-  selected:[],
+  polygons: [],
+  selected: [],
   square: false,
 };
 
@@ -20,11 +19,10 @@ const polygonsSlice = createSlice({
   reducers: {
     // ─── CRUD ───
     addPolygon(state, action: PayloadAction<PolygonType>) {
-      const polyId = action.payload.id
       state.polygons.push(action.payload);
-      state.selected = [polyId]
+      state.selected = [action.payload.id];
     },
-    updatePolygon(state, action: PayloadAction<Partial<PolygonType> & {id:string}>) {
+    updatePolygon(state, action: PayloadAction<Partial<PolygonType> & { id: string }>) {
       const poly = state.polygons.find(p => p.id === action.payload.id);
       if (poly) Object.assign(poly, action.payload);
     },
@@ -63,12 +61,15 @@ const polygonsSlice = createSlice({
     clearSelection(state) {
       state.selected = [];
     },
-
+  },
+  // Receive the slice state; RTK binds them to the root state on export.
+  selectors: {
+    selectPolygons: s => s.polygons,
+    selectSelectedIds: s => s.selected,
+    selectPolygonById: (s, id: string) => s.polygons.find(p => p.id === id),
+    selectSquare: s => s.square,
   },
 });
-
-
-
 
 export const {
   addPolygon,
@@ -81,8 +82,23 @@ export const {
   toggleSelected,
   selectAll,
   clearSelection,
-  
 } = polygonsSlice.actions;
 
-export default polygonsSlice.reducer;
+export const {
+  selectPolygons,
+  selectSelectedIds,
+  selectPolygonById,
+  selectSquare,
+} = polygonsSlice.selectors;
 
+
+/** The selected polygons themselves, in store order. */
+export const selectSelectedPolygons = createSelector(
+  [selectPolygons, selectSelectedIds],
+  (polygons, selected) => {
+    const sel = new Set(selected);
+    return polygons.filter(p => sel.has(p.id));
+  },
+);
+
+export default polygonsSlice.reducer;

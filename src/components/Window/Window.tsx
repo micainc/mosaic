@@ -5,7 +5,7 @@ import { Handle } from '../Handle/Handle';
 import './Window.css';
 import { Icon } from '../Icon/Icon';
 import { ico } from '../../utils/icons';
-import { useAppSelector } from '../../redux/store';
+import { rdxo } from '../../redux/store';
 // Track mouse position globally so Window can use it as default origin
 // Uses document coordinates (includes scroll offset) so windows appear correctly when scrolled
 
@@ -58,8 +58,8 @@ export const Window = React.memo<PropsWithChildren<WindowProps>>((props) => {
         children,
     } = props;
 
-    const cursorX = useAppSelector(state => state.canvas.cursorX);
-    const cursorY = useAppSelector(state => state.canvas.cursorY);
+    const cursorX = rdxo(state => state.canvas.cursorX);
+    const cursorY = rdxo(state => state.canvas.cursorY);
 
     const origin =  _origin ?? {x:cursorX, y:cursorY};
 

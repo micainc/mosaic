@@ -1,6 +1,7 @@
 import type { PointType } from '../../types';
 import { canvasRegistry } from '../../canvasRegistry';
 import { hexToRGB, rgbToHex } from '../../utils/rgbUtils';
+import { downloadDataUrl } from '../../utils/fileUtils';
 
 export interface Bounds {
   minX: number;
@@ -269,4 +270,77 @@ export function polygonStats(points: PointType[]): PolygonStats | null {
     counts[hex] = (counts[hex] ?? 0) + 1;
   }
   return { total, unclassified, counts };
+}
+
+// ──────────────────── Export ────────────────────
+
+export function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+/**
+ * Crop `source` to the polygon's bounding box and clip to its outline; outside
+ * pixels come out transparent. `scale` maps canvas pixels to source pixels for
+ * layers whose resolution differs from the draw canvas.
+ */
+export function clipToPolygon(source: CanvasImageSource, points: PointType[], scale = 1): string {
+  const { minX, minY, maxX, maxY } = getBounds(points);
+  const x0 = Math.floor(minX * scale);
+  const y0 = Math.floor(minY * scale);
+  const w = Math.max(1, Math.ceil(maxX * scale) - x0 + 1);
+  const h = Math.max(1, Math.ceil(maxY * scale) - y0 + 1);
+
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
+  ctx.beginPath();
+  points.forEach((p, i) => {
+    const x = p.x * scale - x0;
+    const y = p.y * scale - y0;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.closePath();
+  ctx.clip();
+  ctx.drawImage(source, -x0, -y0);
+  return c.toDataURL('image/png');
+}
+
+type ExportLayer = { src: string; width: number; type: string };
+
+/**
+ * Download the polygon's crop of the segmentation map and of every image
+ * layer as separate PNGs, named `<name>_<layer>.png`. Downloads are spaced
+ * out slightly so the browser doesn't drop the later ones.
+ */
+export async function exportPolygonImages(
+  points: PointType[],
+  name: string,
+  layers: Record<string, ExportLayer>,
+  canvasWidth: number,
+): Promise<void> {
+  if (points.length < 3) return;
+  const safe = name.replace(/[^\w.-]+/g, '_') || 'polygon';
+  const files: { filename: string; dataUrl: string }[] = [];
+
+  if (canvasRegistry.draw) {
+    files.push({ filename: `${safe}_segmentation.png`, dataUrl: clipToPolygon(canvasRegistry.draw, points) });
+  }
+  for (const [layerName, l] of Object.entries(layers)) {
+    try {
+      const img = await loadImage(l.src);
+      const scale = canvasWidth ? l.width / canvasWidth : 1;
+      files.push({ filename: `${safe}_${l.type || layerName}.png`, dataUrl: clipToPolygon(img, points, scale) });
+    } catch { /* skip layers that fail to load */ }
+  }
+
+  for (const [i, f] of files.entries()) {
+    setTimeout(() => downloadDataUrl(f.dataUrl, f.filename), i * 200);
+  }
 }

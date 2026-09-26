@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Popover, ArrowContainer } from 'react-tiny-popover';
-import { useAppSelector } from '../redux/store';
+import { rdxo } from '../redux/store';
 import { setInteractionMode, setDrawDiameter } from '../redux/canvasSlice';
 import { setActiveLayer, removeLayer, setLayerOpacity } from '../redux/imageLayersSlice';
 import type { InteractionMode } from '../types';
@@ -12,16 +12,17 @@ import { useTooltip } from './Tooltip/useTooltip';
 import { useDispatch } from 'react-redux';
 import { ico } from '../utils/icons';
 import { ScaleControls } from './Scaling/ScaleControls';
+import { selectActiveLabel } from '../redux/labelsSlice';
 
 const Toolbar: React.FC = () => {
   const dispatch = useDispatch();
-  const { interactionMode, drawDiameter, statusText } = useAppSelector(state => state.canvas);
-  const { layers, activeLayerName } = useAppSelector(state => state.imageLayers);
-  const activeColour = useAppSelector(state => state.labels.activeLabel.colour);
-  const cursorX = useAppSelector(state => state.canvas.cursorX)
-  const cursorY = useAppSelector(state => state.canvas.cursorY)
-  const width = useAppSelector(state => state.canvas.canvasWidth)
-  const height = useAppSelector(state => state.canvas.canvasHeight)
+  const { interactionMode, drawDiameter, statusText } = rdxo(state => state.canvas);
+  const { layers, activeLayerName } = rdxo(state => state.imageLayers);
+  const activeColour = rdxo(selectActiveLabel).colour;
+  const cursorX = rdxo(state => state.canvas.cursorX)
+  const cursorY = rdxo(state => state.canvas.cursorY)
+  const width = rdxo(state => state.canvas.canvasWidth)
+  const height = rdxo(state => state.canvas.canvasHeight)
 
   const {showTooltip} = useTooltip();
   const [tooltip, setTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
@@ -91,8 +92,13 @@ const Toolbar: React.FC = () => {
                     <Icon
                       src={ico('delete.svg')}
                       colour='#FF0000'
-                      width='0.75em'
-                      height='0.75em'
+                      classes='button fit unpadded'
+                      // width='0.75em'
+                      // height='0.75em'
+                      onClick={() => {
+                      dispatch(removeLayer(name));
+                      setPopoverLayer(null);
+                    }}
                     />
                     <span className="layer-name">{name}</span>
                   </div>
@@ -105,15 +111,6 @@ const Toolbar: React.FC = () => {
                     value={layer.opacity}
                     onChange={(e) => dispatch(setLayerOpacity({ name, opacity: Number(e.target.value) }))}
                   />
-                  <button
-                    className="layer-delete"
-                    onClick={() => {
-                      dispatch(removeLayer(name));
-                      setPopoverLayer(null);
-                    }}
-                  >
-
-                  </button>
                 </div>
               }
             >

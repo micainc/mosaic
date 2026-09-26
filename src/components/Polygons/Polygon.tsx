@@ -3,6 +3,7 @@ import type { PointType, PolygonType } from '../../types';
 import './Polygon.css'
 import {
   erasePolygon,
+  exportPolygonImages,
   getBounds,
   getInsertIndex,
   rasterizePolygon,
@@ -11,16 +12,16 @@ import {
   translatePoints,
   type ScaleCorner,
 } from './utils';
-import { usePolygons } from './usePolygons';
-import { useLabels } from '../Labels/useLabels';
-import { useCanvas } from '../Canvas/useCanvas';
+import { updatePolygon as updatePolygonAction, toggleSelected } from '../../redux/polygonsSlice';
 import { Icon } from '../Icon/Icon';
 import { useTooltip } from '../Tooltip/useTooltip';
 import { ico } from '../../utils/icons';
 import Window from '../Window/Window';
 import Stats from '../Stats/Stats';
 import { InputBox } from '../InputBox/InputBox';
-import { useAppSelector } from '../../redux/store';
+import { rdxi, rdxo } from '../../redux/store';
+import { selectActiveLabel } from '../../redux/labelsSlice';
+import { selectMode } from '../../redux/canvasSlice';
 
 // Screen-pixel sizes, matched to Stage's in-progress pen handles so a committed
 // polygon looks and behaves like the one you just drew.
@@ -65,9 +66,13 @@ const Polygon: React.FC<PolygonProps> = ({
 }) => {
     // const scale = useAppSelector(s => s.canvas.scale);
   
-  const {label} = useLabels();
-  const {updatePolygon, toggleSelectedPolygon} = usePolygons();
-  const {mode} = useCanvas();
+  const activeLabel = rdxo(selectActiveLabel);
+  const layers = rdxo(s => s.imageLayers.layers);
+  const canvasWidth = rdxo(s => s.canvas.canvasWidth);
+  const dispatch = rdxi();
+  const updatePolygon = (id: string, patch: Partial<PolygonType>) => dispatch(updatePolygonAction({ id, ...patch }));
+  const toggleSelectedPolygon = (id: string) => dispatch(toggleSelected(id));
+  const mode = rdxo(selectMode);
   const [gesture, setGesture] = useState<Gesture | null>(null);
   const [draft, setDraft] = useState<PointType[] | null>(null);
   const [statsOpen, setStatsOpen] = useState(false);
@@ -248,7 +253,7 @@ const Polygon: React.FC<PolygonProps> = ({
             classes="button fit icon-fill inset-2"
             color='#FFFFFF'
             onPointerDown={e => e.stopPropagation()}
-            onClick={() => rasterizePolygon(points, label.colour)}
+            onClick={() => rasterizePolygon(points, activeLabel.colour)}
             onMouseEnter={showTooltip(`<b>FILL</b><br><dim>ENTER</dim>`, {direction:'top'})}
           />
           <Icon
@@ -268,74 +273,21 @@ const Polygon: React.FC<PolygonProps> = ({
             onClick={() => setStatsOpen(prev => !prev)}
             onMouseEnter={showTooltip(`<b>STATS</b><br>`, {direction:'top'})}
           />
-        
+          <Icon
+            src={ico('download.svg')}
+            classes="button fit inset-2"
+            color='#FFFFFF'
+            onPointerDown={e => e.stopPropagation()}
+            onClick={() => exportPolygonImages(points, polygon.name || polygon.id, layers, canvasWidth)}
+            onMouseEnter={showTooltip(`<b>DOWNLOAD</b><br><dim>seg map + all layers</dim>`, {direction:'top'})}
+          />
+
         </div>
       </Window>
     }
 
 
     <g className='polygon-container'>
-      {/* <defs>
-        <pattern id={patternId} patternUnits="userSpaceOnUse" width={cell * 2} height={cell * 2}>
-          <rect width={cell} height={cell} fill={label.colour} />
-          <rect x={cell} y={cell} width={cell} height={cell} fill={label.colour} />
-        </pattern>
-      </defs> */}
-    {/* {selected && mode !== 'pen' &&
-      <foreignObject
-        className='polygon-controls'
-        x={minX}
-        y={minY - iconSize - 4 * unit}
-        width={iconSize*3}
-        height={iconSize}
-      >
-        <InputBox 
-          defaultValue={polygon.name} 
-          onKeyDown={e => { 
-            // console.log("E KEY: ", e.key)
-            // e.preventDefault();
-            e.stopPropagation();
-            if (e.key === 'Enter') e.currentTarget.blur(); 
-            if (e.key === 'Escape') {
-              e.currentTarget.value = polygon.name ?? '';
-              e.currentTarget.blur(); 
-            }
-          }}
-          onBlur={e => {
-            const name = e.currentTarget.value.trim();
-            if (name !== (polygon.name ?? '')) updatePolygon(polygon.id, { name });
-          }}
-        />
-
-
-        <Icon
-          src={ico('bucket.svg')}
-          classes="button fit icon-fill"
-          color='#FFFFFF'
-          onPointerDown={e => e.stopPropagation()}
-          onClick={() => rasterizePolygon(points, label.colour)}
-          onMouseEnter={showTooltip(`<b>FILL</b><br><dim>ENTER</dim>`, {direction:'top'})}
-        />
-        <Icon
-          src={ico('eraser.svg')}
-          classes="button fit icon-erase"
-          color='#FFFFFF'
-          onPointerDown={e => e.stopPropagation()}
-          onClick={() => erasePolygon(points)}
-          onMouseEnter={showTooltip(`<b>ERASE</b><br><dim>SHIFT+ENTER</dim>`, {direction:'top'})}
-        />
-
-        <Icon
-          src={ico('stats.svg')}
-          classes="button fit"
-          color='#FFFFFF'
-          onPointerDown={e => e.stopPropagation()}
-          onClick={() => setStatsOpen(prev => !prev)}
-          onMouseEnter={showTooltip(`<b>STATS</b><br>`, {direction:'top'})}
-        />
-      
-      </foreignObject>
-      } */}
 
         <defs>
           <mask id={`vertex-holes-${polygon.id}`} maskUnits="userSpaceOnUse" x="0" y="0" width="100%" height="100%">
@@ -375,7 +327,7 @@ const Polygon: React.FC<PolygonProps> = ({
                         mask={selected ? `url(#vertex-holes-${polygon.id})` : undefined}
 
         points={pointsStr}
-        fill={mode === 'pen' ? '#FFFFFF40' : selected ? /*`url(#${patternId})`*/ label.colour : 'transparent'}
+        fill={mode === 'pen' ? '#FFFFFF40' : selected ? /*`url(#${patternId})`*/ activeLabel.colour : 'transparent'}
         fillOpacity={0}
         stroke={selected ? '#FFFFFFC0' : '#FFFFFFC0'}
         strokeWidth={selected ? 2 : 1.5}
