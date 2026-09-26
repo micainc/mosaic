@@ -1,5 +1,5 @@
 import React from 'react';
-import { useAppSelector } from './redux/store';
+import { rdxo } from './redux/store';
 import Toolbar from './components/Toolbar';
 import Stage from './components/Stage';
 import Polygons from './components/Polygons/Polygons';
@@ -9,7 +9,7 @@ import { useKeys } from './hooks/useKeys';
 import { ico } from './utils/icons';
 
 const App: React.FC = () => {
-  const hasLayers = useAppSelector(state => state.canvas.hasLayers);
+  const hasLayers = rdxo(state => state.canvas.hasLayers);
   useKeys();
 
   return (

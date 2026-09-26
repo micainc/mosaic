@@ -6,7 +6,7 @@ import 'react-grid-layout/css/styles.css';
 import type { RootState } from '../../redux/store';
 import type { PointType } from '../../types';
 import { canvasRegistry } from '../../canvasRegistry';
-import { getBounds } from '../Polygons/utils';
+import { clipToPolygon, loadImage } from '../Polygons/utils';
 import { Icon } from '../Icon/Icon';
 import { ico } from '../../utils/icons';
 import './Report.css';
@@ -29,44 +29,6 @@ const MARGIN: [number, number] = [8, 8];
 const PAGE_H = Math.round(window.innerHeight * 0.75);
 const PAGE_W = Math.round(PAGE_H * 11 / 8.5);
 const ROW_H = Math.floor((PAGE_H - MARGIN[1] * (ROWS + 1)) / ROWS);
-
-/**
- * Crop `source` to the polygon's bounding box and clip to its outline; outside
- * pixels come out transparent. `scale` maps canvas pixels to source pixels for
- * layers whose resolution differs from the draw canvas.
- */
-function clipToPolygon(source: CanvasImageSource, points: PointType[], scale = 1): string {
-  const { minX, minY, maxX, maxY } = getBounds(points);
-  const x0 = Math.floor(minX * scale);
-  const y0 = Math.floor(minY * scale);
-  const w = Math.max(1, Math.ceil(maxX * scale) - x0 + 1);
-  const h = Math.max(1, Math.ceil(maxY * scale) - y0 + 1);
-
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  const ctx = c.getContext('2d')!;
-  ctx.imageSmoothingEnabled = false;
-  ctx.beginPath();
-  points.forEach((p, i) => {
-    const x = p.x * scale - x0;
-    const y = p.y * scale - y0;
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-  });
-  ctx.closePath();
-  ctx.clip();
-  ctx.drawImage(source, -x0, -y0);
-  return c.toDataURL('image/png');
-}
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = src;
-  });
-}
 
 function buildLayout(tiles: Tile[]): Layout {
   const tileW = 12;

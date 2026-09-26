@@ -78,6 +78,9 @@ const canvasSlice = createSlice({
       state.displayUnit = action.payload;
     },
   },
+    selectors: {
+      selectMode: s => s.interactionMode,
+    },
 });
 
 export const {
@@ -91,5 +94,9 @@ export const {
   setPixelSize,
   setDisplayUnit,
 } = canvasSlice.actions;
+
+export const {
+  selectMode
+} = canvasSlice.selectors;
 
 export default canvasSlice.reducer;

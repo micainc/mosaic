@@ -1,5 +1,13 @@
 export type InteractionMode = 'draw' | 'pen' | 'fill' | 'select' | 'roi' | 'pipette';
 
+export type LabelColourMap = {[name:string]: string}
+export type MineralRecord = { 
+  id: number; 
+  name: string;
+  colour: string; 
+  source: string 
+};
+
 export interface LabelColour {
   colour: string;
   label: string;
@@ -27,29 +35,7 @@ export type PolygonType = {
   points: PointType[];
   pixels: number;
 }
-// export interface Grain {
-//   size: number;
-//   x: number;
-//   y: number;
-//   w: number;
-//   h: number;
-//   minX: number;
-//   minY: number;
-//   maxX: number;
-//   maxY: number;
-// }
 
-// export interface MineralData {
-//   size: number;
-//   proportion: number;
-//   colour: number;
-//   hex: string;
-//   grains: Record<string, Grain>;
-// }
-
-export interface Loadouts {
-  [key: string]: string[];
-}
 
 export type TooltipType = {
     text: string,

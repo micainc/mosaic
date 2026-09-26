@@ -1,10 +1,9 @@
 import { useEffect } from 'react';
-import { store } from '../redux/store';
+import { rdxi, rdxo, store } from '../redux/store';
 import { setInteractionMode } from '../redux/canvasSlice';
-import { useDispatch } from 'react-redux';
 import { erasePolygon, rasterizePolygon } from '../components/Polygons/utils';
-import { usePolygons } from '../components/Polygons/usePolygons';
-import { useLabels } from '../components/Labels/useLabels';
+import { selectSelectedPolygons, selectAll, clearSelection, deleteSelected } from '../redux/polygonsSlice';
+import { selectActiveLabel } from '../redux/labelsSlice';
 
 /**
  * The single global keyboard handler for app-level (Redux) shortcuts.
@@ -16,25 +15,20 @@ import { useLabels } from '../components/Labels/useLabels';
  * mode for Enter/Delete/Escape so the two handlers never fight over the same key.
  */
 export function useKeys() {
-  const dispatch = useDispatch();
-  const {getSelectedPolygons, deselectAllPolygons, deleteSelectedPolygons, selectAllPolygons} = usePolygons();
-  const selected = getSelectedPolygons();
-  const {label } = useLabels();
+  const dispatch = rdxi();
+  const selected = rdxo(selectSelectedPolygons);
+  const activeLabel = rdxo(selectActiveLabel);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      console.log("KEY: ", e.key)
-
       // 1. never hijack keys while the user is typing
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
 
       // 2. read CURRENT state — no stale closure, no deps.
-      // Must be store.getState(), not useAppSelector: this runs inside an event
+      // Must be store.getState(), not a hook: this runs inside an event
       // callback, and a hook call outside render throws "Invalid hook call".
-      const state = store.getState();
-      const { interactionMode } = state.canvas;
-
-
+      const { interactionMode } = store.getState().canvas;
 
       const mod = e.metaKey || e.ctrlKey;
 
@@ -45,33 +39,31 @@ export function useKeys() {
         case 'mod+a':
           // Replaces the native "select all text", so the default has to go.
           e.preventDefault();
-          selectAllPolygons();
+          dispatch(selectAll());
           break;
 
         case 'escape':
-
           // Pen mode owns Escape (clears the in-progress polygon) — let Stage handle it.
           if (interactionMode !== 'pen' && selected.length) {
-            deselectAllPolygons();
+            dispatch(clearSelection());
           }
           dispatch(setInteractionMode('select'));
           break;
 
         case 'enter':
-          // console.log("SELECTED: ", selected)
           // Pen mode owns Enter (rasterizes the in-progress shape) — let Stage handle it.
           if (interactionMode !== 'pen' && selected.length) {
             e.preventDefault();
             // Non-destructive: the vectors stay in the store, Delete removes them.
             // Re-running is harmless — it repaints the same flat colour.
-            selected.forEach(p => rasterizePolygon(p.points, label.colour));
-          } else if(interactionMode === 'pen') {
-            dispatch(setInteractionMode('select'))
+            selected.forEach(p => rasterizePolygon(p.points, activeLabel.colour));
+          } else if (interactionMode === 'pen') {
+            dispatch(setInteractionMode('select'));
           }
           break;
+
         case 'shift+enter':
           selected.forEach(p => erasePolygon(p.points));
-
           break;
 
         case 'delete':
@@ -79,7 +71,7 @@ export function useKeys() {
           // Pen mode owns Delete (erases the pen shape) — let Stage handle it.
           if (interactionMode !== 'pen' && selected.length) {
             e.preventDefault();
-            deleteSelectedPolygons();
+            dispatch(deleteSelected());
           }
           break;
       }
@@ -87,5 +79,5 @@ export function useKeys() {
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [dispatch, selected, label]); // dispatch is stable, so this still binds once
+  }, [dispatch, selected, activeLabel]);
 }
