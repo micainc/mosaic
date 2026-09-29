@@ -102,3 +102,4 @@ models/**
 !src/public/img/*.jpeg
 !src/public/img/*.gif
 
+.env.local
