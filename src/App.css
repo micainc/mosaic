@@ -143,15 +143,46 @@ button:hover, select:hover {
     -webkit-box-sizing: border-box;
     border: 2px solid #FF0000;
     border-radius: 50%;
-    /* outline: 1px solid white; */
+    /* outline: 1px solid white;
+    outline-offset: -6px; */
 }
 
 #cursor-text {
     display: none;
     position: absolute;
+    font-weight: bolder;
     top: 50%;
     left: 50%;
     transform: translate(-50%, 50%);
+    color: white !important;
+    /* color:black !important; */
+    /* text-shadow: 1px 1px #000000, -1px 1px #000000, -1px -1px #000000, 1px -1px #000000; */
+    text-shadow: 0.5px 0.5px #000000, -0.5px 0.5px #000000, -0.5px -0.5px #000000, 0.5px -0.5px #000000;
+
+    /* text-shadow: 1px 1px #000000, -1px 1px #000000, -1px -1px #000000, 1px -1px #000000; */
+    /* text-shadow: 1px 1px #FFFFFF, -1px 1px #FFFFFF, -1px -1px #FFFFFF, 1px -1px #FFFFFF; */
+    /* text-shadow: 0.5px 0.5px #FFFFFF, -0.5px 0.5px #FFFFFF, -0.5px -0.5px #FFFFFF, 0.5px -0.5px #FFFFFF; */
+    /* text-shadow: 0.5px 0.5px #FFFFFF, -0.5px 0.5px #FFFFFF, -0.5px -0.5px #FFFFFF, 0.5px -0.5px #FFFFFF,  1px 1px #000000, -1px 1px #000000, -1px -1px #000000, 1px -1px #000000; */
+
+    /* mix-blend-mode: exclusion; */
+
+}
+
+#cursor-text::after {
+    display:none;
+    content: '';
+    z-index: 4;
+    position: absolute;
+    width:100%;
+    height:100%;
+    left:0px;
+    right:0px;
+    top:0px;
+    bottom:0px;
+    pointer-events: none;
+    /* background-color: #FF0000; */
+    /* color:red;
+    font-size: 14px !important; */
 }
 
 
@@ -162,10 +193,10 @@ button:hover, select:hover {
     outline-offset: 1px; */
 }
 
-.toolbar-list {
+/* .toolbar-list {
     font-family: Arial;
     width: inherit;
-}
+} */
 
 .search-box {
     min-width: 70px;
@@ -173,15 +204,26 @@ button:hover, select:hover {
 
 .label-search {
     border:none;
-    outline: 1px solid #555;
+    outline: 1px solid #FFFFFF40;
     outline-offset:  -1px;
+    padding:0px 8px;
 }
+
+.label-search::placeholder {
+    font-style: italic;
+}
+
+.label-search:focus-within {
+    outline-color: white;
+}
+
 
 .loadout-label {
     position:relative;
     display: flex;
-    color: #FFFFFF7F;
-    outline-offset: -1px;
+    /* color: #FFFFFF !important; */
+    color: var(--accent-color, currentColour) !important;
+    
     /* border-radius: 10px; */
     /* margin: 3px; */
     cursor: pointer;
@@ -194,25 +236,32 @@ button:hover, select:hover {
     float: right;
     order: 3;
     height:24px;
+    outline-offset: -2px;
+    padding: 0px 8px;
+    gap:2px;
+    z-index: 1;
+     filter:brightness(0.75); 
+    /* text-shadow: 1px 1px #00000040, -1px 1px #00000040, -1px -1px #00000040, 1px -1px #00000040; */
+    font-weight: normal;
+
 }
 
-.loadout-label > * {
-    padding: 4px 0px;
-}
-.loadout-label > span {
-    padding-right: 8px;
-    padding-left: 8px;
-}
+.loadout-label *{
+    /* letter-spacing: 0px !important; */
+        /* font-size: 13px; */
 
-.loadout-label > img {
-    padding: 4px 8px;
 }
-
 
 
 .loadout-label:hover {
-    color: #FFFFFF;
-    outline: 1px solid #FFFFFF;
+            color: #FFFFFF !important;
+    font-weight: bolder;
+
+    /* color: var(--accent-color, currentColour) !important; */
+    outline: 2px solid var(--outline-color, currentColour);
+    filter:unset;
+    text-shadow: 1px 1px #000000C0, -1px 1px #000000C0, -1px -1px #000000C0, 1px -1px #000000C0;
+
 }
 
 .loadout-label.used {
@@ -221,45 +270,66 @@ button:hover, select:hover {
 
 .loadout-label.active {
     order: 2;
-    outline: 1px solid #FFFFFF;
+    z-index: 2;
+    font-weight: bolder;
+        color: #FFFFFF !important;
+
+    /* color: var(--accent-color, currentColour) !important; */
+    outline: 2px solid var(--outline-color, currentColour);
+        filter:unset;
+    text-shadow: 1px 1px #000000C0, -1px 1px #000000C0, -1px -1px #000000C0, 1px -1px #000000C0;
+
 }
 
 
 .loadout-label.selected {
     height:32px;
+            color: #FFFFFF !important;
+
+    font-weight: bolder;
+        filter:unset;
+    text-shadow: 1px 1px #000000C0, -1px 1px #000000C0, -1px -1px #000000C0, 1px -1px #000000C0;
+
+
 }
 
 .loadout-label.anchored {
     order: 1;
-    outline: 1px solid #FFFFFF;
+    z-index: 3;
+    font-weight: bolder;
+            color: #FFFFFF !important;
+
+    outline: 2px solid var(--outline-color, currentColour);
+        filter:unset;
+    text-shadow: 1px 1px #000000C0, -1px 1px #000000C0, -1px -1px #000000C0, 1px -1px #000000C0;
+
 
 }
 
 .loadout-label-anchor {
     align-self: stretch;
-    width: 1em;
     object-fit: contain;
+    outline: unset !important;
     opacity: 0.125;
-    /* border-radius: 8px; */
+    padding-right:0px !important;
+    right:-2px;
 }
 
+.loadout-label-anchor * {
+    opacity: 1 !important;
+}
+
+
 .loadout-label-anchor:hover {
-    opacity: 1;
+    opacity: 1 !important;
+    /* background-color: var(--icon-color, currentColour); */
+
 }
 
 .loadout-label-anchor.active {
-    opacity: 1;
-}
+    opacity: 1 !important;
+    /* background-color: var(--icon-color, currentColour); */
 
-.toolbar-list-items {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    z-index: 4;
-    width: 50%;
-    display: flex;
-    flex-direction: row-reverse;
-    flex-wrap: wrap;
 }
 
 .hidden {
@@ -276,4 +346,10 @@ span[placeholder]:empty:before {
     content: attr(placeholder);
     color: #FFFFFF;
     opacity: 0.75;
+}
+
+.b1 {
+    padding:0px 2px !important;
+    /* font-weight: bolder; */
+    color: #FFFFFF !important;
 }

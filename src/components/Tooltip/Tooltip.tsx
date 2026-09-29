@@ -1,8 +1,10 @@
 
-import React, { useRef, useState, useLayoutEffect, useEffect, useCallback, useMemo } from 'react';
+import React, { useRef, useState, useLayoutEffect, useCallback, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
 import './Tooltip.css';
+import { ico } from '../../utils/icons';
+import { Icon } from '../Icon/Icon';
 
 
 type TooltipPosition = 'top' | 'bottom' | 'left' | 'right';
@@ -204,7 +206,7 @@ const Tooltip = () => {
                 const [filename, ...params] = svgContent.split(':');
                 
                 try {
-                    let width: number | undefined, height: number | undefined, color: string | undefined;
+                    let width: number | undefined, height: number | undefined, color: string = '#FFFFFF';
 
                     params.forEach(param => {
                     if (param.includes('x')) {
@@ -217,42 +219,20 @@ const Tooltip = () => {
                         color = param;
                     } 
                     });
-                    
-                    // Generate CSS filter for color (if specified)
-                    const getColorFilter = (targetColor: string): string | undefined => {
-                        if (!targetColor) return undefined;
-                        
-                        if (targetColor === '#FFFFFF' || targetColor === 'white') {
-                            return 'invert(1)';
-                        } else if (targetColor === '#000000' || targetColor === 'black') {
-                            return 'invert(0)';
-                        } else if (targetColor.startsWith('#')) {
-                            // For other hex colors, create a more complex filter
-                            const r = parseInt(targetColor.slice(1, 3), 16);
-                            const g = parseInt(targetColor.slice(3, 5), 16);
-                            const b = parseInt(targetColor.slice(5, 7), 16);
-                            
-                            // Convert to hue-rotate and brightness approximation
-                            const brightness = (r + g + b) / (3 * 255);
-                            return `brightness(${brightness}) contrast(1.2)`;
-                        }
-                        return undefined;
-                    };
-                    
 
                     if(isWide) {
                         line.push(
-                            <img
+                            <Icon
                                 key={key++}
-                                src={`/${filename}`}
-                                alt=""
+                                src={ico(filename)}
+                                color={color}
+                                classes='fit unpadded'
                                 style={{
                                 ...(width && { width: `${width}px` }),
                                 // ...(height && { height: `${height}px` }), // dont set height - leave as is - better centers the image on the line
-                                filter: color ? getColorFilter(color) : 'invert(1)'
                                 }}
                                 onError={(e) => {
-                                e.currentTarget.style.display = 'none';
+                                    e.currentTarget.style.display = 'none';
                                 // e.currentTarget.insertAdjacentText('afterend', `[${filename}]`);
                                 }}
                             />
@@ -260,18 +240,18 @@ const Tooltip = () => {
 
                     }  else {
                         result.push(
-                            <img
+                            <Icon
                                 key={key++}
-                                src={`/${filename}`}
-                                alt=""
+                                src={ico(filename)}
+                                colour={color}
+                                classes='fit unpadded'
+
                                 style={{
                                 ...(width && { width: `${width}px` }),
                                 ...(height && { height: `${height}px` }),
-                                filter: color ? getColorFilter(color) : 'invert(1)'
                                 }}
                                 onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                // e.currentTarget.insertAdjacentText('afterend', `[${filename}]`);
+                                    e.currentTarget.style.display = 'none';
                                 }}
                             />
                         );

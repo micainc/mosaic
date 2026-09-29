@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { rdxo } from '../../redux/store';
-import { UNIT_IN_UM, type DisplayUnit } from '../../redux/canvasSlice';
+import { useStage } from '../../redux/store';
+import { UNIT_IN_UM, type DisplayUnit } from '../../redux/stageSlice';
 import { canvasRegistry } from '../../canvasRegistry';
 import './Rulers.css';
 
@@ -10,7 +10,7 @@ export const RULER_SIZE = 24;
 const MIN_LABEL_PX = 60;
 
 const FONT = '8px Geist Mono';
-const INK = '#C0C0C0';
+const INK = '#808080';
 const CURSOR = '#FFFFFF';
 
 /** Smallest of 1, 2, 5 × 10^k whose screen length is at least MIN_LABEL_PX. */
@@ -117,13 +117,13 @@ export const Rulers: React.FC = () => {
   const leftRef = useRef<HTMLCanvasElement>(null);
   const raf = useRef(0);
 
-  const pixelSize = rdxo(s => s.canvas.pixelSize);
-  const unit = rdxo(s => s.canvas.displayUnit);
-  const cursorX = rdxo(s => s.canvas.cursorX);
-  const cursorY = rdxo(s => s.canvas.cursorY);
-  const scale = rdxo(s => s.canvas.scale);
-  const canvasWidth = rdxo(s => s.canvas.canvasWidth);
-  const canvasHeight = rdxo(s => s.canvas.canvasHeight);
+  const pixelSize = useStage.pixelSize();
+  const unit = useStage.displayUnit();
+  const cursorX = useStage.cursorX();
+  const cursorY = useStage.cursorY();
+  const scale = useStage.scale();
+  const canvasWidth = useStage.canvasWidth();
+  const canvasHeight = useStage.canvasHeight();
 
   const physical = unit !== 'px' && unit !== '%' && pixelSize !== null && pixelSize > 0;
   const labelUnit: DisplayUnit = physical ? unit : unit === '%' ? '%' : 'px';

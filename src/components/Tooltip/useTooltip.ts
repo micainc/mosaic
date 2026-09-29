@@ -1,7 +1,9 @@
+import { tooltip } from '../../redux/store';
 import { useDispatch, useSelector } from 'react-redux';
 import { useCallback, useRef, useEffect } from 'react';
-import {  show, setTarget} from '../../redux/tooltipSlice';
+
 import { TooltipTargetType } from '../../types';
+import { show, setTarget } from '../../redux/tooltipSlice';
 
 export type TooltipDirection = 'top' | 'bottom' | 'left' | 'right';
 
@@ -13,11 +15,12 @@ type TooltipProps = {
 
 export const useTooltip = () => {
   const dispatch = useDispatch();
+
   const memoizedCallbacks = useRef(new Map<string, (e: React.MouseEvent | React.FocusEvent) => void>());
 
   const hideTooltip = useCallback(() => {    
-      dispatch(setTarget({target: undefined, id: '%$&*'}))
-  }, [dispatch]);
+      tooltip.setTarget({target: undefined, id: '%$&*'})
+  }, []);
 
   const _showTooltip = useCallback((
     text: string,
@@ -52,27 +55,6 @@ export const useTooltip = () => {
 
     const persistent = (event as any).persistent === true;                                                                                                                                                                                                                               
 
-    const cleanup = () => {
-        dispatch(setTarget({ target: undefined, id: JSON.stringify(tooltipTarget) }));                                                                                                                                                                                                
-        clearInterval(hoverCheckId);            
-    };                                                                                                                                                                                                                                                                                       
-                
-    let hoverCheckId: ReturnType<typeof setInterval> | undefined;                                                                                                                                                                                                                        
-
-    if (!persistent) {                                                                                                                                                                                                                                                                   
-        // Existing fast paths                                                                                                                                                                                                                                                           
-        target.addEventListener('mouseleave', cleanup, { once: true });
-        target.addEventListener('blur', cleanup, { once: true });
-        window.addEventListener('scroll', cleanup, { once: true });
-                                                                                                                                                                                                                                                                                          
-        // Hover-loss fallback              
-        hoverCheckId = setInterval(() => {                                                                                                                                                                                                                                               
-            if (!target.isConnected || !target.matches(':hover')) cleanup();
-        }, 200);                                                                                                                                                                                                                                                                         
-    }  
-    
-
-
 
 
     // When target is clicked, wait for React re-render then refresh tooltip
@@ -94,20 +76,37 @@ export const useTooltip = () => {
       }, 100);
     };
 
-    target.addEventListener('click', clickHandler);
-    target.addEventListener('contextmenu', clickHandler);
+    let hoverCheckId: ReturnType<typeof setInterval> | undefined;
 
-
-    // Clean up click handler when tooltip hides
-    const cleanupClick = () => {
+    const teardown = () => {
+      clearInterval(hoverCheckId);
       target.removeEventListener('click', clickHandler);
       target.removeEventListener('contextmenu', clickHandler);
-
+      target.removeEventListener('mouseleave', teardown);
+      target.removeEventListener('blur', teardown);
+      window.removeEventListener('scroll', teardown);
+      if (!persistent) {
+        dispatch(setTarget({ target: undefined, id: JSON.stringify(tooltipTarget) }));
+      }
     };
 
-    
-    target.addEventListener('mouseleave', cleanupClick, {once: true});
-    window.addEventListener('scroll', cleanupClick, {once: true});
+
+
+    if (!persistent) {
+      target.addEventListener('blur', teardown);
+      hoverCheckId = setInterval(() => {
+        if (!target.isConnected || !target.matches(':hover')) {
+
+          teardown();
+
+        }
+      }, 200);
+    }
+
+    target.addEventListener('click', clickHandler);
+    target.addEventListener('contextmenu', clickHandler);
+    target.addEventListener('mouseleave', teardown);
+    window.addEventListener('scroll', teardown);
 
   }, [dispatch]);
 

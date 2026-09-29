@@ -12,23 +12,24 @@ import {
   translatePoints,
   type ScaleCorner,
 } from './utils';
-import { updatePolygon as updatePolygonAction, toggleSelected } from '../../redux/polygonsSlice';
 import { Icon } from '../Icon/Icon';
 import { useTooltip } from '../Tooltip/useTooltip';
 import { ico } from '../../utils/icons';
 import Window from '../Window/Window';
 import Stats from '../Stats/Stats';
 import { InputBox } from '../InputBox/InputBox';
-import { rdxi, rdxo } from '../../redux/store';
-import { selectActiveLabel } from '../../redux/labelsSlice';
-import { selectMode } from '../../redux/canvasSlice';
+import { store, useStage, useLabels, polygons } from '../../redux/store';
+import { formatLength } from '../Scaling/units';
 
 // Screen-pixel sizes, matched to Stage's in-progress pen handles so a committed
 // polygon looks and behaves like the one you just drew.
 const HANDLE_SIZE = 6;
-const VERTEX_RADIUS = 4;
+const VERTEX_RADIUS = 8;
 const EDGE_HIT_WIDTH = 10;
 const MIN_VERTICES = 3;
+/** Edge length labels: distance outside the edge, and shortest edge (on screen) that gets one. */
+const EDGE_LABEL_OFFSET = 10;
+const EDGE_LABEL_MIN_LENGTH = 30;
 
 /** An in-flight drag. `origin` is the point set as it stood when the drag began. */
 type Gesture =
@@ -66,13 +67,13 @@ const Polygon: React.FC<PolygonProps> = ({
 }) => {
     // const scale = useAppSelector(s => s.canvas.scale);
   
-  const activeLabel = rdxo(selectActiveLabel);
-  const layers = rdxo(s => s.imageLayers.layers);
-  const canvasWidth = rdxo(s => s.canvas.canvasWidth);
-  const dispatch = rdxi();
-  const updatePolygon = (id: string, patch: Partial<PolygonType>) => dispatch(updatePolygonAction({ id, ...patch }));
-  const toggleSelectedPolygon = (id: string) => dispatch(toggleSelected(id));
-  const mode = rdxo(selectMode);
+  const activeLabel = useLabels.activeLabel();
+  const updatePolygon = (id: string, patch: Partial<PolygonType>) => polygons.updatePolygon({ id, ...patch });
+  const toggleSelectedPolygon = (id: string) => polygons.toggleSelected(id);
+  const mode = useStage.mode();
+  const pixelSize = useStage.pixelSize();
+  const displayUnit = useStage.displayUnit();
+  const canvasWidth = useStage.canvasWidth();
   const [gesture, setGesture] = useState<Gesture | null>(null);
   const [draft, setDraft] = useState<PointType[] | null>(null);
   const [statsOpen, setStatsOpen] = useState(false);
@@ -197,6 +198,35 @@ const Polygon: React.FC<PolygonProps> = ({
 
   const hole = VERTEX_RADIUS * unit + 2 * unit; // vertex square plus a 1px ring each side
 
+  // One label per edge (including the closing edge), just outside the shape and
+  // parallel to the edge. Points are image pixels, so lengths convert directly.
+  const edgeLabels = selected ? (() => {
+    // Winding decides which side is outside: positive shoelace sum = clockwise on screen.
+    let area2 = 0;
+    points.forEach((a, i) => {
+      const b = points[(i + 1) % points.length];
+      area2 += a.x * b.y - b.x * a.y;
+    });
+    const outward = area2 > 0 ? 1 : -1;
+
+    return points.flatMap((a, i) => {
+      const b = points[(i + 1) % points.length];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const length = Math.hypot(dx, dy);
+      if (length / unit < EDGE_LABEL_MIN_LENGTH) return [];
+
+      const offset = EDGE_LABEL_OFFSET * unit;
+      const x = (a.x + b.x) / 2 + (outward * dy / length) * offset;
+      const y = (a.y + b.y) / 2 + (outward * -dx / length) * offset;
+      let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+      if (angle > 90 || angle < -90) angle += 180; // keep text upright
+
+      // % is relative to the canvas width
+      return [{ i, x, y, angle, text: formatLength(length, canvasWidth, pixelSize, displayUnit) }];
+    });
+  })() : [];
+
   return (
     <>
     { statsOpen && 
@@ -220,7 +250,8 @@ const Polygon: React.FC<PolygonProps> = ({
         width = {'max-content'}
         height ={'max-content'}
         classes='ui-dark'
-        title='CTRLS'
+        title={polygon.name ?? ''}
+        onTitle = {(title:string) => updatePolygon(polygon.id, { name: title })}
         zoom = {1}
         onClose={() => toggleSelectedPolygon(polygon.id)}
       >
@@ -228,7 +259,7 @@ const Polygon: React.FC<PolygonProps> = ({
           className='polygon-controls'
           
         >
-          <InputBox 
+          {/* <InputBox 
             defaultValue={polygon.name} 
             onKeyDown={e => { 
               // console.log("E KEY: ", e.key)
@@ -245,7 +276,7 @@ const Polygon: React.FC<PolygonProps> = ({
               if (name !== (polygon.name ?? '')) updatePolygon(polygon.id, { name });
             }}
             placeholder={'Name'}
-          />
+          /> */}
 
 
           <Icon
@@ -254,7 +285,11 @@ const Polygon: React.FC<PolygonProps> = ({
             color='#FFFFFF'
             onPointerDown={e => e.stopPropagation()}
             onClick={() => rasterizePolygon(points, activeLabel.colour)}
-            onMouseEnter={showTooltip(`<b>FILL</b><br><dim>ENTER</dim>`, {direction:'top'})}
+            onMouseEnter={showTooltip(`
+              <b>FILL</b><s><svg:filled.svg:10x10:${activeLabel.colour}>
+              <br>
+              <dim>ENTER</dim>
+            `, {direction:'top'})}
           />
           <Icon
             src={ico('eraser.svg')}
@@ -278,7 +313,11 @@ const Polygon: React.FC<PolygonProps> = ({
             classes="button fit inset-2"
             color='#FFFFFF'
             onPointerDown={e => e.stopPropagation()}
-            onClick={() => exportPolygonImages(points, polygon.name || polygon.id, layers, canvasWidth)}
+            onClick={() => {
+              // Read at click time: subscribing would re-render every polygon on each layer/opacity change.
+              const { layers: { layers }, stage: { canvasWidth } } = store.getState();
+              exportPolygonImages(points, polygon.name || polygon.id, layers, canvasWidth);
+            }}
             onMouseEnter={showTooltip(`<b>DOWNLOAD</b><br><dim>seg map + all layers</dim>`, {direction:'top'})}
           />
 
@@ -297,6 +336,7 @@ const Polygon: React.FC<PolygonProps> = ({
             ))}
           </mask>
         </defs>
+
 
       {selected && (mode !== 'pen') &&
         <polygon
@@ -324,10 +364,12 @@ const Polygon: React.FC<PolygonProps> = ({
         }
       <polygon
         className={`polygon ${selected ? 'selected' : ''}`}
-                        mask={selected ? `url(#vertex-holes-${polygon.id})` : undefined}
+        mask={selected ? `url(#vertex-holes-${polygon.id})` : undefined}
 
         points={pointsStr}
-        fill={mode === 'pen' ? '#FFFFFF40' : selected ? /*`url(#${patternId})`*/ activeLabel.colour : 'transparent'}
+        
+        //fill={mode === 'pen' ? '#FFFFFF40' : selected ? /*`url(#${patternId})`*/ activeLabel.colour : 'transparent'}
+        fill={'transparent'}
         fillOpacity={0}
         stroke={selected ? '#FFFFFFC0' : '#FFFFFFC0'}
         strokeWidth={selected ? 2.5: 2}
@@ -359,9 +401,12 @@ const Polygon: React.FC<PolygonProps> = ({
           paintOrder="stroke"
           style={{ fontSize: 12*unit, pointerEvents: 'none', userSelect: 'none', fontWeight:'bolder'}}
         >
-          {(polygon.name || '--')+' '+centerX + ", " + centerY }
+          {(polygon.name || '--') }
+
+          {/* {(polygon.name || '--')+' '+centerX + ", " + centerY } */}
         </text>
       )}
+
       {selected && (
         <>
 
@@ -378,22 +423,18 @@ const Polygon: React.FC<PolygonProps> = ({
           />
 
           <rect
+            className='polygon-bbox'
             x={minX} y={minY}
             width={maxX - minX} height={maxY - minY}
             fill="none"
-            stroke="#ffffff"
+            stroke="#FFFFFFC0"
             strokeWidth={1}
             strokeDasharray="1,4"
             vectorEffect="non-scaling-stroke"
-            style={{ 
-              pointerEvents: 'none', 
-              // transformBox:'fill-box',
-              // transform:'scale(1.25)',
-              // transformOrigin:'center'
-            }}
           />
 
           <line
+            className='polygon-bbox'
             x1={rotateX} y1={minY} x2={rotateX} y2={rotateY}
             fill="none"
             strokeWidth={1}
@@ -403,6 +444,7 @@ const Polygon: React.FC<PolygonProps> = ({
             style={{ pointerEvents: 'none' }}
           />
           <circle
+            className='polygon-bbox'
             cx={rotateX} cy={rotateY} r={(HANDLE_SIZE / 2) * unit}
             stroke="#ffffff"
             strokeWidth={1}
@@ -415,7 +457,7 @@ const Polygon: React.FC<PolygonProps> = ({
 
           {corners.map(c => (
             <rect
-              className='polygon-corner-handle'
+              className='polygon-corner-handle polygon-bbox'
               key={c.id}
               x={c.x - (HANDLE_SIZE * unit) / 2}
               y={c.y - (HANDLE_SIZE * unit) / 2}
@@ -426,11 +468,43 @@ const Polygon: React.FC<PolygonProps> = ({
               stroke="#ffffff"
               vectorEffect="non-scaling-stroke"
 
-              style={{ pointerEvents: 'all', cursor: c.cursor }}
+              style={{ pointerEvents: 'all', cursor: c.cursor}}
               onPointerDown={onHandlePointerDown(c.id)}
             />
           ))}
 
+          {edgeLabels.map(l => (
+            <text
+              key={l.i}
+              className='polygon-edge-length'
+              x={l.x}
+              y={l.y}
+              transform={`rotate(${l.angle} ${l.x} ${l.y})`}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fill="#FFFFFF"
+              style={{ fontSize: 10*unit }}
+            >
+              {l.text}
+            </text>
+          ))}
+
+      {/* {selected && (
+        <text
+          x={centerX}
+          y={centerY}
+          textAnchor="start"
+          dominantBaseline="central"
+          fill="#FFFFFF"
+          // stroke={polygon.colour}
+          // strokeWidth={2}
+          paintOrder="stroke"
+          style={{ fontSize: 12*unit, pointerEvents: 'none', userSelect: 'none', fontWeight:'bolder'}}
+        >
+
+          {(polygon.name || '--')+' '+centerX + ", " + centerY }
+        </text>
+      )} */}
 
 
           {points.map((p, i) => (
@@ -444,10 +518,14 @@ const Polygon: React.FC<PolygonProps> = ({
               height={VERTEX_RADIUS * unit}
 
               // fill='#ffffff'
-              stroke="#ffffff"
-              strokeWidth={6}
+              stroke="transparent"
+              strokeWidth={4}
               vectorEffect="non-scaling-stroke"
-              style={{ pointerEvents: 'fill', cursor: 'move' }}
+              
+              // stroke="red"
+              // style={{ pointerEvents: 'fill', cursor: 'move'}}
+
+              style={{ pointerEvents: 'fill', cursor: 'move', outline: `${2*unit}px solid white`, outlineOffset:''+(-3*unit)+'px' }}
               onPointerDown={onVertexPointerDown(i)}
               onContextMenu={onVertexContextMenu(i)}
             />
@@ -461,4 +539,6 @@ const Polygon: React.FC<PolygonProps> = ({
   );
 };
 
-export default Polygon;
+// Memoized: Polygons re-renders on every polygon change (e.g. per mousemove while drafting),
+// and props are stable for untouched polygons, so only the changed one re-renders.
+export default React.memo(Polygon);

@@ -44,7 +44,9 @@ const initialState: LabelsState = {
   anchored: {},
 };
 
-const labelsSlice = createSlice({
+const activeLoadoutOf = (s: LabelsState) => s.loadouts[s.activeLoadout];
+
+export const labelsSlice = createSlice({
   name: 'labels',
   initialState,
   reducers: {
@@ -87,12 +89,45 @@ const labelsSlice = createSlice({
   },
   // Receive the slice state; RTK binds them to the root state on export.
   selectors: {
-    selectActiveLoadoutName: s => s.activeLoadout,
-    selectActiveLoadout: s => s.loadouts[s.activeLoadout],
-    selectActiveLabelId: s => s.activeLabel,
-    selectActiveLabel: (s): MineralRecord => s.loadouts[s.activeLoadout][s.activeLabel],
-    selectUsed: s => s.used,
-    selectAnchored: s => s.anchored,
+    loadouts: s => s.loadouts,
+    activeLoadoutName: s => s.activeLoadout,
+    activeLoadout: activeLoadoutOf,
+    activeLabelId: s => s.activeLabel,
+    activeLabel: (s): MineralRecord => s.loadouts[s.activeLoadout][s.activeLabel],
+    used: s => s.used,
+    anchored: s => s.anchored,
+
+    // ──────────────────── Derived (memoised) ────────────────────
+
+    /** All records of the active loadout in id order. */
+    labelList: createSelector([activeLoadoutOf], loadout => Object.values(loadout)),
+
+    /**
+     * Bidirectional colour <-> name map for the active loadout, the shape the
+     * canvas, stats and seg-map import consume.
+     */
+    colourLabelMap: createSelector([activeLoadoutOf], (loadout): LabelColourMap => {
+      const map: LabelColourMap = {};
+      for (const r of Object.values(loadout)) {
+        const hex = canvasHex(r.colour);
+        map[hex] = r.name;
+        map[r.name] = hex;
+      }
+      return map;
+    }),
+
+    /** Anchored labels keyed by canvas colour, for the anchoring mask utilities. */
+    anchoredByColour: createSelector(
+      [(s: LabelsState) => s.anchored, activeLoadoutOf],
+      (anchored, loadout): Record<string, string> => {
+        const out: Record<string, string> = {};
+        for (const id of Object.keys(anchored)) {
+          const r = loadout[Number(id)];
+          if (r) out[canvasHex(r.colour)] = r.name;
+        }
+        return out;
+      },
+    ),
   },
 });
 
@@ -103,46 +138,5 @@ export const {
   toggleAnchoredColour,
   clearAnchoredColours,
 } = labelsSlice.actions;
-
-export const {
-  selectActiveLoadoutName,
-  selectActiveLoadout,
-  selectActiveLabelId,
-  selectActiveLabel,
-  selectUsed,
-  selectAnchored,
-} = labelsSlice.selectors;
-
-// ──────────────────── Derived (memoised) ────────────────────
-
-/** All records of the active loadout in id order. */
-export const selectLabelList = createSelector([selectActiveLoadout], loadout => Object.values(loadout));
-
-/**
- * Bidirectional colour <-> name map for the active loadout, the shape the
- * canvas, stats and seg-map import consume.
- */
-export const selectColourLabelMap = createSelector([selectActiveLoadout], (loadout): LabelColourMap => {
-  const map: LabelColourMap = {};
-  for (const r of Object.values(loadout)) {
-    const hex = canvasHex(r.colour);
-    map[hex] = r.name;
-    map[r.name] = hex;
-  }
-  return map;
-});
-
-/** Anchored labels keyed by canvas colour, for the anchoring mask utilities. */
-export const selectAnchoredByColour = createSelector(
-  [selectAnchored, selectActiveLoadout],
-  (anchored, loadout): Record<string, string> => {
-    const out: Record<string, string> = {};
-    for (const id of Object.keys(anchored)) {
-      const r = loadout[Number(id)];
-      if (r) out[canvasHex(r.colour)] = r.name;
-    }
-    return out;
-  },
-);
 
 export default labelsSlice.reducer;

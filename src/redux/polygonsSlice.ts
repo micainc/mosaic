@@ -13,7 +13,10 @@ const initialState: PolygonsState = {
   square: false,
 };
 
-const polygonsSlice = createSlice({
+const polygonsOf = (s: PolygonsState) => s.polygons;
+const selectedIdsOf = (s: PolygonsState) => s.selected;
+
+export const polygonsSlice = createSlice({
   name: 'polygons',
   initialState,
   reducers: {
@@ -64,10 +67,16 @@ const polygonsSlice = createSlice({
   },
   // Receive the slice state; RTK binds them to the root state on export.
   selectors: {
-    selectPolygons: s => s.polygons,
-    selectSelectedIds: s => s.selected,
-    selectPolygonById: (s, id: string) => s.polygons.find(p => p.id === id),
-    selectSquare: s => s.square,
+    polygons: polygonsOf,
+    selectedIds: selectedIdsOf,
+    polygonById: (s, id: string) => s.polygons.find(p => p.id === id),
+    square: s => s.square,
+
+    /** The selected polygons themselves, in store order. */
+    selectedPolygons: createSelector([polygonsOf, selectedIdsOf], (polygons, selected) => {
+      const sel = new Set(selected);
+      return polygons.filter(p => sel.has(p.id));
+    }),
   },
 });
 
@@ -83,22 +92,5 @@ export const {
   selectAll,
   clearSelection,
 } = polygonsSlice.actions;
-
-export const {
-  selectPolygons,
-  selectSelectedIds,
-  selectPolygonById,
-  selectSquare,
-} = polygonsSlice.selectors;
-
-
-/** The selected polygons themselves, in store order. */
-export const selectSelectedPolygons = createSelector(
-  [selectPolygons, selectSelectedIds],
-  (polygons, selected) => {
-    const sel = new Set(selected);
-    return polygons.filter(p => sel.has(p.id));
-  },
-);
 
 export default polygonsSlice.reducer;

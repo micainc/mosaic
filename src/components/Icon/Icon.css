@@ -21,9 +21,9 @@
     image-rendering: pixelated
 }
 
-.icon.button > span::before {
+/* .icon.button > span::before {
     opacity:0.75;
-}
+} */
 
 
 .icon.button {

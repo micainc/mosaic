@@ -1,5 +1,5 @@
 import React from 'react';
-import { rdxo } from './redux/store';
+import { useLayers } from './redux/store';
 import Toolbar from './components/Toolbar';
 import Stage from './components/Stage';
 import Polygons from './components/Polygons/Polygons';
@@ -9,14 +9,14 @@ import { useKeys } from './hooks/useKeys';
 import { ico } from './utils/icons';
 
 const App: React.FC = () => {
-  const hasLayers = rdxo(state => state.canvas.hasLayers);
+  const layersCount = useLayers.layersCount();
   useKeys();
 
   return (
     <div className="app">
       <Tooltip/>
       <Toolbar />
-      {!hasLayers && (
+      {layersCount === 0 && (
         <span id="no-layers-tip">
           <img src={ico('drag_and_drop.svg')} alt="drag and drop" />
           Drag image layers in...

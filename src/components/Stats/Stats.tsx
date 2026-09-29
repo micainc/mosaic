@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { rdxo, type RootState } from '../../redux/store';
+import { useLabels, type RootState } from '../../redux/store';
 import type { PointType } from '../../types';
 import { polygonStats } from '../Polygons/utils';
 import { downloadBlob } from '../../utils/fileUtils';
@@ -9,7 +9,6 @@ import './Stats.css';
 import { PieChart } from 'react-minimal-pie-chart';
 import Report, { type ReportRow } from '../Report/Report';
 import { useTooltip } from '../Tooltip/useTooltip';
-import { selectColourLabelMap } from '../../redux/labelsSlice';
 
 type StatsProps = {
   points: PointType[];
@@ -22,7 +21,7 @@ type Row = ReportRow;
 /** Percent makeup of each pixel class under a polygon. */
 const Stats: React.FC<StatsProps> = ({ points, name = 'polygon' }) => {
   const {showTooltip} = useTooltip();
-  const colourLabelMap = rdxo(selectColourLabelMap);
+  const colourLabelMap = useLabels.colourLabelMap();
   const [showReport, setShowReport] = useState<boolean>(false); 
 
   const { rows, total } = useMemo(() => {

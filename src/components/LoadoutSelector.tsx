@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { rdxo } from '../redux/store';
-import { setActiveLoadout } from '../redux/labelsSlice';
-import { useDispatch } from 'react-redux';
+import { useLabels, labels } from '../redux/store';
+
 import { Popover } from 'react-tiny-popover';
 
 
 
 const LoadoutSelector: React.FC = () => {
-  const dispatch = useDispatch();
-  const { loadouts, activeLoadout } = rdxo(state => state.labels);
+  const loadouts = useLabels.loadouts();
+  const activeLoadout = useLabels.activeLoadoutName();
   const [isOpen, setIsOpen] = useState(false);
 
   // Zooming widens document.body past the viewport, so the popover's default
@@ -17,7 +16,7 @@ const LoadoutSelector: React.FC = () => {
   useEffect(() => { setBoundary(document.getElementById('toolbar') ?? undefined); }, []);
 
   const handleSelect = (loadoutName: string) => {
-    dispatch(setActiveLoadout(loadoutName));
+    labels.setActiveLoadout(loadoutName);
     setIsOpen(false);
   };
 
@@ -33,7 +32,7 @@ const LoadoutSelector: React.FC = () => {
         boundaryElement={boundary}
         boundaryInset={16}
         onClickOutside={() => setIsOpen(false)}
-        containerClassName="layer-popover-container"
+        containerClassName="popover-container"
         content={
           <div className="loadout-popover">
             {Object.keys(loadouts).map(name => (

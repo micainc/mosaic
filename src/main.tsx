@@ -5,8 +5,6 @@ import { store } from './redux/store';
 import App from './App';
 import AuthGate from './components/Login/AuthGate';
 import './App.css';
-import './Slider.css';
-
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

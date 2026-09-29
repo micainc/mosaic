@@ -1,14 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
-import ReactGridLayout, { useContainerWidth, verticalCompactor, type Layout } from 'react-grid-layout';
+import ReactGridLayout, { useContainerWidth, type Layout } from 'react-grid-layout';
 import { PieChart } from 'react-minimal-pie-chart';
 import 'react-grid-layout/css/styles.css';
-import type { RootState } from '../../redux/store';
+import { useLayers, useStage } from '../../redux/store';
 import type { PointType } from '../../types';
 import { canvasRegistry } from '../../canvasRegistry';
 import { clipToPolygon, loadImage } from '../Polygons/utils';
-import { Icon } from '../Icon/Icon';
-import { ico } from '../../utils/icons';
 import './Report.css';
 
 export type ReportRow = { color: string; title: string; value: number; percent: number };
@@ -54,8 +51,8 @@ function buildLayout(tiles: Tile[]): Layout {
  * resizable grid item; drag by the tile's title bar.
  */
 const Report: React.FC<ReportProps> = ({ rows, total, points }) => {
-  const layers = useSelector((s: RootState) => s.imageLayers.layers);
-  const canvasWidth = useSelector((s: RootState) => s.canvas.canvasWidth);
+  const layerMap = useLayers.layers();
+  const canvasWidth = useStage.canvasWidth();
   const { width, containerRef, mounted } = useContainerWidth();
 
   // Polygon-clipped crops of every layer plus the segmentation map. Layers are
@@ -67,7 +64,7 @@ const Report: React.FC<ReportProps> = ({ rows, total, points }) => {
     let cancelled = false;
     (async () => {
       const tiles: Tile[] = [];
-      for (const [name, l] of Object.entries(layers)) {
+      for (const [name, l] of Object.entries(layerMap)) {
         try {
           const img = await loadImage(l.src);
           const scale = canvasWidth ? l.width / canvasWidth : 1;
@@ -82,7 +79,7 @@ const Report: React.FC<ReportProps> = ({ rows, total, points }) => {
       setLayout(buildLayout(tiles));
     })();
     return () => { cancelled = true; };
-  }, [layers, points, canvasWidth]);
+  }, [layerMap, points, canvasWidth]);
 
   return (
     <div ref={containerRef} className="report" style={{ width: PAGE_W, height: PAGE_H }}>

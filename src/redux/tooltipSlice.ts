@@ -12,7 +12,7 @@ const initialState: TooltipType & { direction?: 'top' | 'bottom' | 'left' | 'rig
     direction: undefined,
 };
 
-const tooltipSlice = createSlice({
+export const tooltipSlice = createSlice({
     name: 'tooltip',
     initialState,
     reducers: {

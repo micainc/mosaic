@@ -1,6 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-interface LayerMeta {
+interface LayerType {
+  name: string;
   icon: string;
   src: string;
   width: number;
@@ -9,33 +10,23 @@ interface LayerMeta {
   opacity: number;
 }
 
-interface ImageLayersState {
-  layers: Record<string, LayerMeta>;
+interface LayersState {
+  layers: Record<string, LayerType>;
   activeLayerName: string;
 }
 
-const initialState: ImageLayersState = {
+const initialState: LayersState = {
   layers: {},
   activeLayerName: '',
 };
 
-const imageLayersSlice = createSlice({
-  name: 'imageLayers',
+export const layersSlice = createSlice({
+  name: 'layers',
   initialState,
   reducers: {
-    addLayer(
-      state,
-      action: PayloadAction<{
-        name: string;
-        icon: string;
-        src: string;
-        width: number;
-        height: number;
-        type: string;
-      }>
-    ) {
+    addLayer(state, action: PayloadAction<LayerType>) {
       const { name, icon, src, width, height, type } = action.payload;
-      state.layers[name] = { icon, src, width, height, type, opacity: 1 };
+      state.layers[name] = { name, icon, src, width, height, type, opacity: 1 };
     },
     setActiveLayer(state, action: PayloadAction<string>) {
       state.activeLayerName = action.payload;
@@ -66,9 +57,22 @@ const imageLayersSlice = createSlice({
       state.activeLayerName = '';
     },
   },
+  selectors: {
+    layers: s => s.layers,
+    layersCount: s => Object.keys(s.layers).length,
+    activeLayerName: s => s.activeLayerName,
+    /** Undefined until a layer is loaded. */
+    activeLayer: (s): LayerType | undefined => s.layers[s.activeLayerName],
+  },
 });
 
-export const { addLayer, setActiveLayer, cycleActiveLayer, clearLayers, removeLayer, setLayerOpacity } =
-  imageLayersSlice.actions;
+export const {
+  addLayer,
+  setActiveLayer,
+  cycleActiveLayer,
+  removeLayer,
+  setLayerOpacity,
+  clearLayers,
+} = layersSlice.actions;
 
-export default imageLayersSlice.reducer;
+export default layersSlice.reducer;

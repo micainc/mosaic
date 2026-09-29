@@ -1,8 +1,6 @@
-import React, { useRef, useEffect, useCallback, useState } from 'react';
-import { rdxo } from '../redux/store';
-import { setCanvasDimensions, setHasLayers, setStatusText, setScale, setCursorXY, setInteractionMode } from '../redux/canvasSlice';
-import { addLayer, setActiveLayer } from '../redux/imageLayersSlice';
-import { selectActiveLabel, selectColourLabelMap, selectAnchoredByColour } from '../redux/labelsSlice';
+import React, { useRef, useEffect, useCallback, useState, useMemo } from 'react';
+import { useLabels, useLayers, useStage, layers, stage } from '../redux/store';
+
 import { drawCircle } from '../utils/drawCircle';
 import { floodFill } from '../utils/floodFill';
 import { rgbToHex } from '../utils/rgbUtils';
@@ -12,10 +10,8 @@ import { getFilename, getCommonSubstring, downloadBlob, downloadDataUrl } from '
 import { canvasRegistry } from '../canvasRegistry';
 import SegMapImportDialog, { SegMapColorEntry } from './SegMapImportDialog';
 import type { PointType } from '../types';
-import { useDispatch } from 'react-redux';
 
-const HANDLE_SIZE = 6;
-const PEN_POINT_RADIUS = 6;
+
 const MAX_HISTORY_SIZE = 10;
 
 interface PendingSegImport {
@@ -24,18 +20,21 @@ interface PendingSegImport {
 }
 
 const Stage: React.FC = () => {
-  const dispatch = useDispatch();
   const [pendingSegImport, setPendingSegImport] = useState<PendingSegImport | null>(null);
 
   // Redux state
-  const interactionMode = rdxo((s) => s.canvas.interactionMode);
-  const drawDiameter = rdxo((s) => s.canvas.drawDiameter);
-  const scale = rdxo((s) => s.canvas.scale);
-  const activeLabel = rdxo(selectActiveLabel);
-  const colourLabelMap = rdxo(selectColourLabelMap);
-  const anchoredColours = rdxo(selectAnchoredByColour);
-  const layers = rdxo((s) => s.imageLayers.layers);
-  const activeLayerName = rdxo((s) => s.imageLayers.activeLayerName);
+  const scale = useStage.scale(); 
+  const interactionMode = useStage.mode(); 
+  const drawDiameter= useStage.drawDiameter();
+  
+  const activeLabel = useLabels.activeLabel();
+  const colourLabelMap = useLabels.colourLabelMap();
+  const anchoredColours = useLabels.anchoredByColour();
+  
+  // const layerMap = useLayers.layers();
+  // const activeLayerName = useLayers.activeLayerName();
+  const layersMap = useLayers.layers();
+  const activeLayer = useLayers.activeLayer();
 
   // ──────────────────── DOM refs ────────────────────
   const drawCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -71,7 +70,7 @@ const Stage: React.FC = () => {
   const anchoredMaskCtxRef = useRef<CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null>(null);
 
   // ──────────────────── Pixel data map ────────────────────
-  const pixelDataMapRef = useRef<Record<string, Uint8Array>>({});
+  // const pixelDataMapRef = useRef<Record<string, Uint8Array>>({});
 
   // Track if dimensions have been set
   const dimensionsSetRef = useRef(false);
@@ -85,8 +84,8 @@ const Stage: React.FC = () => {
   const activeColourRef = useRef(activeLabel);
   const colourLabelMapRef = useRef(colourLabelMap);
   const anchoredColoursRef = useRef(anchoredColours);
-  const layersRef = useRef(layers);
-  const activeLayerNameRef = useRef(activeLayerName);
+  const activeLayerRef = useRef(activeLayer);
+  const layersRef = useRef(layersMap);
 
   useEffect(() => { interactionModeRef.current = interactionMode; }, [interactionMode]);
   useEffect(() => { drawDiameterRef.current = drawDiameter; }, [drawDiameter]);
@@ -94,8 +93,8 @@ const Stage: React.FC = () => {
   useEffect(() => { activeColourRef.current = activeLabel; }, [activeLabel]);
   useEffect(() => { colourLabelMapRef.current = colourLabelMap; }, [colourLabelMap]);
   useEffect(() => { anchoredColoursRef.current = anchoredColours; }, [anchoredColours]);
-  useEffect(() => { layersRef.current = layers; }, [layers]);
-  useEffect(() => { activeLayerNameRef.current = activeLayerName; }, [activeLayerName]);
+  useEffect(() => { activeLayerRef.current = activeLayer; }, [activeLayer]);
+  useEffect(() => { layersRef.current = layersMap; }, [layersMap]);
 
   // ──────────────────── Cursor size sync ────────────────────
   useEffect(() => {
@@ -401,7 +400,7 @@ const Stage: React.FC = () => {
       canvas.width = pending.image.width;
       canvas.height = pending.image.height;
       dimensionsSetRef.current = true;
-      dispatch(setCanvasDimensions({ width: pending.image.width, height: pending.image.height }));
+      stage.setCanvasDimensions({ width: pending.image.width, height: pending.image.height });
       initAnchoredMaskCanvas();
     }
 
@@ -445,7 +444,7 @@ const Stage: React.FC = () => {
     }
 
     ctx.putImageData(canvasData, 0, 0);
-  }, [pendingSegImport, saveState, dispatch, initAnchoredMaskCanvas]);
+  }, [pendingSegImport, saveState, initAnchoredMaskCanvas]);
 
   const cancelSegmentationImport = useCallback(() => {
     setPendingSegImport(null);
@@ -495,7 +494,7 @@ const Stage: React.FC = () => {
         if (canvas) {
           canvas.width = tempImg.naturalWidth;
           canvas.height = tempImg.naturalHeight;
-          dispatch(setCanvasDimensions({ width: tempImg.naturalWidth, height: tempImg.naturalHeight }));
+          stage.setCanvasDimensions({ width: tempImg.naturalWidth, height: tempImg.naturalHeight });
           initAnchoredMaskCanvas();
         }
         const baseImg = baseImageRef.current;
@@ -520,11 +519,18 @@ const Stage: React.FC = () => {
       }
 
       // Store pixel data (non-serializable, stays in ref)
-      pixelDataMapRef.current[file.name] = rgbPixels;
+      // pixelDataMapRef.current[file.name] = rgbPixels;
 
-      dispatch(addLayer({ name: file.name, icon: iconUrl, src: displayUrl, width: tempImg.naturalWidth, height: tempImg.naturalHeight, type }));
+      layers.addLayer({ 
+        name: file.name, 
+        icon: iconUrl, 
+        src: displayUrl, 
+        width: tempImg.naturalWidth, 
+        height: tempImg.naturalHeight, 
+        type, opacity:1 
+      });
     },
-    [dispatch, initAnchoredMaskCanvas],
+    [initAnchoredMaskCanvas],
   );
 
   // ──────────────────── Zoom ────────────────────
@@ -578,7 +584,7 @@ const Stage: React.FC = () => {
       offsetYRef.current = me.clientY;
       mouseXRef.current = Math.round((me.clientX - rect.left) * canvas.width / canvas.clientWidth);
       mouseYRef.current = Math.round((me.clientY - rect.top) * canvas.height / canvas.clientHeight);
-      dispatch(setCursorXY({x:mouseXRef.current, y:mouseYRef.current}))
+      stage.setCursorXY({x:mouseXRef.current, y:mouseYRef.current})
       cursor.style.transform = `translate(${me.clientX + scrollXRef.current - diameter / 2}px, ${me.clientY + scrollYRef.current - diameter / 2}px)`;
     }
 
@@ -659,13 +665,16 @@ const Stage: React.FC = () => {
   // ──────────────────────────────────────────────────────────
   useEffect(() => {
     const baseImg = baseImageRef.current;
-    if (!baseImg || !activeLayerName) return;
-    const layer = layers[activeLayerName];
-    if (layer) {
-      baseImg.src = layer.src;
+    if (!baseImg || !activeLayer) return;
+    if (activeLayer.src !== baseImg.src) {
+      baseImg.src = activeLayer.src;
     }
-  }, [activeLayerName, layers]);
+  }, [activeLayer]);
 
+
+    // useEffect(() => {
+    //   if(activeLayer) console.log("ACTIVE LAYER: ", activeLayer.opacity)
+    // }, [activeLayer, layerMap]);
   // ──────────────────────────────────────────────────────────
   //  MOUNT EFFECT: sets up all imperative event listeners + anim loop
   // ──────────────────────────────────────────────────────────
@@ -735,7 +744,7 @@ const Stage: React.FC = () => {
           highlightedMaskRef.current = createHighlightMask(ctx, canvas.width, canvas.height, selectedColour);
           const label = colourLabelMapRef.current[selectedColour];
           if (label) {
-            dispatch(setStatusText(label + ' pipetted...'));
+            stage.setStatus(label + ' pipetted...');
           }
 
         } 
@@ -886,7 +895,7 @@ const Stage: React.FC = () => {
         let newScale = scaleRef.current * scaleChange;
         newScale = Math.min(Math.max(1, newScale), 20);
         scaleRef.current = newScale;
-        dispatch(setScale(newScale));
+        stage.setScale(newScale);
         zoomAround(newScale, e.clientX, e.clientY);
       } else if (!isGesturingRef.current) {
         window.scrollBy({ left: e.deltaX, top: e.deltaY, behavior: 'auto' });
@@ -907,7 +916,7 @@ const Stage: React.FC = () => {
         let newScale = scaleRef.current * e.scale;
         newScale = Math.min(Math.max(0.5, newScale), 16);
         scaleRef.current = newScale;
-        dispatch(setScale(newScale));
+        stage.setScale(newScale);
         zoomAround(newScale, mouseXRef.current, mouseYRef.current);
       }
     };
@@ -948,9 +957,8 @@ const Stage: React.FC = () => {
       // the first file name.
       const imageFileNames = files.filter((f) => !f.name.includes('segmentation')).map((f) => f.name);
       if (imageFileNames.length > 0) {
-        dispatch(setActiveLayer(imageFileNames[0]));
+        layers.setActiveLayer(imageFileNames[0]);
       }
-      dispatch(setHasLayers(true));
     };
 
 
@@ -981,22 +989,22 @@ const Stage: React.FC = () => {
       // Layer cycling (only when search box not active)
       const searchBox = document.querySelector('.search-box') as HTMLElement | null;
       const searchVisible = searchBox?.style.display === 'block';
-      if (!searchVisible) {
+      if (!searchVisible && activeLayerRef.current) {
         if (e.key === 'ArrowRight' || e.key === 'd') {
           // Cycle forward
           const keys = Object.keys(layersRef.current);
           if (keys.length >= 2) {
-            const idx = keys.indexOf(activeLayerNameRef.current);
+            const idx = keys.indexOf(activeLayerRef.current.name);
             const newIdx = (idx + 1 + keys.length) % keys.length;
-            dispatch(setActiveLayer(keys[newIdx]));
+            layers.setActiveLayer(keys[newIdx]);
           }
         }
         if (e.key === 'ArrowLeft' || e.key === 'a') {
           const keys = Object.keys(layersRef.current);
           if (keys.length >= 2) {
-            const idx = keys.indexOf(activeLayerNameRef.current);
+            const idx = keys.indexOf(activeLayerRef.current.name);
             const newIdx = (idx - 1 + keys.length) % keys.length;
-            dispatch(setActiveLayer(keys[newIdx]));
+            layers.setActiveLayer(keys[newIdx]);
           }
         }
       }   
@@ -1113,12 +1121,22 @@ const Stage: React.FC = () => {
       <div id="cursor" ref={cursorRef}>
         <div id="cursor-text" ref={cursorTextRef}></div>
       </div>
-      <img
+      {Object.values(layersMap).map(layer => (
+        <img
+          key={layer.name}
+          className="mosaic-canvas layer-image"
+          src={layer.src}
+          alt=""
+          style={{ opacity: layer.opacity, zIndex:layer.name === activeLayer?.name ? 1 : 0 }}
+        />
+      ))}
+
+      {/* <img
         className="mosaic-canvas"
         ref={baseImageRef}
         alt=""
-        // style={{zIndex:0}}
-      />
+        style={{opacity:activeLayer?.opacity ?? 1}}
+      /> */}
       <canvas
         className="mosaic-canvas"
         id="draw-canvas"

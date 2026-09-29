@@ -5,7 +5,8 @@ import { Handle } from '../Handle/Handle';
 import './Window.css';
 import { Icon } from '../Icon/Icon';
 import { ico } from '../../utils/icons';
-import { rdxo } from '../../redux/store';
+import { store } from '../../redux/store';
+import { InputBox } from '../InputBox/InputBox';
 // Track mouse position globally so Window can use it as default origin
 // Uses document coordinates (includes scroll offset) so windows appear correctly when scrolled
 
@@ -32,6 +33,7 @@ type WindowProps = {
     onClose?: () => void;
     onClickOutside?: () => void;
     onResize?: (width: number, height: number) => void;
+    onTitle?:(updated:string) => void;
     zoom?:number;
 };
 
@@ -54,14 +56,19 @@ export const Window = React.memo<PropsWithChildren<WindowProps>>((props) => {
         onClose,
         onClickOutside,
         onResize,
+        onTitle,
         zoom = 1,
         children,
     } = props;
 
-    const cursorX = rdxo(state => state.canvas.cursorX);
-    const cursorY = rdxo(state => state.canvas.cursorY);
 
-    const origin =  _origin ?? {x:cursorX, y:cursorY};
+    // Default origin: the cursor when the window opened. Read once rather than
+    // subscribed, which would re-render every open window on each mousemove.
+    const [cursorAtOpen] = useState(() => {
+        const { cursorX, cursorY } = store.getState().stage;
+        return { x: cursorX, y: cursorY };
+    });
+    const origin =  _origin ?? cursorAtOpen;
 
 
     const initDims = useMemo(() => {
@@ -198,7 +205,7 @@ export const Window = React.memo<PropsWithChildren<WindowProps>>((props) => {
             x: origin.x + dragOffset.x,
             y: origin.y + dragOffset.y
         })
-    }, [origin, dragOffset.x, dragOffset.y]);
+    }, [origin.x, origin.y, dragOffset.x, dragOffset.y]); // values, not the object: callers pass a new one each render
 
 
     const onPointerDown = useCallback((e: React.PointerEvent) => {
@@ -367,12 +374,40 @@ export const Window = React.memo<PropsWithChildren<WindowProps>>((props) => {
                             // `, {event:e, direction:'top'})
                         }} 
                     >
+                        {onTitle ?
+                            <>
 
+                                <Icon
+                                    classes='button fit no-shadow outline-unset inert '
+                                    style={{cursor:'grab'}} 
+                                    src={ico("grip.svg")}
+                                />
+
+                                  <InputBox 
+                                    defaultValue={title} 
+                                    onKeyDown={e => { 
+                                      // console.log("E KEY: ", e.key)
+                                      // e.preventDefault();
+                                      e.stopPropagation();
+                                      if (e.key === 'Enter') e.currentTarget.blur(); 
+                                      if (e.key === 'Escape') {
+                                        e.currentTarget.value = title ?? '';
+                                        e.currentTarget.blur(); 
+                                      }
+                                    }}
+                                    onBlur={e => {
+                                      const updated = e.currentTarget.value.trim();
+                                      if (updated !== (title ?? '')) onTitle(updated);
+                                    }}
+                                    placeholder={'Name'}
+                                  />
+                                  </>
+                    :
 
                             <button className='window-title inert' >
                                 {title} 
                             </button>
-            
+                        }
 
                     
                     </div>

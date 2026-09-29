@@ -1,55 +1,51 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { rdxi, rdxo } from '../../redux/store';
+import { useLabels, usePolygons, useStage, polygons } from '../../redux/store';
 import { PointType } from '../../types';
 import Polygon from './Polygon';
-import { selectActiveLabel } from '../../redux/labelsSlice';
-import {
-  selectPolygons, selectSelectedIds,
-  addPolygon, updatePolygon, clearSelection, toggleSelected, selectOnly,
-} from '../../redux/polygonsSlice';
+
 
 const Polygons: React.FC = () => {
-  const dispatch = rdxi();
-  const polygons = rdxo(selectPolygons);
-  const selected = rdxo(selectSelectedIds);
-  const width = rdxo(s => s.canvas.canvasWidth);
-  const height = rdxo(s => s.canvas.canvasHeight);
-  const scale = rdxo(s => s.canvas.scale);
-  const activeLabel = rdxo(selectActiveLabel);
+  const allPolygons = usePolygons.polygons();
+  const selected = usePolygons.selectedIds();
+  const scale = useStage.scale(); 
+  const width = useStage.canvasWidth(); 
+  const height= useStage.canvasHeight();
+  const mode= useStage.mode();
+
+
+  const activeLabel = useLabels.activeLabel();
   const isDragging = useRef(false);
   const isLeftClicking = useRef(false);
 
-  const interactionMode = rdxo(s => s.canvas.interactionMode);
-
   /** Points of the polygon currently being drawn (selected[0] in pen mode). */
   const draftPoints = useCallback(
-    () => [...(polygons.find(p => p.id === selected[0])?.points ?? [])],
-    [polygons, selected],
+    () => [...(allPolygons.find(p => p.id === selected[0])?.points ?? [])],
+    [allPolygons, selected],
   );
 
   const svgRef = React.useRef<SVGSVGElement>(null);
 
   // Only intercept clicks in 'select' mode, so drawing/pen/fill pass through.
-  const clickable = interactionMode === 'select';
+  const clickable = mode === 'select';
   const selectedSet = React.useMemo(() => new Set(selected), [selected]);
 
 
 useEffect(() => {
-  if(interactionMode === 'pen') {
+  if(mode === 'pen') {
     // console.log("FLAG 2")
-    dispatch(addPolygon({
+    polygons.addPolygon({
       name: '',
       pixels: 0,
       id: crypto.randomUUID(),
       label: activeLabel.name,
       colour: activeLabel.colour,
       points: [],
-    }));
+    });
   } else {
-      dispatch(clearSelection());
+      polygons.clearSelection();
   }
 
-}, [interactionMode])
+}, [mode])
 
  
   const [unit, setUnit] = React.useState(1);
@@ -78,27 +74,28 @@ useEffect(() => {
   }, []);
 
   const handleSelect = React.useCallback((id: string, additive: boolean) => {
-    dispatch(additive ? toggleSelected(id) : selectOnly(id));
-  }, [dispatch]);
+    if (additive) polygons.toggleSelected(id);
+    else polygons.selectOnly(id);
+  }, []);
 
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (interactionMode === 'pen' && selected[0]) {
+    if (mode === 'pen' && selected[0]) {
       if (e.button === 0) { // left click
         isLeftClicking.current = true;
         e.preventDefault();
         e.stopPropagation();
         const { x, y } = toLocal(e.clientX, e.clientY);
-        dispatch(updatePolygon({ id: selected[0], points: [...draftPoints(), { x, y }] }));
+        polygons.updatePolygon({ id: selected[0], points: [...draftPoints(), { x, y }] });
       } else if (e.button === 2) {
         e.preventDefault();
         e.stopPropagation();
       }
     }
-  }, [dispatch, draftPoints, selected, interactionMode, toLocal]);
+  }, [draftPoints, selected, mode, toLocal]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (interactionMode === 'pen' && selected[0] && isLeftClicking.current) {
+    if (mode === 'pen' && selected[0] && isLeftClicking.current) {
       const pts = draftPoints();
       const p0 = pts[0];
       const p1 = toLocal(e.clientX, e.clientY);
@@ -109,12 +106,12 @@ useEffect(() => {
         isDragging.current = true;
         e.preventDefault();
         e.stopPropagation();
-        dispatch(updatePolygon({ id: selected[0], points: rect }));
+        polygons.updatePolygon({ id: selected[0], points: rect });
       } else if (isDragging.current) {
-        dispatch(updatePolygon({ id: selected[0], points: rect }));
+        polygons.updatePolygon({ id: selected[0], points: rect });
       }
     }
-  }, [dispatch, draftPoints, selected, interactionMode, toLocal]);
+  }, [draftPoints, selected, mode, toLocal]);
 
   return (
     <svg
@@ -122,7 +119,7 @@ useEffect(() => {
       className="mosaic-canvas"
       id="polygon-overlay"
       viewBox={`0 0 ${width} ${height}`}
-      style={{ zIndex: 2, height: 'auto', pointerEvents: interactionMode === 'pen' ? 'all' : 'none'}}
+      style={{ zIndex: 2, height: 'auto', pointerEvents: mode === 'pen' ? 'all' : 'none'}}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={() => {
@@ -131,7 +128,7 @@ useEffect(() => {
       }}
     >
 
-      {polygons.map(poly => {
+      {allPolygons.map(poly => {
         const isSelected = selectedSet.has(poly.id);
         return (
           <Polygon

@@ -1,16 +1,16 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { rdxo } from '../redux/store';
-import { useDispatch } from 'react-redux';
+import React, { useState, useEffect, useRef, useMemo, CSSProperties } from 'react';
+import { useLabels, labels } from '../redux/store';
 
-import { setActiveLabel, toggleAnchoredColour, selectActiveLabel, selectLabelList } from '../redux/labelsSlice';
 import { getBlackWhiteContrast } from '../utils/rgbUtils';
 import { ico } from '../utils/icons';
+import { Icon } from './Icon/Icon';
 
 const LabelSelector: React.FC = () => {
-  const dispatch = useDispatch();
-  const { activeLabel: activeId, used, anchored } = rdxo(state => state.labels);
-  const active = rdxo(selectActiveLabel);
-  const records = rdxo(selectLabelList);
+  const activeId = useLabels.activeLabelId();
+  const used = useLabels.used();
+  const anchored = useLabels.anchored();
+  const active = useLabels.activeLabel();
+  const records = useLabels.labelList();
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -50,14 +50,14 @@ const LabelSelector: React.FC = () => {
   }, [isOpen]);
 
   const handleSelectLabel = (id: number) => {
-    dispatch(setActiveLabel(id));
+    labels.setActiveLabel(id);
     setIsOpen(false);
     setSearchText('');
   };
 
   const handleToggleAnchor = (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
-    dispatch(toggleAnchoredColour(id));
+    labels.toggleAnchoredColour(id);
   };
 
   const contrastColour = getBlackWhiteContrast(active?.colour ?? '#000000');
@@ -79,7 +79,7 @@ const LabelSelector: React.FC = () => {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="toolbar-list-items label-dropdown">
+        <div className="toolbar-list-items">
           {/* Search box */}
           <input
             type="text"
@@ -92,8 +92,9 @@ const LabelSelector: React.FC = () => {
               width: '100%',
               height: '24px',
               boxSizing: 'border-box',
-              background: '#333',
+              background: '#000000C0',
               color: '#fff',
+              zIndex:'1'
             }}
           />
 
@@ -103,32 +104,29 @@ const LabelSelector: React.FC = () => {
             const isAnchored = anchored[id] !== undefined;
             const isUsed = used[id] !== undefined;
             const isActive = id === activeId;
-            const needsInvert = textColour === '#000000';
 
             return (
               <div
                 key={id}
-                className={`loadout-label${isAnchored ? ' anchored' : ''}${isUsed ? ' used' : ''}${isActive ? ' active' : ''}`}
+                className={`loadout-label ${isAnchored ? ' anchored' : ''}${isUsed ? ' used' : ''}${isActive ? ' active' : ''}`}
                 style={{
                   backgroundColor: colour,
-                  color: textColour,
+                  color: textColour+'80',
+                  '--accent-color': textColour,
+                  '--outline-color': '#FFFFFF',
+
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                }}
+                } as CSSProperties}
                 onClick={() => handleSelectLabel(id)}
               >
                 <span>{name}</span>
-                <img
+                <Icon
                   src={ico('anchor.svg')}
-                  alt="Anchor"
-                  className={`loadout-label-anchor${isAnchored ? ' active' : ''}`}
-                  style={{
-                    filter: needsInvert ? 'none' : 'invert(1)',
-                    cursor: 'pointer',
-                    flexShrink: 0,
-                  }}
+                  classes={`button fit loadout-label-anchor ${isAnchored ? 'active' : ''}`}
+                  colour= {textColour}
                   onClick={e => handleToggleAnchor(e, id)}
                 />
               </div>

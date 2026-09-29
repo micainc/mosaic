@@ -9,6 +9,10 @@
     margin-right: 4px;
 }
 
+/* .scale-controls * {
+    letter-spacing: 0px;
+} */
+
 .scale-controls-xy {
     display: flex;
     flex-direction: column;
@@ -36,36 +40,72 @@
 
 
 .scale-controls-clickable {
+    position: relative;
     cursor: pointer;
     display: flex;
+    text-shadow: 1px 1px #00000080, -1px 1px #00000080, -1px -1px #00000080, 1px -1px #00000080;
+
     /* font-weight: bolder; */
 }
 
 .scale-controls-clickable:hover {
     filter: brightness(1.25);
-    outline: 1px solid #FFFFFFC0;
-    outline-offset: 2px;
+    /* font-weight: bolder; */
 } 
 
 .scale-controls-clickable span {
     color: #FFFFFF !important;
-    background-color: #4CaF80;
+    background-color: #2C9F70;
     padding: 0px 4px;
 }
 
-.scale-controls-clickable:hover span {
-    color: #FFFFFF;
+/* .scale-controls-clickable span:after {
+    left:0px;
+    right:0px;
+    top:0px;
+    bottom:0px;
+    position: absolute;
+    width:100%;
+    height: 100%;
+    content: '';
+    z-index: 1;
 }
+*/
+
+.scale-controls-clickable:hover span {
+    outline: 1px solid white;
+    outline-offset: -1px;
+} 
 
 .unit-selection-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
     padding: 4px 4px;
-        font-size: 12px;
+    font-size: 12px;
+    gap:4px;
 
 }
 
 .unit-selection-container span {
     color: #C0C0C0;
 }
+
+
+/* .layer-controls {
+    display: flex;
+    padding:4px;
+    gap:8px;
+}
+
+.layer-controls-row {
+    display: flex;
+
+    gap:8px;
+} */
+
+
 
 .scale-controls-input {
     width: 56px;

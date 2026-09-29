@@ -1,28 +1,26 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Popover, ArrowContainer } from 'react-tiny-popover';
-import { rdxo } from '../redux/store';
-import { setInteractionMode, setDrawDiameter } from '../redux/canvasSlice';
-import { setActiveLayer, removeLayer, setLayerOpacity } from '../redux/imageLayersSlice';
+import { useLabels, useLayers, useStage, layers, stage } from '../redux/store';
+
 import type { InteractionMode } from '../types';
 import LoadoutSelector from './LoadoutSelector';
 import LabelSelector from './LabelSelector';
 import './Toolbar.css';
 import { Icon } from './Icon/Icon';
 import { useTooltip } from './Tooltip/useTooltip';
-import { useDispatch } from 'react-redux';
+
 import { ico } from '../utils/icons';
 import { ScaleControls } from './Scaling/ScaleControls';
-import { selectActiveLabel } from '../redux/labelsSlice';
+import { Slider } from './Slider/Slider';
 
 const Toolbar: React.FC = () => {
-  const dispatch = useDispatch();
-  const { interactionMode, drawDiameter, statusText } = rdxo(state => state.canvas);
-  const { layers, activeLayerName } = rdxo(state => state.imageLayers);
-  const activeColour = rdxo(selectActiveLabel).colour;
-  const cursorX = rdxo(state => state.canvas.cursorX)
-  const cursorY = rdxo(state => state.canvas.cursorY)
-  const width = rdxo(state => state.canvas.canvasWidth)
-  const height = rdxo(state => state.canvas.canvasHeight)
+    const status = useStage.status(); 
+    const interactionMode = useStage.mode(); 
+    const drawDiameter= useStage.drawDiameter();
+    
+    const layerMap = useLayers.layers();
+    const activeLayerName = useLayers.activeLayerName();
+    const activeColour = useLabels.activeLabel().colour;
 
   const {showTooltip} = useTooltip();
   const [tooltip, setTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
@@ -30,8 +28,8 @@ const Toolbar: React.FC = () => {
   const popoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleToolSelect = useCallback((mode: InteractionMode) => {
-    dispatch(setInteractionMode(mode));
-  }, [dispatch]);
+    stage.setMode(mode);
+  }, []);
 
   useEffect(() => {
     console.log("TOOLBAR INTERACTION MODE: ", interactionMode)
@@ -68,7 +66,7 @@ const Toolbar: React.FC = () => {
         </div>
 
         <div id="toolbar-layers">
-          {Object.entries(layers).map(([name, layer], index) => (
+          {Object.entries(layerMap).map(([name, layer], index) => (
             <Popover
               key={name}
               isOpen={popoverLayer === name}
@@ -77,7 +75,7 @@ const Toolbar: React.FC = () => {
               align="center"
               padding={10}
               onClickOutside={() => setPopoverLayer(null)}
-              containerClassName="layer-popover-container"
+              containerClassName="popover-container"
               content={
                 <div
                   className="layer-controls"
@@ -88,28 +86,26 @@ const Toolbar: React.FC = () => {
                     popoverTimeout.current = setTimeout(() => setPopoverLayer(null), 150);
                   }}
                 >
-                  <div className="layer-controls-row">
+                  <div className="layer-controls-row"  style={{paddingRight:'8px', paddingLeft:'4px'}}>
                     <Icon
                       src={ico('delete.svg')}
                       colour='#FF0000'
-                      classes='button fit unpadded'
+                      classes='button fit inset-2'
                       // width='0.75em'
                       // height='0.75em'
                       onClick={() => {
-                      dispatch(removeLayer(name));
+                      layers.removeLayer(name);
                       setPopoverLayer(null);
                     }}
                     />
                     <span className="layer-name">{name}</span>
                   </div>
-                  <input
-                    type="range"
-                    className="slider"
-                    min={0}
-                    max={1}
-                    step={0.01}
+                  <Slider 
                     value={layer.opacity}
-                    onChange={(e) => dispatch(setLayerOpacity({ name, opacity: Number(e.target.value) }))}
+                    min={0} 
+                    max={1} 
+                    step={0.01}
+                    onChange={(e) => layers.setLayerOpacity({ name, opacity: Number(e.target.value) })}
                   />
                 </div>
               }
@@ -118,7 +114,7 @@ const Toolbar: React.FC = () => {
                 className={`layer-icon${name === activeLayerName ? ' active' : ''}`}
                 src={layer.icon}
                 alt={name}
-                onClick={() => dispatch(setActiveLayer(name))}
+                onClick={() => layers.setActiveLayer(name)}
                 onMouseEnter={() => {
                   if (popoverTimeout.current) clearTimeout(popoverTimeout.current);
                   setPopoverLayer(name);
@@ -131,7 +127,7 @@ const Toolbar: React.FC = () => {
           ))}
         </div>
 
-        <div id="toolbar-note">{statusText} | {interactionMode}</div>
+        <div id="toolbar-note">{status} | {interactionMode}</div>
 
         <div id="toolbar-right">
 
@@ -145,6 +141,12 @@ const Toolbar: React.FC = () => {
             src={ico('undo.svg')}
           />
 
+          <Icon
+            classes={`button fit inset-8 ${interactionMode === 'select' ? ' selected-tool' : ''}`}
+            onClick={() => handleToolSelect('select')}
+            onMouseEnter={showTooltip('Select')}
+            src={ico('pointer.svg')}
+          />
 
           <Icon
             classes={`button fit inset-8 ${interactionMode === 'pipette' ? ' selected-tool' : ''}`}
@@ -173,25 +175,18 @@ const Toolbar: React.FC = () => {
             onMouseEnter={showTooltip('Fill')}
             src={ico('bucket.svg')}
           />
-{/* 
-          <Icon
-            classes={`button fit inset-8 ${interactionMode === 'roi' ? ' selected-tool' : ''}`}
-            onClick={() => handleToolSelect('roi')}
-            onMouseEnter={showTooltip('ROI')}
-            src={ico('crop.svg')}
-          /> */}
 
-          <input
-            className="slider"
-            id="cursor-size-slider"
-            type="range"
+          <Slider 
+            value={drawDiameter} 
             min={5}
             max={100}
-            value={drawDiameter}
-            onChange={(e) => dispatch(setDrawDiameter(Number(e.target.value)))}
-            style={{ '--color': activeColour } as React.CSSProperties}
-          />
+            step={1}
+            color={activeColour}
+            onChange={(e) => {
+              // console.log("VALUE: ", e.target.value)
+              stage.setDrawDiameter(Number(e.target.value));}}
 
+          />
           <LoadoutSelector />
           <LabelSelector />
         </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { rdxo } from '../../redux/store';
-import { UNIT_IN_UM, type DisplayUnit } from '../../redux/canvasSlice';
+import { useStage } from '../../redux/store';
+import { UNIT_IN_UM, type DisplayUnit } from '../../redux/stageSlice';
 import './ScaleBar.css';
 
 export type ScaleBarProps = {
@@ -50,8 +50,8 @@ export const ScaleBar: React.FC<ScaleBarProps> = ({
   className = '',
   style,
 }) => {
-  const storePixelSize = rdxo(s => s.canvas.pixelSize);
-  const storeUnit = rdxo(s => s.canvas.displayUnit);
+  const storePixelSize = useStage.pixelSize();
+  const storeUnit = useStage.displayUnit();
   const pixelSize = pixelSizeProp !== undefined ? pixelSizeProp : storePixelSize;
   const unit = unitProp ?? storeUnit;
 

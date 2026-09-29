@@ -13,14 +13,13 @@ export const UNIT_IN_UM: Record<Exclude<DisplayUnit, 'px' | '%'>, number> = {
   in: 25400,
 };
 
-interface CanvasState {
-  interactionMode: InteractionMode;
+interface StageState {
+  mode: InteractionMode;
   drawDiameter: number;
   scale: number;
   canvasWidth: number;
   canvasHeight: number;
-  hasLayers: boolean;
-  statusText: string;
+  status: string;
   cursorX: number;
   cursorY: number;
   /** Physical size of one pixel in micrometres. Null = uncalibrated. */
@@ -28,27 +27,26 @@ interface CanvasState {
   displayUnit: DisplayUnit;
 }
 
-const initialState: CanvasState = {
-  interactionMode: 'draw',
+const initialState: StageState = {
+  mode: 'draw',
   drawDiameter: 10,
   scale: 1,
   canvasWidth: window.innerWidth,
   canvasHeight: window.innerHeight,
-  hasLayers: false,
-  statusText: '',
+  status: '',
   cursorX:0,
   cursorY:0,
   pixelSize: 1,
   displayUnit: '%',
 };
 
-const canvasSlice = createSlice({
-  name: 'canvas',
+export const stageSlice = createSlice({
+  name: 'stage',
   initialState,
   reducers: {
 
-    setInteractionMode(state, action: PayloadAction<InteractionMode>) {
-      state.interactionMode = action.payload;
+    setMode(state, action: PayloadAction<InteractionMode>) {
+      state.mode = action.payload;
     },
     setDrawDiameter(state, action: PayloadAction<number>) {
       state.drawDiameter = action.payload;
@@ -60,11 +58,8 @@ const canvasSlice = createSlice({
       state.canvasWidth = action.payload.width;
       state.canvasHeight = action.payload.height;
     },
-    setHasLayers(state, action: PayloadAction<boolean>) {
-      state.hasLayers = action.payload;
-    },
-    setStatusText(state, action: PayloadAction<string>) {
-      state.statusText = action.payload;
+    setStatus(state, action: PayloadAction<string>) {
+      state.status = action.payload;
     },
     setCursorXY(state, action: PayloadAction<{x: number; y:number}>) {
       state.cursorX = action.payload.x;
@@ -79,24 +74,28 @@ const canvasSlice = createSlice({
     },
   },
     selectors: {
-      selectMode: s => s.interactionMode,
+      mode: s => s.mode,
+      cursorX: s => s.cursorX,
+      cursorY: s => s.cursorY, 
+      canvasWidth: s => s.canvasWidth,
+      canvasHeight: s => s.canvasHeight,
+      drawDiameter: s => s.drawDiameter,
+      scale: s=> s.scale,
+      status: s => s.status,
+      pixelSize: s => s.pixelSize,
+      displayUnit: s => s.displayUnit,
     },
 });
 
 export const {
-  setInteractionMode,
+  setMode,
   setDrawDiameter,
   setScale,
   setCanvasDimensions,
-  setHasLayers,
-  setStatusText,
+  setStatus,
   setCursorXY,
   setPixelSize,
   setDisplayUnit,
-} = canvasSlice.actions;
+} = stageSlice.actions;
 
-export const {
-  selectMode
-} = canvasSlice.selectors;
-
-export default canvasSlice.reducer;
+export default stageSlice.reducer;

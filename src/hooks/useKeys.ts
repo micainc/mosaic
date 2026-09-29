@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
-import { rdxi, rdxo, store } from '../redux/store';
-import { setInteractionMode } from '../redux/canvasSlice';
+import { store, polygons, stage } from '../redux/store';
+import { polygonsSlice } from '../redux/polygonsSlice';
+import { labelsSlice } from '../redux/labelsSlice';
+
 import { erasePolygon, rasterizePolygon } from '../components/Polygons/utils';
-import { selectSelectedPolygons, selectAll, clearSelection, deleteSelected } from '../redux/polygonsSlice';
-import { selectActiveLabel } from '../redux/labelsSlice';
+
 
 /**
  * The single global keyboard handler for app-level (Redux) shortcuts.
@@ -15,10 +16,6 @@ import { selectActiveLabel } from '../redux/labelsSlice';
  * mode for Enter/Delete/Escape so the two handlers never fight over the same key.
  */
 export function useKeys() {
-  const dispatch = rdxi();
-  const selected = rdxo(selectSelectedPolygons);
-  const activeLabel = rdxo(selectActiveLabel);
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // 1. never hijack keys while the user is typing
@@ -28,7 +25,12 @@ export function useKeys() {
       // 2. read CURRENT state — no stale closure, no deps.
       // Must be store.getState(), not a hook: this runs inside an event
       // callback, and a hook call outside render throws "Invalid hook call".
-      const { interactionMode } = store.getState().canvas;
+      // Reading here (not subscribing) also keeps App from re-rendering on every
+      // selection or label change.
+      const state = store.getState();
+      const { mode: interactionMode } = state.stage;
+      const selected = polygonsSlice.selectors.selectedPolygons(state);
+      const activeLabel = labelsSlice.selectors.activeLabel(state);
 
       const mod = e.metaKey || e.ctrlKey;
 
@@ -39,15 +41,15 @@ export function useKeys() {
         case 'mod+a':
           // Replaces the native "select all text", so the default has to go.
           e.preventDefault();
-          dispatch(selectAll());
+          polygons.selectAll();
           break;
 
         case 'escape':
           // Pen mode owns Escape (clears the in-progress polygon) — let Stage handle it.
           if (interactionMode !== 'pen' && selected.length) {
-            dispatch(clearSelection());
+            polygons.clearSelection();
           }
-          dispatch(setInteractionMode('select'));
+          stage.setMode('select');
           break;
 
         case 'enter':
@@ -58,7 +60,7 @@ export function useKeys() {
             // Re-running is harmless — it repaints the same flat colour.
             selected.forEach(p => rasterizePolygon(p.points, activeLabel.colour));
           } else if (interactionMode === 'pen') {
-            dispatch(setInteractionMode('select'));
+            stage.setMode('select');
           }
           break;
 
@@ -71,7 +73,7 @@ export function useKeys() {
           // Pen mode owns Delete (erases the pen shape) — let Stage handle it.
           if (interactionMode !== 'pen' && selected.length) {
             e.preventDefault();
-            dispatch(deleteSelected());
+            polygons.deleteSelected();
           }
           break;
       }
@@ -79,5 +81,5 @@ export function useKeys() {
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [dispatch, selected, activeLabel]);
+  }, []);
 }
