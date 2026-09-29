@@ -152,3 +152,7 @@
     opacity: 1;
 }
 
+.loadout-popover {
+    display:flex;
+    flex-direction: column;
+}

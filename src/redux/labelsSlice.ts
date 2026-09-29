@@ -23,7 +23,7 @@ export interface LabelsState {
   anchored: Record<LABEL_ID, string>;
 }
 
-const DEFAULT_LABEL: Record<LOADOUT_ID, LABEL_ID> = { AMALGAM: 3 }; // start on quartz
+const DEFAULT_LABEL: Record<LOADOUT_ID, LABEL_ID> = { AMALGAM: 3, LEGACY: 1 }; // start on quartz
 
 const firstId = (loadout: Record<LABEL_ID, MineralRecord>): LABEL_ID =>
   Number(Object.keys(loadout)[0] ?? 0);
